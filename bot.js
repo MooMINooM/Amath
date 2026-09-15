@@ -369,16 +369,11 @@ const AMATH_GAME_BOT = (() => {
     return rack.filter(t => !usedIds.has(t.id));
   }
 
-  /**
-   * ค้นหาการเดินให้บอท คืน { found, coords, tiles, score, equations, mode? } หรือ { found:false }
-   * ถ้ามี context (คะแนน/ตาที่เล่น) และโหลด AMATS_BRIDGE ไว้ จะเลือกจากผู้ท้าชิงหลายทาง
-   * ตาม Tactical Mode ที่ AMATS แนะนำให้บอท แทนที่จะเลือกจากคะแนนดิบอย่างเดียว
-   */
-  function findMove(board, rack, isFirstMove, difficulty, context) {
+  /** ค้นผู้ท้าชิงที่ถูกกติกาหลายทาง (ไม่เลือกให้ยัง) ใช้ร่วมกันทั้งบอทเดินเองและตัวช่วยวิเคราะห์ Best Available Move */
+  function collectCandidates(board, rack, isFirstMove, difficulty) {
     const cfg = DIFFICULTY[difficulty] || DIFFICULTY.Standard;
     const limit = CANDIDATE_LIMIT[difficulty] || 4;
     let candidates = [];
-
     if (isFirstMove) {
       const fresh = findFreshEquation(rack, cfg);
       if (fresh) candidates = placeFresh(board, fresh, true, cfg.placementTries, limit);
@@ -388,8 +383,16 @@ const AMATH_GAME_BOT = (() => {
         candidates = candidates.concat(attemptCrossAtTile(board, rack, cfg, limit - candidates.length));
       }
     }
+    return candidates.filter(Boolean);
+  }
 
-    candidates = candidates.filter(Boolean);
+  /**
+   * ค้นหาการเดินให้บอท คืน { found, coords, tiles, score, equations, mode? } หรือ { found:false }
+   * ถ้ามี context (คะแนน/ตาที่เล่น) และโหลด AMATS_BRIDGE ไว้ จะเลือกจากผู้ท้าชิงหลายทาง
+   * ตาม Tactical Mode ที่ AMATS แนะนำให้บอท แทนที่จะเลือกจากคะแนนดิบอย่างเดียว
+   */
+  function findMove(board, rack, isFirstMove, difficulty, context) {
+    const candidates = collectCandidates(board, rack, isFirstMove, difficulty);
     if (candidates.length === 0) return { found: false };
 
     const bridgeReady = typeof AMATS_BRIDGE !== "undefined" && AMATS_BRIDGE.available && context;
@@ -409,5 +412,5 @@ const AMATH_GAME_BOT = (() => {
     return { found: true, ...best, amatsMode: mode };
   }
 
-  return { DIFFICULTY, findMove };
+  return { DIFFICULTY, findMove, collectCandidates, premiumCellsClaimed, premiumExposureAfter, rackAfterMove, scoreCandidateForMode };
 })();

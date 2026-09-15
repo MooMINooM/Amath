@@ -11,6 +11,20 @@
   let selectedRackIndex = null;
   let turnNumber = 0;
   let showAmats = true;
+  let turnStartRack = [];
+  let turnStartBoard = null;
+
+  function cloneBoardDeep(b) { return b.map(row => row.map(cell => (cell ? { ...cell } : null))); }
+
+  function sizeBoard() {
+    const wrap = document.getElementById("board-wrap");
+    const boardEl = document.getElementById("board");
+    if (!wrap || !boardEl) return;
+    const size = Math.max(200, Math.min(wrap.clientWidth, wrap.clientHeight));
+    boardEl.style.width = size + "px";
+    boardEl.style.height = size + "px";
+  }
+  window.addEventListener("resize", sizeBoard);
 
   function newBoard() { return Array.from({ length: D.BOARD_SIZE }, () => Array(D.BOARD_SIZE).fill(null)); }
 
@@ -32,11 +46,17 @@
     playerScore = 0; botScore = 0;
     isFirstMove = true; currentTurn = "player"; pendingCoords = [];
     consecutivePasses = 0; gameOver = false; selectedRackIndex = null; turnNumber = 0;
+    turnStartRack = playerRack.slice();
+    turnStartBoard = cloneBoardDeep(board);
     clearLog();
     log(`เริ่มเกมใหม่ — บอทระดับ ${diff}`);
     document.getElementById("setup-panel").hidden = true;
-    document.getElementById("game-panel").hidden = false;
+    document.getElementById("game-layout").hidden = false;
+    document.getElementById("topbar-status").hidden = false;
+    document.getElementById("summary-overlay").hidden = true;
+    AMATS_LOGGER.startMatch({ opponentType: "bot", difficulty: diff });
     renderAll();
+    sizeBoard();
   }
 
   /* ---------- Rendering ---------- */
@@ -136,7 +156,7 @@
     document.getElementById("bag-count").textContent = bag.length;
     document.getElementById("turn-indicator").textContent = gameOver ? "จบเกมแล้ว" : (currentTurn === "player" ? "ตาของคุณ" : "ตาของบอท…");
     document.getElementById("player-panel").classList.toggle("active-turn", currentTurn === "player" && !gameOver);
-    document.getElementById("bot-panel").classList.toggle("active-turn", currentTurn === "bot" && !gameOver);
+    document.getElementById("bot-strip").classList.toggle("active-turn", currentTurn === "bot" && !gameOver);
   }
 
   function renderActions() {
@@ -260,6 +280,15 @@
     const result = E.validateAndScoreMove(board, pendingCoords, isFirstMove);
     if (!result.valid) { showToast(result.error, "error"); return; }
 
+    const candidateForLog = {
+      coords: pendingCoords.slice(),
+      tiles: pendingCoords.map(({ r, c }) => board[r][c]),
+      score: result.score,
+    };
+    const wasFirstMove = isFirstMove;
+    const playerScoreBefore = playerScore;
+    const botScoreBefore = botScore;
+
     pendingCoords.forEach(({ r, c }) => { board[r][c].locked = true; board[r][c].isNew = false; });
     playerScore += result.score;
     isFirstMove = false;
@@ -269,6 +298,12 @@
     if (result.bingo) { log("BINGO! +40 คะแนนพิเศษ"); showToast("BINGO! +40 คะแนน", "success"); }
     drawFromBag(playerRack, pendingCoords.length);
     pendingCoords = [];
+
+    AMATS_LOGGER.logPlayerTurn({
+      board: turnStartBoard, rackBefore: turnStartRack, playerScoreBefore, botScoreBefore,
+      turnNumber, isFirstMove: wasFirstMove, candidate: candidateForLog, moveResult: result,
+    });
+
     if (checkImmediateEndgame("player")) return;
     endTurn();
   }
@@ -284,6 +319,11 @@
     renderAll();
     if (checkStuckEndgame()) return;
     currentTurn = currentTurn === "player" ? "bot" : "player";
+    if (currentTurn === "player") {
+      turnStartRack = playerRack.slice();
+      turnStartBoard = cloneBoardDeep(board);
+      AMATS_LOGGER.markTurnStart();
+    }
     renderAll();
     if (currentTurn === "bot" && !gameOver) setTimeout(botTakeTurn, 700);
   }
@@ -306,6 +346,7 @@
       move.equations.forEach(eq => log(`บอทเล่น "${eq.string}" ได้ ${eq.score} คะแนน`));
       if (move.coords.length === D.RACK_SIZE) log("บอททำ BINGO! +40 คะแนน");
       drawFromBag(botRack, move.coords.length);
+      AMATS_LOGGER.logBotTurn(turnNumber, move.score);
       if (checkImmediateEndgame("bot")) return;
     } else {
       if (bag.length >= 5 && botRack.length > 0) {
@@ -320,6 +361,7 @@
         log("บอทผ่านตา (ไม่พบทางเดินที่ถูกกติกา และแลกเบี้ยไม่ได้)");
         consecutivePasses++;
       }
+      AMATS_LOGGER.logBotTurn(turnNumber, 0);
     }
     if (checkStuckEndgame()) return;
     currentTurn = "player";
@@ -354,9 +396,53 @@
     gameOver = true;
     renderAll();
     const winner = playerScore > botScore ? "คุณชนะ!" : playerScore < botScore ? "บอทชนะ" : "เสมอกัน";
+    const result = playerScore > botScore ? "win" : playerScore < botScore ? "loss" : "draw";
     log(`จบเกม — ${reason}`);
     log(`ผลสุดท้าย: คุณ ${playerScore} — บอท ${botScore} (${winner})`);
     showToast(`จบเกม: ${winner} (${playerScore} - ${botScore})`, "info");
+    const finished = AMATS_LOGGER.finalizeMatch({ result, finalPlayerScore: playerScore, finalBotScore: botScore });
+    renderSummary(finished, winner);
+  }
+
+  /* ---------- Post-game summary ---------- */
+  function renderSummary(match, winnerLabel) {
+    const overlay = document.getElementById("summary-overlay");
+    const box = document.getElementById("summary-box");
+    const s = match && match.summary;
+    if (!s) {
+      box.innerHTML = `<h2>จบเกม</h2><p class="result-line">${winnerLabel}: คุณ ${match ? match.finalPlayerScore : playerScore} — บอท ${match ? match.finalBotScore : botScore}</p>
+        <p class="muted">ยังไม่มีข้อมูลตาที่พอวิเคราะห์ได้ (เล่นน้อยเกินไป)</p>
+        <button id="summary-close" class="btn-primary">ปิด</button>`;
+    } else {
+      const decisionRow = (t, cls) => `
+        <div class="decision-row ${cls}">
+          <span class="eq">${t.equation || "-"}</span>
+          <span class="muted">ตาที่ ${t.turnNumber}</span>
+          <span class="dq-badge">DQ ${t.decisionQuality.toFixed(0)}%</span>
+          <span class="muted">Loss ${t.tacticalLoss.toFixed(1)}</span>
+        </div>`;
+      const modeList = Object.entries(s.modeUsage).sort((a, b) => b[1] - a[1])
+        .map(([m, n]) => `<span class="amats-mode-badge" style="background:${AMATS_DATA.MODES[m].color}">${m} ×${n}</span>`).join(" ");
+      box.innerHTML = `
+        <h2>จบเกม — ${winnerLabel}</h2>
+        <p class="result-line">คุณ ${match.finalPlayerScore} — บอท ${match.finalBotScore}</p>
+        <div class="summary-kpis">
+          <div class="summary-kpi"><div class="summary-kpi-label">Decision Quality เฉลี่ย</div><div class="summary-kpi-value">${s.avgDecisionQuality.toFixed(0)}%</div></div>
+          <div class="summary-kpi"><div class="summary-kpi-label">Tactical Loss เฉลี่ย</div><div class="summary-kpi-value">${s.avgTacticalLoss.toFixed(1)}</div></div>
+          <div class="summary-kpi"><div class="summary-kpi-label">คะแนนเฉลี่ย/ตา</div><div class="summary-kpi-value">${s.avgScore.toFixed(1)}</div></div>
+          <div class="summary-kpi"><div class="summary-kpi-label">ตาที่ตัดสินใจดี (≥70%)</div><div class="summary-kpi-value">${s.goodDecisionRate.toFixed(0)}%</div></div>
+        </div>
+        <div class="summary-section-title">Best Decisions</div>
+        ${s.bestDecisions.length ? s.bestDecisions.map(t => decisionRow(t, "best")).join("") : `<p class="muted">ยังไม่มีข้อมูล</p>`}
+        <div class="summary-section-title">Decisions to Improve</div>
+        ${s.worstDecisions.length ? s.worstDecisions.map(t => decisionRow(t, "worst")).join("") : `<p class="muted">ไม่มีตาที่เสียโอกาสมาก เล่นได้ดีมาก!</p>`}
+        <div class="summary-section-title">Tactical Profile เบื้องต้น — สถานการณ์ที่เจอบ่อย</div>
+        <p>${modeList || '<span class="muted">ไม่มีข้อมูล</span>'}</p>
+        <button id="summary-close" class="btn-primary">ปิด</button>
+      `;
+    }
+    overlay.hidden = false;
+    document.getElementById("summary-close").addEventListener("click", () => { overlay.hidden = true; });
   }
 
   /* ---------- Log & Toast ---------- */
@@ -394,7 +480,8 @@
       renderAmatsPanel();
     });
     document.getElementById("btn-restart").addEventListener("click", () => {
-      document.getElementById("game-panel").hidden = true;
+      document.getElementById("game-layout").hidden = true;
+      document.getElementById("topbar-status").hidden = true;
       document.getElementById("setup-panel").hidden = false;
     });
     document.getElementById("modal").addEventListener("click", (e) => {
