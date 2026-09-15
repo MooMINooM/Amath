@@ -72,6 +72,7 @@
     { id: "practice", label: "ฝึกซ้อม" },
     { id: "match", label: "บันทึกเกม" },
     { id: "analytics", label: "วิเคราะห์ข้อมูล" },
+    { id: "model", label: "โมเดลจากข้อมูล" },
     { id: "history", label: "ประวัติ/สถิติ" },
     { id: "playbook", label: "Playbook" },
   ];
@@ -163,6 +164,7 @@
       const fd = new FormData(form);
       const state = { gap: fd.get("gap"), phase: fd.get("phase"), rack: fd.get("rack"), board: fd.get("board"), threat: fd.get("threat") };
       const rec = E.recommendMode(state);
+      const pred = AMATS_PHASE4.predictWinProbability(AMATS_PHASE4.allLabeledTurns(AMATS_PHASE2.loadMatches()), { gap: state.gap, threat: state.threat });
       const resultBox = document.getElementById("advisor-result");
       resultBox.innerHTML = `
         <div class="result-card">
@@ -172,6 +174,7 @@
           </div>
           <ul class="reasons">${rec.reasons.map(r => `<li>${r}</li>`).join("")}</ul>
           ${rec.risk ? `<p class="risk-note"><strong>Risk ที่เหมาะสม:</strong> ${rec.risk.risk} — ${rec.risk.note}</p>` : ""}
+          ${pred ? `<p class="risk-note">จากข้อมูลของคุณ (Phase 4): P(win) ≈ <strong>${Math.round(pred.p * 100)}%</strong> (n=${pred.n})</p>` : ""}
           <button id="advisor-save" class="btn-secondary">บันทึกลงประวัติ</button>
         </div>
       `;
@@ -766,6 +769,7 @@
         clearPersistedMatch();
         renderMatchTab();
         renderAnalyticsTab();
+        renderModelTab();
         renderDashboardTab();
       });
     });
@@ -864,9 +868,90 @@
         if (!confirm("ลบเกมนี้หรือไม่? การกระทำนี้ย้อนกลับไม่ได้")) return;
         AMATS_PHASE2.saveMatches(AMATS_PHASE2.loadMatches().filter(m => m.id !== btn.dataset.id));
         renderAnalyticsTab();
+        renderModelTab();
         renderDashboardTab();
       });
     });
+  }
+
+  /* ================= LEARNED MODEL (Phase 4) ================= */
+  function renderModelTab() {
+    const panel = document.getElementById("panel-model");
+    const matches = AMATS_PHASE2.loadMatches();
+    const rows = AMATS_PHASE4.allLabeledTurns(matches);
+    const minN = AMATS_PHASE4.MIN_SAMPLE;
+
+    panel.innerHTML = `
+      <h2>โมเดลจากข้อมูล (Phase 4)</h2>
+      <p class="lead">ประมาณค่า P(win) และรูปแบบการเล่นที่ได้ผลจริง จากเกมที่บันทึกไว้ในแท็บ "บันทึกเกม" ด้วยสถิติเชิงประจักษ์
+      (Bayesian smoothing) — <strong>ไม่ใช่ deep learning</strong> เพราะข้อมูลของผู้เล่นคนเดียวมักมีน้อยเกินกว่าจะฝึกโมเดลซับซ้อนได้อย่างน่าเชื่อถือ
+      กลุ่มที่มีตัวอย่างน้อยกว่า ${minN} ตาจะถูกทำเครื่องหมายว่าข้อมูลยังไม่พอ</p>
+
+      ${rows.length === 0 ? `<p class="muted">ยังไม่มีเกมที่บันทึกจบพร้อมผลแพ้ชนะ — ไปที่แท็บ "บันทึกเกม" ก่อน</p>` : `
+        <p class="muted">ใช้ข้อมูล ${rows.length} ตา จาก ${matches.filter(m => m.result).length} เกมที่มีผลแพ้ชนะ/เสมอ</p>
+
+        <h3>P(win) แยกตาม Tactical Mode ที่ใช้จริง</h3>
+        ${bucketTable(AMATS_PHASE4.learnByMode(rows), minN, "Mode", (k) => modeBadge(k))}
+
+        <h3>P(win) แยกตาม GAP</h3>
+        ${bucketTable(AMATS_PHASE4.learnByGap(rows), minN, "GAP", (k) => k)}
+
+        <h3>P(win) แยกตามระดับ Threat</h3>
+        ${bucketTable(AMATS_PHASE4.learnByThreat(rows), minN, "Threat", (k) => k)}
+
+        <h3>Personalized Playbook — เทียบกฎ Phase 1 กับข้อมูลจริง</h3>
+        <p class="muted">แถวที่ "ไม่ตรงกฎ" คือจุดที่ข้อมูลจริงของคุณแนะนำต่างจากตาราง AMATS มาตรฐาน ลองสังเกตเป็นแนวทางปรับสไตล์ส่วนตัว
+        (ไม่ใช่ข้อสรุปตายตัว โดยเฉพาะกลุ่มที่ตัวอย่างยังน้อย)</p>
+        <div class="table-wrap"><table class="data-table">
+          <thead><tr><th>GAP</th><th>กฎ Phase 1 แนะนำ</th><th>ข้อมูลจริงบอกว่าดีที่สุด</th><th>ตัวอย่าง (n)</th><th>Net Gain เฉลี่ย</th><th>ผล</th></tr></thead>
+          <tbody>${AMATS_PHASE4.personalizedPlaybook(AMATS_PHASE4.learnByGapMode(rows), D.GAP_LEVELS, D.GAP_TABLE).map(r => {
+            const best = r.candidates.find(c => c.mode === r.dataMode);
+            return `<tr>
+              <td>${r.gap}</td>
+              <td>${r.ruleMode ? modeBadge(r.ruleMode) : "—"}</td>
+              <td>${r.dataMode ? modeBadge(r.dataMode) : `<span class="muted">ข้อมูลยังไม่พอ</span>`}</td>
+              <td>${best ? best.n : "—"}</td>
+              <td>${best ? best.avgNetGain.toFixed(1) : "—"}</td>
+              <td>${r.dataMode === null ? "—" : (r.agree ? "ตรงกฎ" : `<span class="prob-warn">ไม่ตรงกฎ</span>`)}</td>
+            </tr>`;
+          }).join("")}</tbody>
+        </table></div>
+
+        <h3>ทำนาย P(win) จากสถานการณ์</h3>
+        <form id="predict-form" class="form-grid">
+          <label>GAP<select name="gap">${optionList(D.GAP_LEVELS, "สูสี")}</select></label>
+          <label>Threat<select name="threat">${optionList(D.THREAT_LEVELS, "Low")}</select></label>
+          <button type="submit" class="btn-primary">ทำนาย</button>
+        </form>
+        <div id="predict-result"></div>
+      `}
+    `;
+
+    const predictForm = document.getElementById("predict-form");
+    if (predictForm) predictForm.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(ev.target);
+      const pred = AMATS_PHASE4.predictWinProbability(rows, { gap: fd.get("gap"), threat: fd.get("threat") });
+      document.getElementById("predict-result").innerHTML = pred
+        ? `<div class="result-card"><p>P(win) ≈ <strong>${Math.round(pred.p * 100)}%</strong> (n=${pred.n}${pred.exact ? "" : ", อิงจาก GAP อย่างเดียวเพราะคู่ GAP+Threat นี้ข้อมูลยังน้อย"})</p></div>`
+        : `<p class="muted">ข้อมูลยังไม่พอสำหรับสถานการณ์นี้ (ต้องการอย่างน้อย ${minN} ตา) — ลองบันทึกเกมเพิ่มที่แท็บ "บันทึกเกม"</p>`;
+    });
+  }
+
+  function bucketTable(buckets, minN, keyLabel, keyRender) {
+    const entries = Object.entries(buckets).sort((a, b) => b[1].winRateSmoothed - a[1].winRateSmoothed);
+    if (entries.length === 0) return `<p class="muted">ยังไม่มีข้อมูล</p>`;
+    return `<div class="table-wrap"><table class="data-table">
+      <thead><tr><th>${keyLabel}</th><th>n</th><th>P(win) โดยประมาณ</th><th>Net Gain เฉลี่ย</th></tr></thead>
+      <tbody>${entries.map(([k, b]) => `
+        <tr class="${b.n < minN ? "muted" : ""}">
+          <td>${keyRender(k)}</td>
+          <td>${b.n}${b.n < minN ? " (น้อย)" : ""}</td>
+          <td>${Math.round(b.winRateSmoothed * 100)}%</td>
+          <td>${b.avgNetGain.toFixed(1)}</td>
+        </tr>
+      `).join("")}</tbody>
+    </table></div>`;
   }
 
   /* ================= HISTORY ================= */
@@ -959,6 +1044,7 @@
     renderPracticeTab();
     renderMatchTab();
     renderAnalyticsTab();
+    renderModelTab();
     renderHistoryTab();
     renderPlaybookTab();
   });
