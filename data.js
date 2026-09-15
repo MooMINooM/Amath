@@ -1,164 +1,73 @@
-/* AMATS — ข้อมูลอ้างอิงและตารางกติกาจากเอกสารแนวคิด (Phase 1: Rule-based) */
-const AMATS_DATA = (() => {
+/* A-Math Game — ข้อมูลกระดานและเบี้ย ยืนยันจากคู่มือกติกาทางการ (100 เบี้ย, 225 ช่อง) */
+const AMATH_DATA = (() => {
+  const BOARD_SIZE = 15;
+  const RACK_SIZE = 8;
+  const CENTER = [7, 7]; // 0-indexed — ช่องดาว เป็นช่องสีฟ้า (Triple Piece) ตามกติกาทางการ
 
-  const GAP_LEVELS = ["นำมาก", "นำเล็กน้อย", "สูสี", "ตามเล็กน้อย", "ตามมาก"];
-  const GAME_PHASES = ["Opening", "Early Midgame", "Midgame", "Late Game", "Endgame"];
-  const RACK_LEVELS = ["Excellent", "Good", "Stable", "Weak", "Critical"];
-  const BOARD_STATES = ["Open", "Balanced", "Controlled", "Restricted", "Dangerous"];
-  const THREAT_LEVELS = ["Low", "Medium", "High", "Critical"];
+  // พิกัดช่องโบนัส [row, col] แบบ 0-indexed
+  const TE = [[0,0],[0,7],[0,14],[7,0],[7,14],[14,0],[14,7],[14,14]]; // แดง — คูณทั้งสมการ ×3
+  const DE = [[1,1],[2,2],[3,3],[4,4],[10,10],[11,11],[12,12],[13,13],
+              [1,13],[2,12],[3,11],[4,10],[13,1],[12,2],[11,3],[10,4]]; // เหลือง — คูณทั้งสมการ ×2
+  const TP = [[1,5],[1,9],[5,1],[5,5],[5,9],[5,13],[9,1],[9,5],[9,9],[9,13],[13,5],[13,9]]; // ฟ้า — คูณเฉพาะเบี้ย ×3
+  const DP = [[0,3],[0,11],[2,6],[2,8],[3,0],[3,7],[3,14],[6,2],[6,6],[6,8],[6,12],
+              [7,3],[7,11],[8,2],[8,6],[8,8],[8,12],[11,0],[11,7],[11,14],[12,6],[12,8],[14,3],[14,11]]; // ส้ม — คูณเฉพาะเบี้ย ×2
 
-  const MODES = {
-    PRESS: {
-      key: "PRESS", color: "#e63946",
-      tagline: "เร่งคะแนน",
-      desc: "โหมดเร่งคะแนน ใช้เมื่อต้องลดช่องว่างคะแนนหรือมีโอกาสทำคะแนนก้อนใหญ่ โดยเพิ่มน้ำหนักให้ Score, Bonus และ Tempo แต่ต้องยอมรับ Board Risk ที่สูงขึ้น",
-      useWhen: "ตามคะแนน, เหลือเกมไม่มาก, มีช่องโบนัสเข้าถึงได้",
-      avoidWhen: "นำมากและเกมใกล้จบ เพราะเพิ่มความผันผวนโดยไม่จำเป็น",
-      style: "ใช้โบนัสมากขึ้น ใช้เบี้ยมากขึ้น ยอมรับความเสี่ยงสูงขึ้น",
-    },
-    BUILD: {
-      key: "BUILD", color: "#2a9d8f",
-      tagline: "สร้างจังหวะ",
-      desc: "โหมดสร้างจังหวะ ใช้การเดินปัจจุบันเป็น “ฐาน” ให้ตาถัดไปดีขึ้น เช่น เปิดทางให้ตัวเองเข้าช่องสำคัญ หรือจัดเบี้ยค้างให้สมดุล (Turn 1 + Turn 2 > Best Turn 1)",
-      useWhen: "ตานี้ยังไม่คุ้ม แต่สร้างตาถัดไปได้",
-      avoidWhen: "เมื่อ GAP ตามมากและเวลาเหลือน้อย ควรเร่งคะแนนแทน",
-      style: "ยอมคะแนนปัจจุบันบางส่วนเพื่อสร้างทางคะแนนหรือพื้นที่ในอนาคต",
-    },
-    CONTROL: {
-      key: "CONTROL", color: "#457b9d",
-      tagline: "คุมกระดาน",
-      desc: "โหมดคุมสถานการณ์ เน้นความสมดุลระหว่างคะแนนกับตำแหน่ง กระดานควรมีทางสำหรับเราแต่ไม่เอื้อต่อคู่แข่งมากเกินไป เหมาะกับเกมสูสีและช่วงกลางเกม",
-      useWhen: "สูสี / เริ่มได้เปรียบ",
-      avoidWhen: "เมื่อคู่แข่งมี Threat ระดับ Critical ที่ต้องตัดทันที",
-      style: "รักษาจุดเชื่อมสำคัญ จำกัดพื้นที่คู่แข่ง สมดุลรุก-รับ",
-    },
-    DENY: {
-      key: "DENY", color: "#9d4edd",
-      tagline: "ตัดโอกาส",
-      desc: "โหมดป้องกันเชิงรุก ยอมลดคะแนนของเราบางส่วนเพื่อทำลาย Threat ของคู่แข่ง แนวคิดสำคัญคือ “คะแนนที่ป้องกันไม่ให้คู่แข่งได้” มีคุณค่าต่อผลต่างคะแนนเช่นเดียวกับคะแนนที่เราทำเพิ่ม",
-      useWhen: "คู่แข่งมี Threat ชัดเจน",
-      avoidWhen: "เมื่อคู่แข่งไม่มี Threat ที่คุ้มจะเสียคะแนนของเราไปปิด",
-      style: "ปิดโบนัส ปิดทาง ลดคะแนนที่คู่แข่งน่าจะทำได้",
-    },
-    GUARD: {
-      key: "GUARD", color: "#588157",
-      tagline: "รักษาความได้เปรียบ",
-      desc: "โหมดรักษาความได้เปรียบ เป้าหมายเปลี่ยนจาก Maximize Score เป็น Maximize Win Probability เน้นเล่นให้ปลอดภัย ลดช่องทางทำคะแนนก้อนใหญ่ของคู่แข่ง และจัดเบี้ยให้จบเกมได้ง่าย",
-      useWhen: "นำคะแนน / ช่วงท้าย",
-      avoidWhen: "เมื่อยังตามคะแนนอยู่ ยังไม่ถึงจุดที่ต้องรักษาความได้เปรียบ",
-      style: "ลดความผันผวน ไม่เปิดช่องใหญ่ บังคับให้คู่แข่งเป็นฝ่ายเสี่ยง",
-    },
-    RESET: {
-      key: "RESET", color: "#e07a5f",
-      tagline: "ปรับมือ",
-      desc: "โหมดแก้คุณภาพมือ เมื่อ Rack Health ต่ำหรือทางเลือกแคบมาก การยอมเสียจังหวะเพื่อปรับเบี้ยอาจคุ้มกว่าฝืนลงคะแนนต่ำต่อเนื่อง",
-      useWhen: "มือแย่ / ทางเล่นน้อย / เกมยังเหลือ",
-      avoidWhen: "เมื่อเกมใกล้จบมากจนไม่มีตาเหลือให้ใช้ประโยชน์จากมือที่ปรับแล้ว",
-      style: "ยอมเสียจังหวะระยะสั้น เพื่อเพิ่มคุณภาพมือระยะยาว",
-    },
+  const bonusMap = new Map(); // "r,c" -> "TE"|"DE"|"TP"|"DP"
+  TE.forEach(([r,c]) => bonusMap.set(`${r},${c}`, "TE"));
+  DE.forEach(([r,c]) => bonusMap.set(`${r},${c}`, "DE"));
+  TP.forEach(([r,c]) => bonusMap.set(`${r},${c}`, "TP"));
+  DP.forEach(([r,c]) => bonusMap.set(`${r},${c}`, "DP"));
+  bonusMap.set(`${CENTER[0]},${CENTER[1]}`, "TP"); // ช่องดาว = Triple Piece
+
+  function bonusAt(r, c) {
+    return bonusMap.get(`${r},${c}`) || null;
+  }
+  function isCenter(r, c) {
+    return r === CENTER[0] && c === CENTER[1];
+  }
+
+  // เบี้ย 100 ใบ ยืนยันจากคู่มือกติกาทางการ
+  const NUMBER_TILES = {
+    0: { count: 5, points: 1 }, 1: { count: 6, points: 1 }, 2: { count: 6, points: 1 }, 3: { count: 5, points: 1 },
+    4: { count: 5, points: 2 }, 5: { count: 4, points: 2 }, 6: { count: 4, points: 2 }, 7: { count: 4, points: 2 },
+    8: { count: 4, points: 2 }, 9: { count: 4, points: 2 }, 10: { count: 2, points: 3 }, 11: { count: 1, points: 4 },
+    12: { count: 2, points: 3 }, 13: { count: 1, points: 6 }, 14: { count: 1, points: 4 }, 15: { count: 1, points: 4 },
+    16: { count: 1, points: 4 }, 17: { count: 1, points: 6 }, 18: { count: 1, points: 4 }, 19: { count: 1, points: 7 },
+    20: { count: 1, points: 5 },
   };
-
-  // ตาราง: สถานการณ์ (GAP) → โหมดหลัก / โหมดรอง
-  const GAP_TABLE = {
-    "ตามมาก": { primary: "PRESS", secondary: "BUILD" },
-    "ตามเล็กน้อย": { primary: "PRESS", secondary: "CONTROL" },
-    "สูสี": { primary: "CONTROL", secondary: "BUILD" },
-    "นำเล็กน้อย": { primary: "CONTROL", secondary: "DENY" },
-    "นำมาก": { primary: "GUARD", secondary: "DENY" },
+  const OPERATOR_TILES = {
+    "+": { count: 4, points: 2 },
+    "-": { count: 4, points: 2 },
+    "+/-": { count: 5, points: 1, choices: ["+", "-"] },
+    "×": { count: 4, points: 2 },
+    "÷": { count: 4, points: 2 },
+    "×/÷": { count: 4, points: 1, choices: ["×", "÷"] },
+    "=": { count: 11, points: 1 },
   };
+  const BLANK_TILE = { count: 4, points: 0, choices: [..."0123456789".split("")].concat(
+    Array.from({length:11}, (_,i)=>String(i+10)), ["+","-","×","÷","="]) };
 
-  // ตาราง: สถานการณ์ → Risk ที่เหมาะสม → หลักคิด
-  const RISK_TABLE = {
-    "นำมาก": { risk: "Low", note: "ลดความผันผวน รักษาผลต่าง" },
-    "นำเล็กน้อย": { risk: "Low–Medium", note: "คุมเกมและปิด Threat" },
-    "สูสี": { risk: "Medium", note: "สมดุลคะแนน-ตำแหน่ง-มือ" },
-    "ตามเล็กน้อย": { risk: "Medium–High", note: "เพิ่ม Pace แต่ยังคุมความเสี่ยง" },
-    "ตามมาก": { risk: "High–Extreme", note: "เพิ่มความผันผวนเพื่อสร้างโอกาสพลิกเกม" },
-  };
+  function buildBag() {
+    const bag = [];
+    let seq = 0;
+    for (const [num, def] of Object.entries(NUMBER_TILES)) {
+      for (let i = 0; i < def.count; i++) bag.push({ id: "t" + (seq++), kind: "number", face: num, points: def.points });
+    }
+    for (const [sym, def] of Object.entries(OPERATOR_TILES)) {
+      for (let i = 0; i < def.count; i++) {
+        bag.push({ id: "t" + (seq++), kind: def.choices ? "wildcard-op" : "operator", face: sym, points: def.points, choices: def.choices || null });
+      }
+    }
+    for (let i = 0; i < BLANK_TILE.count; i++) {
+      bag.push({ id: "t" + (seq++), kind: "blank", face: "BLANK", points: 0, choices: BLANK_TILE.choices });
+    }
+    // Fisher-Yates shuffle
+    for (let i = bag.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [bag[i], bag[j]] = [bag[j], bag[i]];
+    }
+    return bag;
+  }
 
-  const RACK_TABLE = {
-    Excellent: { desc: "สมดุล สร้างสมการได้หลายแบบ มีทางต่อยอด", advice: "PRESS / BUILD ได้เมื่อเหมาะสม" },
-    Good: { desc: "มีทางเลือกหลายทาง ปัญหาน้อย", advice: "เล่นตาม Game State" },
-    Stable: { desc: "พอใช้ มีข้อจำกัดบางส่วน", advice: "CONTROL และจัดมือควบคู่" },
-    Weak: { desc: "ตัวเลือกน้อย มีเบี้ยติดมือ", advice: "หา BUILD หรือเตรียม RESET" },
-    Critical: { desc: "แทบไม่มีการเดินคุ้มค่า", advice: "พิจารณา RESET หากช่วงเกมเอื้อ" },
-  };
-
-  const ZONE_TABLE = [
-    { zone: "High-Value Zone", meaning: "ช่องโบนัส/พื้นที่คะแนนสูง", note: "ใช้เมื่อคุ้ม แต่ต้องประเมิน Counter" },
-    { zone: "Access Zone", meaning: "ทางเชื่อมไปยัง High-Value Zone", note: "ครองไว้เพื่อสร้างตัวเลือกในอนาคต" },
-    { zone: "Neutral Zone", meaning: "พื้นที่ทั่วไป", note: "ใช้เพื่อจัดเกมและรักษา Rack" },
-    { zone: "Danger Zone", meaning: "พื้นที่ที่เปิดช่องใหญ่ให้คู่แข่ง", note: "หลีกเลี่ยงหรือใช้ DENY/CONTROL" },
-  ];
-
-  const THREAT_TYPES = [
-    { name: "Immediate Threat", desc: "คู่แข่งมีทางทำคะแนนสูงในตาถัดไปทันที" },
-    { name: "Position Threat", desc: "คู่แข่งกำลังจะครองทางเชื่อมหรือพื้นที่สำคัญ" },
-    { name: "Future Threat", desc: "การเดินปัจจุบันจะสร้างจุดอันตรายในอีก 1–2 ตาหรือไม่" },
-  ];
-
-  const PLAYER_PROFILES = [
-    { name: "Aggressive Player", strength: "ทำคะแนนก้อนใหญ่และสร้าง Pace สูง", watch: "เปิด Board Risk และ Rack เสื่อมเร็ว" },
-    { name: "Control Player", strength: "คุมกระดานและลดคะแนนคู่แข่ง", watch: "อาจพลาดโอกาสทำคะแนนก้อนใหญ่" },
-    { name: "Consistent Player", strength: "คะแนนต่อ Turn เสถียร", watch: "อาจขาดจังหวะพลิกเกมเมื่อตาม" },
-    { name: "Tactical Player", strength: "เปลี่ยน Mode ตามสถานการณ์ได้ดี", watch: "ต้องอาศัยการอ่านเกมและข้อมูล" },
-    { name: "Endgame Player", strength: "ปิดเกมและบริหารความได้เปรียบดี", watch: "ต้องมีวินัยสูงในช่วงต้น-กลางเกม" },
-  ];
-
-  const TRAINING_LEVELS = [
-    { level: 1, name: "Score Recognition", goal: "หา Move ที่ให้คะแนนดี", activity: "โจทย์กระดานกำหนดเวลา หา 3 ทางเลือกและเรียงคะแนน" },
-    { level: 2, name: "Board Awareness", goal: "มองพื้นที่และ Counter", activity: "ให้ผู้เล่นอธิบายว่าการเดินหนึ่งครั้งเปิด/ปิดพื้นที่ใด" },
-    { level: 3, name: "Tactical Choice", goal: "เลือก Tactical Mode ให้เหมาะสถานการณ์", activity: "โจทย์ GAP + Phase + Rack แล้วเลือก PRESS/CONTROL ฯลฯ" },
-    { level: 4, name: "Strategic Simulation", goal: "คิด 2–3 Turn ล่วงหน้า", activity: "เล่นสถานการณ์จำลองและบังคับอธิบาย Move → Counter → Next Move" },
-  ];
-
-  const SRBTG = [
-    { code: "S", name: "Score", question: "ตานี้ได้เท่าไร และคุ้มกับสถานการณ์หรือไม่?" },
-    { code: "R", name: "Rack", question: "หลังลงแล้ว Rack Health ดีขึ้นหรือแย่ลง?" },
-    { code: "B", name: "Board", question: "เราได้พื้นที่หรือเปิดพื้นที่ให้คู่แข่ง?" },
-    { code: "T", name: "Threat", question: "คู่แข่งมี Counter หรือ Threat ระดับใด?" },
-    { code: "G", name: "Game State", question: "GAP และช่วงเกมบอกให้เราใช้ Mode ใด?" },
-  ];
-
-  const RACK_CHECK_QUESTIONS = [
-    { id: "variety", text: "เบี้ยในมือหลากหลายพอสร้างสมการได้หลายแบบ ไม่ใช่กระจุกตัวแบบเดียว", weight: 1 },
-    { id: "operators", text: "มีตัวดำเนินการ (+ − × ÷ =) สมดุล ไม่ขาดหรือเกินจนใช้ไม่ได้", weight: 1 },
-    { id: "connect", text: "มีเบี้ยที่เชื่อมกับกระดานปัจจุบันได้ง่าย ไม่ใช่ต้องรอช่องเฉพาะ", weight: 1 },
-    { id: "stuck", text: "ไม่มีเบี้ยค้างมือที่ใช้ยากจำนวนมากเกินไป", weight: 1 },
-    { id: "flex", text: "มีเบี้ยยืดหยุ่นสูง (เช่นเลขที่ใช้ได้หลายสมการ หรือบลังค์) อย่างน้อยหนึ่งตัว", weight: 1 },
-  ];
-
-  // สถานการณ์ฝึกซ้อม สำหรับ Level 3 (Tactical Choice) — คำตอบคำนวณจาก rule engine ตอนรันจริง
-  const PRACTICE_SCENARIOS = [
-    { gap: "ตามมาก", phase: "Late Game", rack: "Stable", board: "Open", threat: "Low",
-      story: "เหลืออีก 4 ตาจบเกม เราตามอยู่ 45 แต้ม มือพอใช้ กระดานยังเปิดกว้าง คู่แข่งยังไม่มีท่าอันตรายชัดเจน" },
-    { gap: "นำมาก", phase: "Late Game", rack: "Good", board: "Balanced", threat: "Medium",
-      story: "เรานำอยู่ 60 แต้ม เหลือ 3 ตาจบเกม มือดี กระดานสมดุล คู่แข่งพอมีช่องทำคะแนนได้บ้าง" },
-    { gap: "สูสี", phase: "Midgame", rack: "Good", board: "Balanced", threat: "Medium",
-      story: "คะแนนห่างกันแค่ 8 แต้ม อยู่กลางเกม มือดี กระดานสมดุล คู่แข่งมีโอกาสทำคะแนนปานกลาง" },
-    { gap: "นำเล็กน้อย", phase: "Midgame", rack: "Stable", board: "Controlled", threat: "Low",
-      story: "เรานำอยู่ 12 แต้ม กลางเกม มือพอใช้ กระดานเราคุมได้ระดับหนึ่ง คู่แข่งยังไม่มีท่าไม้ตาย" },
-    { gap: "ตามเล็กน้อย", phase: "Early Midgame", rack: "Good", board: "Open", threat: "Low",
-      story: "ตามอยู่ 15 แต้ม ช่วงต้นเกม มือดี กระดานยังเปิด มีช่องโบนัสให้เข้าถึงได้" },
-    { gap: "สูสี", phase: "Midgame", rack: "Critical", board: "Restricted", threat: "Medium",
-      story: "คะแนนสูสีกัน แต่มือเราแทบไม่มีทางเดินที่คุ้มค่าเลย กระดานก็เริ่มถูกจำกัด" },
-    { gap: "นำเล็กน้อย", phase: "Late Game", rack: "Good", board: "Dangerous", threat: "Critical",
-      story: "เรานำเล็กน้อย แต่คู่แข่งเพิ่งเปิดช่องให้ตัวเองทำคะแนนก้อนใหญ่ได้ทันทีในตาถัดไป" },
-    { gap: "ตามมาก", phase: "Endgame", rack: "Weak", board: "Restricted", threat: "High",
-      story: "ใกล้จบเกมแล้วและยังตามอยู่มาก มือเริ่มแย่ กระดานถูกจำกัด คู่แข่งก็มีท่าอันตรายรออยู่" },
-    { gap: "สูสี", phase: "Opening", rack: "Excellent", board: "Open", threat: "Low",
-      story: "เพิ่งเริ่มเกม คะแนนสูสี มือดีมาก กระดานยังเปิดโล่ง ยังไม่มีอะไรน่ากังวล" },
-    { gap: "นำมาก", phase: "Endgame", rack: "Stable", board: "Balanced", threat: "Low",
-      story: "นำห่างและใกล้จบเกมแล้ว มือพอใช้ กระดานสมดุล คู่แข่งไม่มีทางเดินอันตราย" },
-    { gap: "ตามเล็กน้อย", phase: "Midgame", rack: "Weak", board: "Balanced", threat: "Medium",
-      story: "ตามอยู่เล็กน้อยกลางเกม แต่มือเริ่มอ่อนแรงและทางเลือกแคบลง" },
-    { gap: "นำเล็กน้อย", phase: "Early Midgame", rack: "Good", board: "Open", threat: "High",
-      story: "นำอยู่เล็กน้อยในช่วงต้นเกม มือดี แต่คู่แข่งเริ่มมีช่องทางทำคะแนนสูงที่ต้องระวัง" },
-  ];
-
-  return {
-    GAP_LEVELS, GAME_PHASES, RACK_LEVELS, BOARD_STATES, THREAT_LEVELS,
-    MODES, GAP_TABLE, RISK_TABLE, RACK_TABLE, ZONE_TABLE, THREAT_TYPES,
-    PLAYER_PROFILES, TRAINING_LEVELS, SRBTG, RACK_CHECK_QUESTIONS, PRACTICE_SCENARIOS,
-  };
+  return { BOARD_SIZE, RACK_SIZE, CENTER, bonusAt, isCenter, NUMBER_TILES, OPERATOR_TILES, BLANK_TILE, buildBag };
 })();
