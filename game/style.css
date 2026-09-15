@@ -81,7 +81,21 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px; }
 .rack-tile.selected { border-color: var(--accent); transform: translateY(-4px); }
 .rack-tile.face-down { background: var(--panel-2); color: var(--muted); border: 1px solid var(--border); }
 
-.status-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted); margin-bottom: 10px; }
+.status-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 0.85rem; color: var(--muted); margin-bottom: 10px; }
+.amats-toggle-row { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.amats-toggle-row input { width: auto; }
+
+#amats-panel { margin-top: 14px; }
+#amats-panel h2 { display: flex; align-items: center; gap: 8px; }
+.amats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.amats-stat { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.amats-stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.amats-stat-value { font-size: 0.95rem; font-weight: 700; margin-top: 2px; }
+.amats-rec { display: flex; gap: 14px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.amats-mode-badge {
+  display: inline-block; padding: 4px 12px; border-radius: 6px; font-weight: 800; font-size: 0.9rem; color: #0b0d10;
+}
+.amats-reasons { color: var(--muted); font-size: 0.82rem; padding-left: 18px; margin: 6px 0 0; }
 
 .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .actions button { grid-column: span 1; }

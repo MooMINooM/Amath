@@ -195,8 +195,8 @@ const AMATH_GAME_BOT = (() => {
     return result.valid ? { coords, tiles, score: result.score, equations: result.equations } : null;
   }
 
-  /** วางลำดับเบี้ย (tiles) ลงกระดานแบบสด — ลองรอบตำแหน่งว่างที่ติดกับเบี้ยเดิม (หรือช่องดาวถ้าตาแรก) */
-  function placeFresh(board, tiles, isFirstMove, tries) {
+  /** วางลำดับเบี้ย (tiles) ลงกระดานแบบสด — ลองรอบตำแหน่งว่างที่ติดกับเบี้ยเดิม (หรือช่องดาวถ้าตาแรก) เก็บหลายผลลัพธ์ */
+  function placeFresh(board, tiles, isFirstMove, tries, limit = 1) {
     const len = tiles.length;
     const attempts = [];
     if (isFirstMove) {
@@ -214,17 +214,19 @@ const AMATH_GAME_BOT = (() => {
         }
       }
     }
+    const results = [];
     for (const [r, c, dr, dc] of attempts) {
       const coords = fitsEmpty(board, r, c, dr, dc, len);
       if (!coords) continue;
       const result = tryValidatePlacement(board, tiles, coords, isFirstMove);
-      if (result) return result;
+      if (result) { results.push(result); if (results.length >= limit) break; }
     }
-    return null;
+    return results;
   }
 
-  /** ลองขยายสมการเดิมบนกระดาน: ต่อ "= นิพจน์ใหม่" ต่อท้าย หรือ "นิพจน์ใหม่ =" ไว้หน้า ให้เท่ากับค่าเดิมของเส้นนั้น */
-  function attemptExtendLines(board, rack, cfg) {
+  /** ลองขยายสมการเดิมบนกระดาน: ต่อ "= นิพจน์ใหม่" ต่อท้าย หรือ "นิพจน์ใหม่ =" ไว้หน้า ให้เท่ากับค่าเดิมของเส้นนั้น เก็บหลายผลลัพธ์ */
+  function attemptExtendLines(board, rack, cfg, limit = 1) {
+    const results = [];
     const seen = new Set();
     const lines = [];
     for (let r = 0; r < D.BOARD_SIZE; r++) {
@@ -259,7 +261,7 @@ const AMATH_GAME_BOT = (() => {
       const appendCoords = fitsEmpty(board, afterR, afterC, dr, dc, appendTiles.length);
       if (appendCoords) {
         const result = tryValidatePlacement(board, appendTiles, appendCoords, false);
-        if (result) return result;
+        if (result) { results.push(result); if (results.length >= limit) return results; }
       }
       // ต่อหน้า: expr = [เส้นเดิม]
       const beforeTiles = [...expr, asResolved(eq, "=")];
@@ -267,17 +269,18 @@ const AMATH_GAME_BOT = (() => {
       const prependCoords = fitsEmpty(board, startR, startC, dr, dc, beforeTiles.length);
       if (prependCoords) {
         const result = tryValidatePlacement(board, beforeTiles, prependCoords, false);
-        if (result) return result;
+        if (result) { results.push(result); if (results.length >= limit) return results; }
       }
     }
-    return null;
+    return results;
   }
 
   /**
    * ลองสร้างสมการใหม่ที่ "ทับผ่าน" เบี้ยตัวเลขที่มีอยู่แล้วบนกระดาน (เหมือนไขว้คำใน Scrabble)
    * ใช้ค่าของเบี้ยเดิมเป็นส่วนหนึ่งของสมการใหม่ โดยวางเบี้ยใหม่ในแนวตั้งฉากเฉพาะช่องว่างก่อน/หลังเบี้ยนั้น
    */
-  function attemptCrossAtTile(board, rack, cfg) {
+  function attemptCrossAtTile(board, rack, cfg, limit = 1) {
+    const results = [];
     const anchors = [];
     for (let r = 0; r < D.BOARD_SIZE; r++) {
       for (let c = 0; c < D.BOARD_SIZE; c++) {
@@ -287,7 +290,7 @@ const AMATH_GAME_BOT = (() => {
       }
     }
     const eqTilesAll = rack.filter(t => t.face === "=");
-    if (eqTilesAll.length === 0) return null;
+    if (eqTilesAll.length === 0) return results;
 
     for (const { r, c, value } of shuffle(anchors)) {
       if (Number.isNaN(value)) continue;
@@ -309,7 +312,7 @@ const AMATH_GAME_BOT = (() => {
             const coords = fitsEmpty(board, startR, startC, dr, dc, seq.length);
             if (coords) {
               const result = tryValidatePlacement(board, seq, coords, false);
-              if (result) return result;
+              if (result) { results.push(result); if (results.length >= limit) return results; }
             }
           }
         }
@@ -321,37 +324,89 @@ const AMATH_GAME_BOT = (() => {
             const coords = fitsEmpty(board, after.r, after.c, dr, dc, seq.length);
             if (coords) {
               const result = tryValidatePlacement(board, seq, coords, false);
-              if (result) return result;
+              if (result) { results.push(result); if (results.length >= limit) return results; }
             }
           }
         }
       }
     }
-    return null;
+    return results;
+  }
+
+  const CANDIDATE_LIMIT = { Rookie: 1, Standard: 4, Master: 10 };
+
+  /** ช่องโบนัสชั้นดี (TE/DE/TP) ที่เบี้ยใหม่ในการเดินนี้ไปครอบครอง (ยิ่งมากยิ่ง "กัน" ไม่ให้อีกฝ่ายได้) */
+  function premiumCellsClaimed(candidate) {
+    return candidate.coords.filter(({ r, c }) => ["TE", "DE", "TP"].includes(D.bonusAt(r, c))).length;
+  }
+
+  /** ช่องโบนัสชั้นดีที่ "เปิดใหม่" ให้อีกฝ่ายเข้าถึงได้ต่อจากการเดินนี้ (ยิ่งน้อยยิ่งปลอดภัย) */
+  function premiumExposureAfter(board, candidate) {
+    const testBoard = cloneBoard(board);
+    candidate.coords.forEach(({ r, c }, i) => {
+      const t = candidate.tiles[i];
+      testBoard[r][c] = { points: t.points, resolvedChar: t.resolvedChar, locked: true };
+    });
+    return AMATS_BRIDGE.emptyCellsAdjacentToLocked(testBoard)
+      .filter(([r, c]) => ["TE", "DE", "TP"].includes(D.bonusAt(r, c))).length;
+  }
+
+  /** ให้คะแนนผู้ท้าชิงแต่ละตัวตาม Tactical Mode ที่ AMATS แนะนำ ยิ่งสูงยิ่งเหมาะกับโหมดนั้น */
+  function scoreCandidateForMode(candidate, mode, board, rackAfter) {
+    switch (mode) {
+      case "PRESS": return candidate.score;
+      case "GUARD": return candidate.score * 0.3 - premiumExposureAfter(board, candidate) * 8;
+      case "DENY": return premiumCellsClaimed(candidate) * 10 + candidate.score * 0.2;
+      case "BUILD":
+      case "RESET": return AMATS_BRIDGE.rackHealthScore(rackAfter) * 6 + candidate.score * 0.15;
+      case "CONTROL":
+      default: return candidate.score - premiumExposureAfter(board, candidate) * 3;
+    }
+  }
+
+  function rackAfterMove(rack, candidate) {
+    const usedIds = new Set(candidate.tiles.map(t => t.id));
+    return rack.filter(t => !usedIds.has(t.id));
   }
 
   /**
-   * ค้นหาการเดินให้บอท คืน { found, coords, tiles, score, equations } หรือ { found:false }
+   * ค้นหาการเดินให้บอท คืน { found, coords, tiles, score, equations, mode? } หรือ { found:false }
+   * ถ้ามี context (คะแนน/ตาที่เล่น) และโหลด AMATS_BRIDGE ไว้ จะเลือกจากผู้ท้าชิงหลายทาง
+   * ตาม Tactical Mode ที่ AMATS แนะนำให้บอท แทนที่จะเลือกจากคะแนนดิบอย่างเดียว
    */
-  function findMove(board, rack, isFirstMove, difficulty) {
+  function findMove(board, rack, isFirstMove, difficulty, context) {
     const cfg = DIFFICULTY[difficulty] || DIFFICULTY.Standard;
+    const limit = CANDIDATE_LIMIT[difficulty] || 4;
+    let candidates = [];
 
     if (isFirstMove) {
       const fresh = findFreshEquation(rack, cfg);
-      if (fresh) {
-        const placed = placeFresh(board, fresh, true, cfg.placementTries);
-        if (placed) return { found: true, ...placed };
+      if (fresh) candidates = placeFresh(board, fresh, true, cfg.placementTries, limit);
+    } else {
+      candidates = attemptExtendLines(board, rack, cfg, limit);
+      if (candidates.length < limit) {
+        candidates = candidates.concat(attemptCrossAtTile(board, rack, cfg, limit - candidates.length));
       }
-      return { found: false };
     }
 
-    const extended = attemptExtendLines(board, rack, cfg);
-    if (extended) return { found: true, ...extended };
+    candidates = candidates.filter(Boolean);
+    if (candidates.length === 0) return { found: false };
 
-    const crossed = attemptCrossAtTile(board, rack, cfg);
-    if (crossed) return { found: true, ...crossed };
+    const bridgeReady = typeof AMATS_BRIDGE !== "undefined" && AMATS_BRIDGE.available && context;
+    if (!bridgeReady || candidates.length === 1) {
+      return { found: true, ...candidates[0] };
+    }
 
-    return { found: false };
+    const analysis = AMATS_BRIDGE.analyze({
+      board, myScore: context.myScore, oppScore: context.oppScore, turnNumber: context.turnNumber, rack,
+    });
+    const mode = analysis.recommendation ? analysis.recommendation.primary : "CONTROL";
+    let best = candidates[0], bestScore = -Infinity;
+    for (const c of candidates) {
+      const s = scoreCandidateForMode(c, mode, board, rackAfterMove(rack, c));
+      if (s > bestScore) { bestScore = s; best = c; }
+    }
+    return { found: true, ...best, amatsMode: mode };
   }
 
   return { DIFFICULTY, findMove };
