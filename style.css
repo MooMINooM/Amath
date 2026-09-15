@@ -239,6 +239,9 @@ tr.best-row { background: rgba(76, 201, 240, 0.08); }
 .sim-ev { margin-top: 10px; font-size: 1.05rem; }
 .prob-warn { color: #e07a5f; font-size: 0.85rem; }
 
+.inline-input-row { display: flex; gap: 8px; align-items: center; }
+.inline-input-row input { flex: 1; }
+
 .suggestion-box {
   background: var(--panel);
   border: 1px solid var(--border);

@@ -671,6 +671,10 @@
         <h2>บันทึกเกม</h2>
         <p class="lead">บันทึกเกมจริงทีละตา เพื่อสะสมข้อมูลไว้วิเคราะห์ (Phase 2: Data Analytics) — GAP และ Game Phase จะคำนวณอัตโนมัติจากคะแนนจริง</p>
         <form id="match-start-form" class="form-grid">
+          <label>คู่ต่อสู้<select name="botDifficulty">
+            <option value="">กรอกคะแนนคู่แข่งเอง (ไม่ใช้บอท)</option>
+            ${Object.entries(AMATS_BOT.DIFFICULTIES).map(([k, d]) => `<option value="${k}">ฝึกกับบอท: ${d.label}</option>`).join("")}
+          </select></label>
           <label>ชื่อคู่แข่ง (ถ้ามี)<input type="text" name="opponent" placeholder="ไม่ระบุก็ได้"></label>
           <label>จำนวนตาทั้งเกม (โดยประมาณ)<input type="number" name="totalTurns" value="${defaultTurns}" min="4" max="60"></label>
           <button type="submit" class="btn-primary">เริ่มเกม</button>
@@ -679,9 +683,12 @@
       document.getElementById("match-start-form").addEventListener("submit", (ev) => {
         ev.preventDefault();
         const fd = new FormData(ev.target);
+        const botDifficulty = fd.get("botDifficulty") || "";
         currentMatch = {
           id: Date.now() + "-" + Math.random().toString(36).slice(2, 7),
-          opponent: fd.get("opponent") || "",
+          opponent: botDifficulty ? `Bot (${AMATS_BOT.DIFFICULTIES[botDifficulty].label})` : (fd.get("opponent") || ""),
+          vsBot: !!botDifficulty,
+          botDifficulty: botDifficulty || null,
           totalTurns: parseInt(fd.get("totalTurns"), 10) || defaultTurns,
           startedAt: Date.now(),
           turns: [],
@@ -693,17 +700,19 @@
     }
 
     const ctx = currentTurnContext();
+    let botTurnForThisEntry = null;
     panel.innerHTML = `
       <h2>บันทึกเกม${currentMatch.opponent ? " — vs " + currentMatch.opponent : ""}</h2>
       <p class="lead">คะแนนรวม: เรา ${ctx.ourTotal} — คู่แข่ง ${ctx.oppTotal} (${ctx.diff >= 0 ? "นำอยู่" : "ตามอยู่"} ${Math.abs(ctx.diff)})</p>
 
       <div class="table-wrap"><table class="data-table">
-        <thead><tr><th>ตา</th><th>GAP</th><th>Phase</th><th>Mode</th><th>ตรงคำแนะนำ</th><th>เรา</th><th>คู่แข่ง</th><th>Net</th></tr></thead>
+        <thead><tr><th>ตา</th><th>GAP</th><th>Phase</th><th>Mode</th><th>ตรงคำแนะนำ</th><th>เรา</th><th>คู่แข่ง</th><th>Net</th>${currentMatch.vsBot ? "<th>บอทเลือก</th>" : ""}</tr></thead>
         <tbody>${currentMatch.turns.map(t => `
           <tr><td>${t.turnNo}</td><td>${t.gap}</td><td>${t.phase}</td><td>${modeBadge(t.mode, "sm")}</td>
           <td>${t.mode === t.recommendedPrimary ? "✓" : "—"}</td>
-          <td>${t.ourDelta}</td><td>${t.oppDelta}</td><td>${t.ourDelta - t.oppDelta}</td></tr>
-        `).join("") || `<tr><td colspan="8" class="muted">ยังไม่มีตาที่บันทึก</td></tr>`}</tbody>
+          <td>${t.ourDelta}</td><td>${t.oppDelta}</td><td>${t.ourDelta - t.oppDelta}</td>
+          ${currentMatch.vsBot ? `<td>${t.botMode ? modeBadge(t.botMode, "sm") : "—"}</td>` : ""}</tr>
+        `).join("") || `<tr><td colspan="${currentMatch.vsBot ? 9 : 8}" class="muted">ยังไม่มีตาที่บันทึก</td></tr>`}</tbody>
       </table></div>
 
       <h3>บันทึกตาที่ ${ctx.turnNo}</h3>
@@ -713,12 +722,18 @@
         <label>Board State<select id="turn-board" name="board">${optionList(D.BOARD_STATES, "Balanced")}</select></label>
         <label>Threat<select id="turn-threat" name="threat">${optionList(D.THREAT_LEVELS, "Low")}</select></label>
         <label>Tactical Mode ที่ใช้จริง<select name="mode">${Object.keys(D.MODES).map(k => `<option value="${k}">${k}</option>`).join("")}</select></label>
-        <label>คะแนนเราได้ตานี้<input type="number" name="ourDelta" value="0" required></label>
-        <label>คะแนนคู่แข่งตอบ<input type="number" name="oppDelta" value="0" required></label>
+        <label>คะแนนเราได้ตานี้<input type="number" id="turn-ourdelta" name="ourDelta" value="0" required></label>
+        <label>คะแนนคู่แข่งตอบ
+          <span class="inline-input-row">
+            <input type="number" id="turn-oppdelta" name="oppDelta" value="0" required>
+            ${currentMatch.vsBot ? `<button type="button" id="turn-bot-respond" class="btn-secondary">ให้บอทตอบ</button>` : ""}
+          </span>
+        </label>
         <label class="check-row"><input type="checkbox" name="bonusUsed"> ใช้โบนัสตานี้</label>
         <label>บันทึกเพิ่มเติม<input type="text" name="note" placeholder="ไม่บังคับ"></label>
         <button type="submit" class="btn-primary">บันทึกตานี้</button>
       </form>
+      <div id="bot-note"></div>
 
       <div class="row-actions">
         <button id="match-end" class="btn-secondary">จบเกม</button>
@@ -732,6 +747,19 @@
     });
     updateTurnSuggestion(ctx);
 
+    const botRespondBtn = document.getElementById("turn-bot-respond");
+    if (botRespondBtn) botRespondBtn.addEventListener("click", () => {
+      const ourDeltaVal = parseFloat(document.getElementById("turn-ourdelta").value) || 0;
+      const provisionalDiff = (ctx.ourTotal + ourDeltaVal) - ctx.oppTotal;
+      const gapForBot = AMATS_PHASE2.classifyGap(provisionalDiff, AMATS_PHASE2.loadSettings());
+      const bot = AMATS_BOT.generateBotTurn({ studentGap: gapForBot, phase: ctx.phase, difficulty: currentMatch.botDifficulty });
+      document.getElementById("turn-oppdelta").value = bot.score;
+      botTurnForThisEntry = bot;
+      document.getElementById("bot-note").innerHTML = `
+        <div class="suggestion-box">บอท (${currentMatch.botDifficulty}) มองว่าตัวเองอยู่ในสถานการณ์ “${bot.botGap}” เลือก ${modeBadge(bot.mode)}
+        (Rack บอท: ${bot.rack}, Threat จากบอท: ${bot.threat}) → ได้ ${bot.score} แต้ม</div>`;
+    });
+
     document.getElementById("turn-form").addEventListener("submit", (ev) => {
       ev.preventDefault();
       const fd = new FormData(ev.target);
@@ -744,6 +772,7 @@
         oppDelta: parseFloat(fd.get("oppDelta")) || 0,
         bonusUsed: fd.has("bonusUsed"),
         note: fd.get("note") || "",
+        ...(botTurnForThisEntry ? { botMode: botTurnForThisEntry.mode, botRack: botTurnForThisEntry.rack, botBoard: botTurnForThisEntry.board, botThreat: botTurnForThisEntry.threat } : {}),
       });
       persistCurrentMatch();
       renderMatchTab();
@@ -898,6 +927,9 @@
 
         <h3>P(win) แยกตามระดับ Threat</h3>
         ${bucketTable(AMATS_PHASE4.learnByThreat(rows), minN, "Threat", (k) => k)}
+
+        <h3>P(win) แยกตามระดับบอทที่ฝึกด้วย</h3>
+        ${bucketTable(AMATS_PHASE4.learnByBotDifficulty(rows), minN, "คู่ต่อสู้", (k) => k)}
 
         <h3>Personalized Playbook — เทียบกฎ Phase 1 กับข้อมูลจริง</h3>
         <p class="muted">แถวที่ "ไม่ตรงกฎ" คือจุดที่ข้อมูลจริงของคุณแนะนำต่างจากตาราง AMATS มาตรฐาน ลองสังเกตเป็นแนวทางปรับสไตล์ส่วนตัว

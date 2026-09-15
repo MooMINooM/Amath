@@ -93,16 +93,17 @@ const AMATS_PHASE2 = (() => {
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
   function toCSV(matches) {
-    const header = ["matchId", "opponent", "result", "turnNo", "gap", "phase", "rack", "board", "threat",
+    const header = ["matchId", "opponent", "vsBot", "botDifficulty", "result", "turnNo", "gap", "phase", "rack", "board", "threat",
       "recommendedPrimary", "recommendedSecondary", "mode", "followedRecommendation",
-      "ourDelta", "oppDelta", "netGain", "bonusUsed", "note"];
+      "ourDelta", "oppDelta", "netGain", "bonusUsed", "botMode", "botRack", "botThreat", "note"];
     const rows = [header.join(",")];
     matches.forEach(m => {
       (m.turns || []).forEach(t => {
         rows.push([
-          m.id, csvEscape(m.opponent || ""), m.result || "", t.turnNo, t.gap, t.phase, t.rack, t.board, t.threat,
+          m.id, csvEscape(m.opponent || ""), !!m.vsBot, m.botDifficulty || "", m.result || "", t.turnNo, t.gap, t.phase, t.rack, t.board, t.threat,
           t.recommendedPrimary || "", t.recommendedSecondary || "", t.mode, t.mode === t.recommendedPrimary,
-          t.ourDelta, t.oppDelta, (t.ourDelta - t.oppDelta), t.bonusUsed, csvEscape(t.note || ""),
+          t.ourDelta, t.oppDelta, (t.ourDelta - t.oppDelta), t.bonusUsed,
+          t.botMode || "", t.botRack || "", t.botThreat || "", csvEscape(t.note || ""),
         ].join(","));
       });
     });

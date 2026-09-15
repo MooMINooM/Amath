@@ -19,7 +19,7 @@ const AMATS_PHASE4 = (() => {
     matches.forEach(m => {
       const y = labelWinNumeric(m);
       if (y === null) return;
-      (m.turns || []).forEach(t => rows.push({ ...t, win: y }));
+      (m.turns || []).forEach(t => rows.push({ ...t, win: y, vsBot: !!m.vsBot, botDifficulty: m.botDifficulty || null }));
     });
     return rows;
   }
@@ -49,6 +49,7 @@ const AMATS_PHASE4 = (() => {
   function learnByGap(rows) { return bucketBy(rows, r => r.gap); }
   function learnByThreat(rows) { return bucketBy(rows, r => r.threat); }
   function learnByGapMode(rows) { return bucketBy(rows, r => r.gap + "␟" + r.mode); }
+  function learnByBotDifficulty(rows) { return bucketBy(rows, r => r.vsBot ? r.botDifficulty : "ไม่ใช้บอท"); }
 
   /** เทียบโหมดที่ Phase 1 (กฎตายตัว) แนะนำ กับโหมดที่ข้อมูลจริงบอกว่า Net Gain เฉลี่ยดีที่สุด ในแต่ละ GAP */
   function personalizedPlaybook(gapModeBuckets, gapLevels, gapTable) {
@@ -79,7 +80,7 @@ const AMATS_PHASE4 = (() => {
 
   return {
     MIN_SAMPLE, allLabeledTurns, bucketBy,
-    learnByMode, learnByGap, learnByThreat, learnByGapMode,
+    learnByMode, learnByGap, learnByThreat, learnByGapMode, learnByBotDifficulty,
     personalizedPlaybook, predictWinProbability,
   };
 })();
