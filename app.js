@@ -58,6 +58,7 @@
     log(`เริ่มเกมใหม่ — บอทระดับ ${diff}`);
     document.getElementById("setup-panel").hidden = true;
     document.getElementById("game-layout").hidden = false;
+    document.getElementById("bottom-bar").hidden = false;
     document.getElementById("topbar-status").hidden = false;
     document.getElementById("summary-overlay").hidden = true;
     AMATS_LOGGER.startMatch({ opponentType: "bot", difficulty: diff });
@@ -76,11 +77,11 @@
     renderHistoryTable();
   }
 
-  function meterStat(label, levelText, pct, tone) {
+  function situationStat(label, levelText, pct, tone) {
     return `
-      <div class="amats-stat">
-        <div class="amats-stat-label">${label}</div>
-        <div class="amats-stat-value">${levelText} <span class="amats-stat-pct">${pct}%</span></div>
+      <div class="situ-stat" title="${levelText}">
+        <div class="situ-label">${label}</div>
+        <div class="situ-pct">${pct}%</div>
         <div class="meter"><div class="meter-fill ${tone}" style="width:${pct}%"></div></div>
       </div>`;
   }
@@ -99,6 +100,7 @@
     const body = document.getElementById("amats-body");
     const modes = AMATS_DATA.MODES;
     const rec = analysis.recommendation;
+    const primaryColor = rec ? modes[rec.primary].color : "#94a3b8";
 
     const modeGrid = Object.keys(modes).map(key => {
       const isPrimary = rec && rec.primary === key;
@@ -107,15 +109,27 @@
     }).join("");
 
     body.innerHTML = `
-      <div class="amats-grid">
-        <div class="amats-stat"><div class="amats-stat-label">GAP</div><div class="amats-stat-value">${analysis.gap}</div></div>
-        <div class="amats-stat"><div class="amats-stat-label">Game Phase</div><div class="amats-stat-value">${analysis.phase}</div></div>
-        ${meterStat("Rack Health", analysis.rackHealth.level, analysis.rackHealth.pct, RACK_TONE[analysis.rackHealth.level] || "accent")}
-        ${meterStat("Board State", analysis.board, analysis.boardPct, BOARD_TONE[analysis.board] || "accent")}
-        ${meterStat("Threat", analysis.threat, analysis.threatPct, THREAT_TONE[analysis.threat] || "accent")}
+      <div class="coach-head">
+        <div class="coach-strategy">
+          <div class="amats-stat-label">กลยุทธ์ปัจจุบัน</div>
+          <div class="mode-chip is-primary coach-strategy-badge" style="--mc:${primaryColor}">${rec ? rec.primary : "-"}</div>
+        </div>
+        <div class="coach-confidence">
+          <div class="amats-stat-label">ความมั่นใจ</div>
+          <div class="confidence-ring" style="--pct:${analysis.confidence ?? 0}"><span>${analysis.confidence ?? 0}%</span></div>
+        </div>
       </div>
+      <div class="coach-meta muted">GAP ${analysis.gap} · ${analysis.phase}</div>
+      ${rec ? `<div class="advice-box">💡 ${rec.reasons[0]}</div>` : ""}
+      <div class="section-title">การประเมินสถานการณ์</div>
+      <div class="situ-grid">
+        ${situationStat("Rack", analysis.rackHealth.level, analysis.rackHealth.pct, RACK_TONE[analysis.rackHealth.level] || "accent")}
+        ${situationStat("Board", analysis.board, analysis.boardPct, BOARD_TONE[analysis.board] || "accent")}
+        ${situationStat("Threat", analysis.threat, analysis.threatPct, THREAT_TONE[analysis.threat] || "accent")}
+      </div>
+      <div class="section-title">โหมดกลยุทธ์ AMATS</div>
       <div class="amats-mode-grid">${modeGrid}</div>
-      ${rec ? `<ul class="amats-reasons">${rec.reasons.map(r => `<li>${r}</li>`).join("")}</ul>` : ""}
+      ${rec && rec.reasons.length > 1 ? `<ul class="amats-reasons">${rec.reasons.slice(1).map(r => `<li>${r}</li>`).join("")}</ul>` : ""}
     `;
   }
 
@@ -192,6 +206,7 @@
   function renderRack() {
     const el = document.getElementById("player-rack");
     el.innerHTML = "";
+    document.getElementById("rack-count-text").textContent = `${playerRack.length}/${D.RACK_SIZE}`;
     playerRack.forEach((tile, i) => {
       const slot = document.createElement("div");
       slot.className = "rack-tile" + (i === selectedRackIndex ? " selected" : "");
@@ -210,11 +225,10 @@
   }
 
   function renderStatus() {
-    document.getElementById("player-score").textContent = playerScore;
     document.getElementById("bot-score").textContent = botScore;
     document.getElementById("bag-count").textContent = bag.length;
     document.getElementById("turn-indicator").textContent = gameOver ? "จบเกมแล้ว" : (currentTurn === "player" ? "ตาของคุณ" : "ตาของบอท…");
-    document.getElementById("player-panel").classList.toggle("active-turn", currentTurn === "player" && !gameOver);
+    document.getElementById("bottom-rack").classList.toggle("active-turn", currentTurn === "player" && !gameOver);
     document.getElementById("bot-strip").classList.toggle("active-turn", currentTurn === "bot" && !gameOver);
   }
 
@@ -538,10 +552,13 @@
     document.getElementById("btn-pass").addEventListener("click", passTurn);
     document.getElementById("amats-toggle").addEventListener("change", (e) => {
       showAmats = e.target.checked;
+      document.getElementById("game-layout").classList.toggle("no-amats", !showAmats);
       renderAmatsPanel();
+      sizeBoard();
     });
     document.getElementById("btn-restart").addEventListener("click", () => {
       document.getElementById("game-layout").hidden = true;
+      document.getElementById("bottom-bar").hidden = true;
       document.getElementById("topbar-status").hidden = true;
       document.getElementById("setup-panel").hidden = false;
     });

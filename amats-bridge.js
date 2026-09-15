@@ -122,7 +122,8 @@ const AMATS_BRIDGE = (() => {
     const board_ = boardState(board);
     const threat = threatLevel(board);
     const rec = available ? AE.recommendMode({ gap, phase, rack: rh.level, board: board_, threat }) : null;
-    return { gap, phase, rackHealth: rh, board: board_, boardPct: boardPct(board), threat, threatPct: threatPct(board), recommendation: rec };
+    const confidence = available ? AE.confidenceScore({ gap, rack: rh.level, threat }) : null;
+    return { gap, phase, rackHealth: rh, board: board_, boardPct: boardPct(board), threat, threatPct: threatPct(board), confidence, recommendation: rec };
   }
 
   return {
