@@ -152,6 +152,57 @@ main { flex: 1; min-height: 0; display: flex; }
 .amats-mode-badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-weight: 800; font-size: 0.82rem; color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,0.15); }
 .amats-reasons { color: var(--muted); font-size: 0.78rem; padding-left: 16px; margin: 6px 0 0; line-height: 1.6; }
 
+/* Meter bars (reused by AMATS stats, tile bag, rack power) */
+.meter { height: 6px; border-radius: 999px; background: var(--panel-2); overflow: hidden; margin-top: 6px; }
+.meter-fill { height: 100%; border-radius: 999px; transition: width 0.3s; }
+.meter-fill.good { background: var(--good); }
+.meter-fill.warn { background: var(--warn); }
+.meter-fill.bad { background: var(--bad); }
+.meter-fill.accent { background: var(--accent); }
+.amats-stat-pct { color: var(--muted); font-weight: 600; font-size: 0.72rem; margin-left: 4px; }
+
+/* AMATS tactical mode grid */
+.amats-mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 10px 0; }
+.mode-chip {
+  --mc: #999; padding: 7px 4px; border-radius: 8px; font-weight: 800; font-size: 0.68rem;
+  text-align: center; letter-spacing: 0.02em; border: 1.5px solid var(--mc); color: var(--mc);
+  background: color-mix(in srgb, var(--mc) 12%, white);
+}
+.mode-chip.is-primary { background: var(--mc); color: #fff; box-shadow: 0 3px 8px rgba(0,0,0,0.15); }
+.mode-chip.is-secondary:not(.is-primary) { border-width: 2px; }
+
+/* Score panel */
+#score-panel h2 { margin-bottom: 10px; }
+.score-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.score-card { background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.score-card-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.score-card-value { font-family: "IBM Plex Mono", monospace; font-size: 1.15rem; font-weight: 700; color: var(--good); }
+.score-card.bot .score-card-value { color: var(--bad); }
+.gap-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-weight: 800; font-size: 0.8rem; margin-bottom: 10px; }
+.gap-badge.positive { background: #dcfce7; color: #15803d; }
+.gap-badge.negative { background: #fee2e2; color: #b91c1c; }
+.gap-badge.neutral { background: var(--panel-2); color: var(--muted); }
+.mini-meter { margin-bottom: 10px; }
+.mini-meter-label { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); margin-bottom: 4px; }
+.progress-row { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--muted); }
+.progress-row b { color: var(--text); }
+
+/* Rack power meter (inside player panel) */
+.rack-power { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); margin: 6px 0 0; }
+
+/* History table */
+.history-panel { flex: none; max-height: 170px; display: flex; flex-direction: column; }
+.history-panel h2 { margin-bottom: 6px; }
+.history-table { overflow-y: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 4px; }
+.history-row { display: grid; grid-template-columns: 28px 52px 40px 1fr; gap: 6px; align-items: center; font-size: 0.72rem; padding: 4px 6px; border-radius: 6px; }
+.history-row.history-head { font-weight: 700; color: var(--muted); font-size: 0.64rem; text-transform: uppercase; }
+.history-row.player { background: #f0fdf4; }
+.history-row.bot { background: #fef2f2; }
+.history-score { font-family: "IBM Plex Mono", monospace; font-weight: 700; }
+.history-row.player .history-score { color: #15803d; }
+.history-row.bot .history-score { color: #b91c1c; }
+.history-eq { font-family: "IBM Plex Mono", monospace; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .actions { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 #btn-submit, #btn-pass { grid-column: 1 / -1; }
 button { font-family: inherit; cursor: pointer; border: none; border-radius: var(--radius-sm); padding: 10px 14px; font-weight: 700; font-size: 0.88rem; }

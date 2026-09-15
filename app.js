@@ -13,6 +13,11 @@
   let showAmats = true;
   let turnStartRack = [];
   let turnStartBoard = null;
+  let turnHistory = [];
+
+  const RACK_TONE = { Excellent: "good", Good: "good", Stable: "accent", Weak: "warn", Critical: "bad" };
+  const BOARD_TONE = { Open: "good", Balanced: "accent", Controlled: "accent", Restricted: "warn", Dangerous: "bad" };
+  const THREAT_TONE = { Low: "good", Medium: "accent", High: "warn", Critical: "bad" };
 
   function cloneBoardDeep(b) { return b.map(row => row.map(cell => (cell ? { ...cell } : null))); }
 
@@ -46,6 +51,7 @@
     playerScore = 0; botScore = 0;
     isFirstMove = true; currentTurn = "player"; pendingCoords = [];
     consecutivePasses = 0; gameOver = false; selectedRackIndex = null; turnNumber = 0;
+    turnHistory = [];
     turnStartRack = playerRack.slice();
     turnStartBoard = cloneBoardDeep(board);
     clearLog();
@@ -66,6 +72,17 @@
     renderStatus();
     renderActions();
     renderAmatsPanel();
+    renderScorePanel();
+    renderHistoryTable();
+  }
+
+  function meterStat(label, levelText, pct, tone) {
+    return `
+      <div class="amats-stat">
+        <div class="amats-stat-label">${label}</div>
+        <div class="amats-stat-value">${levelText} <span class="amats-stat-pct">${pct}%</span></div>
+        <div class="meter"><div class="meter-fill ${tone}" style="width:${pct}%"></div></div>
+      </div>`;
   }
 
   function renderAmatsPanel() {
@@ -82,21 +99,63 @@
     const body = document.getElementById("amats-body");
     const modes = AMATS_DATA.MODES;
     const rec = analysis.recommendation;
+
+    const modeGrid = Object.keys(modes).map(key => {
+      const isPrimary = rec && rec.primary === key;
+      const isSecondary = rec && rec.secondary === key;
+      return `<div class="mode-chip${isPrimary ? " is-primary" : ""}${isSecondary ? " is-secondary" : ""}" style="--mc:${modes[key].color}">${key}</div>`;
+    }).join("");
+
     body.innerHTML = `
       <div class="amats-grid">
         <div class="amats-stat"><div class="amats-stat-label">GAP</div><div class="amats-stat-value">${analysis.gap}</div></div>
         <div class="amats-stat"><div class="amats-stat-label">Game Phase</div><div class="amats-stat-value">${analysis.phase}</div></div>
-        <div class="amats-stat"><div class="amats-stat-label">Rack Health</div><div class="amats-stat-value">${analysis.rackHealth.level}</div></div>
-        <div class="amats-stat"><div class="amats-stat-label">Board State</div><div class="amats-stat-value">${analysis.board}</div></div>
-        <div class="amats-stat"><div class="amats-stat-label">Threat</div><div class="amats-stat-value">${analysis.threat}</div></div>
+        ${meterStat("Rack Health", analysis.rackHealth.level, analysis.rackHealth.pct, RACK_TONE[analysis.rackHealth.level] || "accent")}
+        ${meterStat("Board State", analysis.board, analysis.boardPct, BOARD_TONE[analysis.board] || "accent")}
+        ${meterStat("Threat", analysis.threat, analysis.threatPct, THREAT_TONE[analysis.threat] || "accent")}
       </div>
-      ${rec ? `
-        <div class="amats-rec">
-          <span>ควรเล่นแบบ <span class="amats-mode-badge" style="background:${modes[rec.primary].color}">${rec.primary}</span></span>
-          <span class="muted">สำรอง: <span class="amats-mode-badge" style="background:${modes[rec.secondary].color}">${rec.secondary}</span></span>
-        </div>
-        <ul class="amats-reasons">${rec.reasons.map(r => `<li>${r}</li>`).join("")}</ul>
-      ` : ""}
+      <div class="amats-mode-grid">${modeGrid}</div>
+      ${rec ? `<ul class="amats-reasons">${rec.reasons.map(r => `<li>${r}</li>`).join("")}</ul>` : ""}
+    `;
+  }
+
+  function renderScorePanel() {
+    const spPlayer = document.getElementById("sp-player-score");
+    if (!spPlayer) return;
+    document.getElementById("sp-bot-score").textContent = botScore;
+    spPlayer.textContent = playerScore;
+    const gap = playerScore - botScore;
+    const gapEl = document.getElementById("gap-badge");
+    gapEl.textContent = `Gap ${gap > 0 ? "+" : ""}${gap}`;
+    gapEl.className = "gap-badge " + (gap > 0 ? "positive" : gap < 0 ? "negative" : "neutral");
+    document.getElementById("bag-meter-text").textContent = `${bag.length}/100`;
+    document.getElementById("bag-meter-fill").style.width = Math.round((bag.length / 100) * 100) + "%";
+    const estTotal = AMATS_BRIDGE.totalTurns || 20;
+    document.getElementById("turn-progress-text").textContent = `${turnNumber + 1}/${estTotal}`;
+    document.getElementById("diff-progress-text").textContent = difficulty || "-";
+    const rackPct = AMATS_BRIDGE.available ? AMATS_BRIDGE.rackHealth(playerRack).pct : 0;
+    document.getElementById("rack-power-fill").style.width = rackPct + "%";
+    document.getElementById("rack-power-text").textContent = rackPct + "%";
+  }
+
+  function pushHistory(entry) {
+    turnHistory.unshift(entry);
+    renderHistoryTable();
+  }
+
+  function renderHistoryTable() {
+    const el = document.getElementById("history-table");
+    if (!el) return;
+    if (turnHistory.length === 0) { el.innerHTML = `<p class="muted">ยังไม่มีการเล่น</p>`; return; }
+    el.innerHTML = `
+      <div class="history-row history-head"><span>ตา</span><span>ผู้เล่น</span><span>แต้ม</span><span>สมการ</span></div>
+      ${turnHistory.slice(0, 12).map(h => `
+        <div class="history-row ${h.actor}">
+          <span>${h.turnNumber}</span>
+          <span>${h.actor === "player" ? "ผู้เล่น" : "BOT"}</span>
+          <span class="history-score">+${h.score}</span>
+          <span class="history-eq">${h.equation}</span>
+        </div>`).join("")}
     `;
   }
 
@@ -296,6 +355,7 @@
     turnNumber++;
     result.equations.forEach(eq => log(`คุณเล่น "${eq.string}" ได้ ${eq.score} คะแนน`));
     if (result.bingo) { log("BINGO! +40 คะแนนพิเศษ"); showToast("BINGO! +40 คะแนน", "success"); }
+    pushHistory({ turnNumber, actor: "player", score: result.score, equation: result.equations.map(e => e.string).join(" & ") });
     drawFromBag(playerRack, pendingCoords.length);
     pendingCoords = [];
 
@@ -345,6 +405,7 @@
       turnNumber++;
       move.equations.forEach(eq => log(`บอทเล่น "${eq.string}" ได้ ${eq.score} คะแนน`));
       if (move.coords.length === D.RACK_SIZE) log("บอททำ BINGO! +40 คะแนน");
+      pushHistory({ turnNumber, actor: "bot", score: move.score, equation: move.equations.map(e => e.string).join(" & ") });
       drawFromBag(botRack, move.coords.length);
       AMATS_LOGGER.logBotTurn(turnNumber, move.score);
       if (checkImmediateEndgame("bot")) return;

@@ -54,8 +54,26 @@
     </div>
 
     <aside id="side-panel">
+      <div class="panel" id="score-panel">
+        <h2>คะแนน</h2>
+        <div class="score-cards">
+          <div class="score-card"><span class="score-card-label">ผู้เล่น</span><span class="score-card-value" id="sp-player-score">0</span></div>
+          <div class="score-card bot"><span class="score-card-label">บอท</span><span class="score-card-value" id="sp-bot-score">0</span></div>
+        </div>
+        <div id="gap-badge" class="gap-badge neutral">Gap 0</div>
+        <div class="mini-meter">
+          <div class="mini-meter-label"><span>เบี้ยในถุง</span><span id="bag-meter-text">100/100</span></div>
+          <div class="meter"><div id="bag-meter-fill" class="meter-fill accent" style="width:100%"></div></div>
+        </div>
+        <div class="progress-row">
+          <span>ตาที่ <b id="turn-progress-text">1/20</b></span>
+          <span>ระดับ <b id="diff-progress-text">-</b></span>
+        </div>
+      </div>
       <div class="panel" id="player-panel">
         <h2>คุณ <span id="player-score" class="score-big">0</span></h2>
+        <div class="rack-power"><span>พลัง Rack</span><span id="rack-power-text">0%</span></div>
+        <div class="meter"><div id="rack-power-fill" class="meter-fill good" style="width:0%"></div></div>
         <div class="rack" id="player-rack"></div>
       </div>
       <div class="panel actions">
@@ -64,6 +82,10 @@
         <button id="btn-shuffle" class="btn-secondary">สลับเรียง</button>
         <button id="btn-exchange" class="btn-secondary">แลกเบี้ย</button>
         <button id="btn-pass" class="btn-danger">ผ่านตา</button>
+      </div>
+      <div class="panel history-panel">
+        <h2>ประวัติการเล่น</h2>
+        <div id="history-table" class="history-table"></div>
       </div>
       <div class="panel log-panel">
         <h2>บันทึกการเล่น</h2>
