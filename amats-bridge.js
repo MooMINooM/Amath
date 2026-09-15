@@ -52,20 +52,34 @@ const AMATS_BRIDGE = (() => {
     return "Critical";
   }
 
+  /** แปลงคะแนนดิบ Rack Health เป็น % (0-100) สำหรับแสดงเป็นแถบ — 20 คือคะแนนดิบสูงสุดที่ทำได้จริง */
+  function rackHealthPct(score) {
+    return Math.max(0, Math.min(100, Math.round((score / 20) * 100)));
+  }
+
   function rackHealth(rack) {
     const s = rackHealthScore(rack);
-    return { score: s, level: rackHealthLevel(s) };
+    return { score: s, level: rackHealthLevel(s), pct: rackHealthPct(s) };
+  }
+
+  function boardFillRatio(board) {
+    const filled = board.flat().filter(Boolean).length;
+    return filled / (GD.BOARD_SIZE * GD.BOARD_SIZE);
   }
 
   /** Board State — ประมาณจากสัดส่วนช่องที่ถูกใช้ไปแล้วบนกระดาน 225 ช่อง */
   function boardState(board) {
-    const filled = board.flat().filter(Boolean).length;
-    const ratio = filled / (GD.BOARD_SIZE * GD.BOARD_SIZE);
+    const ratio = boardFillRatio(board);
     if (ratio < 0.05) return "Open";
     if (ratio < 0.15) return "Balanced";
     if (ratio < 0.3) return "Controlled";
     if (ratio < 0.5) return "Restricted";
     return "Dangerous";
+  }
+
+  /** % ช่องที่ถูกใช้ไปแล้ว สำหรับแสดงเป็นแถบคู่กับ Board State */
+  function boardPct(board) {
+    return Math.round(boardFillRatio(board) * 100);
   }
 
   function emptyCellsAdjacentToLocked(board) {
@@ -81,14 +95,23 @@ const AMATS_BRIDGE = (() => {
     return out;
   }
 
+  function premiumOpenCount(board) {
+    const spots = emptyCellsAdjacentToLocked(board);
+    return spots.filter(([r, c]) => ["TE", "DE", "TP"].includes(GD.bonusAt(r, c))).length;
+  }
+
   /** Threat — ประมาณจากจำนวนช่องโบนัสชั้นดี (TE/DE/TP) ที่ "เปิด" ให้เข้าถึงได้ตอนนี้ (คู่แข่งอาจฉวยไปตาถัดไป) */
   function threatLevel(board) {
-    const spots = emptyCellsAdjacentToLocked(board);
-    const premium = spots.filter(([r, c]) => ["TE", "DE", "TP"].includes(GD.bonusAt(r, c))).length;
+    const premium = premiumOpenCount(board);
     if (premium === 0) return "Low";
     if (premium <= 2) return "Medium";
     if (premium <= 5) return "High";
     return "Critical";
+  }
+
+  /** % ระดับ Threat สำหรับแสดงเป็นแถบ — 6 ช่องโบนัสชั้นดีที่เปิดพร้อมกันถือว่าเต็ม 100% */
+  function threatPct(board) {
+    return Math.max(0, Math.min(100, Math.round((premiumOpenCount(board) / 6) * 100)));
   }
 
   /** สรุปสถานการณ์ปัจจุบันทั้งหมด พร้อมคำแนะนำ AMATS */
@@ -99,8 +122,12 @@ const AMATS_BRIDGE = (() => {
     const board_ = boardState(board);
     const threat = threatLevel(board);
     const rec = available ? AE.recommendMode({ gap, phase, rack: rh.level, board: board_, threat }) : null;
-    return { gap, phase, rackHealth: rh, board: board_, threat, recommendation: rec };
+    const confidence = available ? AE.confidenceScore({ gap, rack: rh.level, threat }) : null;
+    return { gap, phase, rackHealth: rh, board: board_, boardPct: boardPct(board), threat, threatPct: threatPct(board), confidence, recommendation: rec };
   }
 
-  return { available, gapFromScores, phaseFromTurn, rackHealth, rackHealthScore, boardState, threatLevel, analyze, emptyCellsAdjacentToLocked };
+  return {
+    available, gapFromScores, phaseFromTurn, rackHealth, rackHealthScore, boardState, boardPct, threatLevel, threatPct,
+    analyze, emptyCellsAdjacentToLocked, totalTurns: ESTIMATED_TOTAL_TURNS,
+  };
 })();

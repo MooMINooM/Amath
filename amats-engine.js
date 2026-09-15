@@ -66,6 +66,21 @@ const AMATS_ENGINE = (() => {
     };
   }
 
+  const GAP_CLARITY = { "สูสี": 40, "นำเล็กน้อย": 65, "ตามเล็กน้อย": 65, "นำมาก": 90, "ตามมาก": 90 };
+  const THREAT_CLARITY = { Low: 85, Medium: 70, High: 60, Critical: 95 };
+  const RACK_CLARITY = { Excellent: 90, Good: 85, Stable: 70, Weak: 55, Critical: 90 };
+
+  /**
+   * ความมั่นใจของคำแนะนำ (ไม่ใช่ความมั่นใจว่าจะชนะ) — ยิ่งสถานการณ์ชัดเจน (GAP ห่างมาก, Threat/Rack วิกฤตจนมีกฎตัดสินตรงๆ)
+   * ยิ่งมั่นใจว่าโหมดที่แนะนำถูกต้อง ตรงข้ามกับสถานการณ์สูสีก้ำกึ่งที่ยังเลือกได้หลายทาง
+   */
+  function confidenceScore({ gap, rack, threat }) {
+    const g = GAP_CLARITY[gap] ?? 60;
+    const t = THREAT_CLARITY[threat] ?? 60;
+    const r = RACK_CLARITY[rack] ?? 60;
+    return Math.round((g + t + r) / 3);
+  }
+
   /** คำนวณ Move Value = Score + Position + Rack + Denial − Opponent Opportunity */
   function moveValue({ score = 0, position = 0, rack = 0, denial = 0, opponentOpportunity = 0 }) {
     return score + position + rack + denial - opponentOpportunity;
@@ -99,5 +114,5 @@ const AMATS_ENGINE = (() => {
     return { total, max, level };
   }
 
-  return { recommendMode, moveValue, netGain, twoTurnExpectedValue, assessRackHealth };
+  return { recommendMode, moveValue, netGain, twoTurnExpectedValue, assessRackHealth, confidenceScore };
 })();
