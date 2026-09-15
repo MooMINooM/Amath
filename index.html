@@ -1,1 +1,37 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AMATS — A-Math Tactical Trainer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>AMATS — A-Math Tactical System</h1>
+  <p class="subtitle">แนวคิดระบบวิเคราะห์เกม ฝึกซ้อม และตัดสินใจเชิงกลยุทธ์สำหรับ A-Math</p>
+  <p class="modes-strip">PRESS · BUILD · CONTROL · DENY · GUARD · RESET</p>
+</header>
 
+<nav id="tabnav"></nav>
+
+<main>
+  <section id="panel-dashboard" class="tabpanel"></section>
+  <section id="panel-advisor" class="tabpanel"></section>
+  <section id="panel-moves" class="tabpanel"></section>
+  <section id="panel-rack" class="tabpanel"></section>
+  <section id="panel-checklist" class="tabpanel"></section>
+  <section id="panel-practice" class="tabpanel"></section>
+  <section id="panel-history" class="tabpanel"></section>
+  <section id="panel-playbook" class="tabpanel"></section>
+</main>
+
+<footer>
+  AMATS Phase 1 (Rule-based) — ข้อมูลการฝึกทั้งหมดถูกบันทึกไว้ในเบราว์เซอร์ของคุณเท่านั้น (localStorage)
+</footer>
+
+<script src="data.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
