@@ -9,6 +9,8 @@
   let board, bag, playerRack, botRack, playerScore, botScore;
   let isFirstMove, currentTurn, pendingCoords, consecutivePasses, gameOver, difficulty;
   let selectedRackIndex = null;
+  let turnNumber = 0;
+  let showAmats = true;
 
   function newBoard() { return Array.from({ length: D.BOARD_SIZE }, () => Array(D.BOARD_SIZE).fill(null)); }
 
@@ -29,7 +31,7 @@
     drawFromBag(botRack, D.RACK_SIZE);
     playerScore = 0; botScore = 0;
     isFirstMove = true; currentTurn = "player"; pendingCoords = [];
-    consecutivePasses = 0; gameOver = false; selectedRackIndex = null;
+    consecutivePasses = 0; gameOver = false; selectedRackIndex = null; turnNumber = 0;
     clearLog();
     log(`เริ่มเกมใหม่ — บอทระดับ ${diff}`);
     document.getElementById("setup-panel").hidden = true;
@@ -43,6 +45,39 @@
     renderRack();
     renderStatus();
     renderActions();
+    renderAmatsPanel();
+  }
+
+  function renderAmatsPanel() {
+    const panel = document.getElementById("amats-panel");
+    panel.hidden = !showAmats;
+    if (!showAmats) return;
+    if (!AMATS_BRIDGE.available) {
+      document.getElementById("amats-body").innerHTML = `<p class="muted">โหลดโมดูล AMATS ไม่สำเร็จ</p>`;
+      return;
+    }
+    const analysis = AMATS_BRIDGE.analyze({
+      board, myScore: playerScore, oppScore: botScore, turnNumber: turnNumber + 1, rack: playerRack,
+    });
+    const body = document.getElementById("amats-body");
+    const modes = AMATS_DATA.MODES;
+    const rec = analysis.recommendation;
+    body.innerHTML = `
+      <div class="amats-grid">
+        <div class="amats-stat"><div class="amats-stat-label">GAP</div><div class="amats-stat-value">${analysis.gap}</div></div>
+        <div class="amats-stat"><div class="amats-stat-label">Game Phase</div><div class="amats-stat-value">${analysis.phase}</div></div>
+        <div class="amats-stat"><div class="amats-stat-label">Rack Health</div><div class="amats-stat-value">${analysis.rackHealth.level}</div></div>
+        <div class="amats-stat"><div class="amats-stat-label">Board State</div><div class="amats-stat-value">${analysis.board}</div></div>
+        <div class="amats-stat"><div class="amats-stat-label">Threat</div><div class="amats-stat-value">${analysis.threat}</div></div>
+      </div>
+      ${rec ? `
+        <div class="amats-rec">
+          <span>ควรเล่นแบบ <span class="amats-mode-badge" style="background:${modes[rec.primary].color}">${rec.primary}</span></span>
+          <span class="muted">สำรอง: <span class="amats-mode-badge" style="background:${modes[rec.secondary].color}">${rec.secondary}</span></span>
+        </div>
+        <ul class="amats-reasons">${rec.reasons.map(r => `<li>${r}</li>`).join("")}</ul>
+      ` : ""}
+    `;
   }
 
   function renderBoard() {
@@ -229,6 +264,7 @@
     playerScore += result.score;
     isFirstMove = false;
     consecutivePasses = 0;
+    turnNumber++;
     result.equations.forEach(eq => log(`คุณเล่น "${eq.string}" ได้ ${eq.score} คะแนน`));
     if (result.bingo) { log("BINGO! +40 คะแนนพิเศษ"); showToast("BINGO! +40 คะแนน", "success"); }
     drawFromBag(playerRack, pendingCoords.length);
@@ -254,7 +290,9 @@
 
   /* ---------- Bot turn ---------- */
   function botTakeTurn() {
-    const move = BOT.findMove(board, botRack, isFirstMove, difficulty);
+    const move = BOT.findMove(board, botRack, isFirstMove, difficulty, {
+      myScore: botScore, oppScore: playerScore, turnNumber: turnNumber + 1,
+    });
     if (move.found) {
       move.coords.forEach(({ r, c }, i) => {
         const tile = move.tiles[i];
@@ -264,6 +302,7 @@
       botScore += move.score;
       isFirstMove = false;
       consecutivePasses = 0;
+      turnNumber++;
       move.equations.forEach(eq => log(`บอทเล่น "${eq.string}" ได้ ${eq.score} คะแนน`));
       if (move.coords.length === D.RACK_SIZE) log("บอททำ BINGO! +40 คะแนน");
       drawFromBag(botRack, move.coords.length);
@@ -350,6 +389,10 @@
     document.getElementById("btn-shuffle").addEventListener("click", shuffleRackOrder);
     document.getElementById("btn-exchange").addEventListener("click", openExchangeModal);
     document.getElementById("btn-pass").addEventListener("click", passTurn);
+    document.getElementById("amats-toggle").addEventListener("change", (e) => {
+      showAmats = e.target.checked;
+      renderAmatsPanel();
+    });
     document.getElementById("btn-restart").addEventListener("click", () => {
       document.getElementById("game-panel").hidden = true;
       document.getElementById("setup-panel").hidden = false;
