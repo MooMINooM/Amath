@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A-Math — เล่นกับบอท</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>A-Math — เล่นกับบอท</h1>
+  <p>เกม A-Math ของจริง เล่นกับบอทที่คิดและวางเบี้ยเองตามกติกาทางการ</p>
+</header>
+
+<main>
+  <section id="setup-panel">
+    <h2>เลือกระดับบอท</h2>
+    <p class="muted">Rookie เดินหาทางง่ายๆ ไม่กี่ครั้งแล้วเลือกที่เจอ · Standard/Master ค้นหลายรอบกว่าและเลือกทางที่คะแนนดีที่สุด</p>
+    <div class="difficulty-row">
+      <button class="difficulty-btn" data-diff="Rookie"><span class="diff-name">Rookie</span><span class="diff-desc">เพิ่งเริ่มเล่น เดินพลาดบ่อย</span></button>
+      <button class="difficulty-btn" data-diff="Standard"><span class="diff-name">Standard</span><span class="diff-desc">เล่นได้เรื่อยๆ พอสู้ได้</span></button>
+      <button class="difficulty-btn" data-diff="Master"><span class="diff-name">Master</span><span class="diff-desc">ค้นหาทางเดินคะแนนสูงอย่างจริงจัง</span></button>
+    </div>
+  </section>
+
+  <section id="game-panel" hidden>
+    <div class="status-row">
+      <span id="turn-indicator">ตาของคุณ</span>
+      <span>เบี้ยในถุง: <b id="bag-count">0</b></span>
+      <button id="btn-restart" class="btn-secondary" style="padding:4px 10px;font-size:0.8rem">เริ่มเกมใหม่</button>
+    </div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">
+      <div class="board-col">
+        <div id="board"></div>
+      </div>
+      <div class="side-col">
+        <div class="panel" id="bot-panel">
+          <h2>บอท <span id="bot-score" class="score-big">0</span></h2>
+          <div class="rack" id="bot-rack"></div>
+        </div>
+        <div class="panel" id="player-panel">
+          <h2>คุณ <span id="player-score" class="score-big">0</span></h2>
+          <div class="rack" id="player-rack"></div>
+        </div>
+        <div class="panel actions">
+          <button id="btn-submit" class="btn-primary">ยืนยันสมการ</button>
+          <button id="btn-recall" class="btn-secondary">ดึงเบี้ยกลับ</button>
+          <button id="btn-shuffle" class="btn-secondary">สลับเรียง</button>
+          <button id="btn-exchange" class="btn-secondary">แลกเบี้ย</button>
+          <button id="btn-pass" class="btn-danger">ผ่านตา</button>
+        </div>
+        <div class="panel log-panel">
+          <h2>บันทึกการเล่น</h2>
+          <div id="log"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="modal" hidden></div>
+<div id="toast-container"></div>
+
+<script src="data.js"></script>
+<script src="engine.js"></script>
+<script src="bot.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
