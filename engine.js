@@ -76,6 +76,16 @@ const AMATS_ENGINE = (() => {
     return ourScore - expectedOpponentScore;
   }
 
+  /**
+   * Phase 3 — จำลอง 2 Turn ล่วงหน้า (Two-Turn Thinking: Our Move → Opponent Response → Our Next Move)
+   * คำนวณ Expected Value โดยถ่วงน้ำหนักการตอบของคู่แข่งแต่ละทางด้วยความน่าจะเป็น (prob เป็น 0–100)
+   * branches: [{ prob, oppScore, nextMoveValue }]
+   */
+  function twoTurnExpectedValue(immediateMoveValue, branches) {
+    const continuation = branches.reduce((sum, b) => sum + (b.prob / 100) * (b.nextMoveValue - b.oppScore), 0);
+    return immediateMoveValue + continuation;
+  }
+
   /** ประเมิน Rack Health จากแบบสอบถามสั้น → คืนระดับ + คะแนนดิบ */
   function assessRackHealth(answers) {
     const total = D.RACK_CHECK_QUESTIONS.reduce((sum, q) => sum + (answers[q.id] ? q.weight : 0), 0);
@@ -89,5 +99,5 @@ const AMATS_ENGINE = (() => {
     return { total, max, level };
   }
 
-  return { recommendMode, moveValue, netGain, assessRackHealth };
+  return { recommendMode, moveValue, netGain, twoTurnExpectedValue, assessRackHealth };
 })();

@@ -219,6 +219,26 @@ tr.best-row { background: rgba(76, 201, 240, 0.08); }
 
 .two-turn-form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
 
+.sim-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 12px 0;
+}
+.sim-card.sim-best { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.sim-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.sim-card-head .sim-label { font-size: 1.05rem; font-weight: 700; flex: 1; }
+.sim-immediate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.sim-immediate-value { color: var(--muted); margin-bottom: 10px; }
+.sim-ev { margin-top: 10px; font-size: 1.05rem; }
+.prob-warn { color: #e07a5f; font-size: 0.85rem; }
+
 .suggestion-box {
   background: var(--panel);
   border: 1px solid var(--border);

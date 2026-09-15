@@ -66,6 +66,7 @@
     { id: "dashboard", label: "หน้าหลัก" },
     { id: "advisor", label: "Tactical Advisor" },
     { id: "moves", label: "Move Comparator" },
+    { id: "simulator", label: "Simulator" },
     { id: "rack", label: "Rack Health" },
     { id: "checklist", label: "S-R-B-T-G" },
     { id: "practice", label: "ฝึกซ้อม" },
@@ -251,6 +252,127 @@
     });
     table.querySelectorAll(".row-del").forEach(btn => {
       btn.addEventListener("click", () => { moveRows.splice(+btn.dataset.idx, 1); renderMoveTable(); });
+    });
+  }
+
+  /* ================= SIMULATOR (Phase 3: 2-Turn Expected Value) ================= */
+  let simMoves = [];
+  function newBranch(label) { return { label, prob: 50, oppScore: 15, nextMoveValue: 20 }; }
+  function newSimMove(label) { return { label, score: 20, position: 0, rack: 0, denial: 0, oppOpp: 0, branches: [newBranch("Response 1"), newBranch("Response 2")] }; }
+  function computeSimMove(m) {
+    const immediate = E.moveValue({ score: m.score, position: m.position, rack: m.rack, denial: m.denial, opponentOpportunity: m.oppOpp });
+    const probSum = m.branches.reduce((s, b) => s + b.prob, 0);
+    const ev = E.twoTurnExpectedValue(immediate, m.branches);
+    return { ...m, immediate, probSum, ev };
+  }
+
+  function renderSimulatorTab() {
+    if (simMoves.length === 0) simMoves = [newSimMove("Move A"), newSimMove("Move B")];
+    const panel = document.getElementById("panel-simulator");
+    panel.innerHTML = `
+      <h2>Simulator — จำลอง 2 Turn ล่วงหน้า</h2>
+      <p class="lead">Our Move → Opponent Response (หลายทางถ่วงน้ำหนักด้วยความน่าจะเป็น) → Our Next Move —
+      เปรียบเทียบ Expected Value ของแต่ละทางเลือกตานี้ โดยคิดรวมการตอบโต้ของคู่แข่งด้วย ไม่ใช่แค่คะแนนตาเดียว</p>
+      <div id="sim-body"></div>
+      <div class="row-actions">
+        <button id="sim-add-move" class="btn-secondary">+ เพิ่มทางเลือกตานี้</button>
+        <button id="sim-save" class="btn-primary">บันทึกผลจำลอง</button>
+      </div>
+    `;
+    document.getElementById("sim-add-move").addEventListener("click", () => {
+      if (simMoves.length >= 3) return;
+      simMoves.push(newSimMove("Move " + String.fromCharCode(65 + simMoves.length)));
+      renderSimBody();
+    });
+    document.getElementById("sim-save").addEventListener("click", () => {
+      addLogEntry({ type: "simulation", moves: simMoves.map(computeSimMove) });
+      const btn = document.getElementById("sim-save");
+      btn.textContent = "บันทึกแล้ว ✓";
+      setTimeout(() => { btn.textContent = "บันทึกผลจำลอง"; }, 1500);
+    });
+    renderSimBody();
+  }
+
+  function renderSimBody() {
+    const body = document.getElementById("sim-body");
+    const computed = simMoves.map(computeSimMove);
+    const bestEV = Math.max(...computed.map(c => c.ev));
+    body.innerHTML = computed.map((m, mi) => `
+      <div class="sim-card ${m.ev === bestEV ? "sim-best" : ""}">
+        <div class="sim-card-head">
+          <input class="cell-text sim-label" data-mi="${mi}" value="${m.label}">
+          ${simMoves.length > 1 ? `<button class="row-del sim-move-del" data-mi="${mi}">✕</button>` : ""}
+        </div>
+        <div class="sim-immediate-grid">
+          <label>Score<input type="number" class="cell-num sim-field" data-mi="${mi}" data-field="score" value="${m.score}"></label>
+          <label>Position<input type="number" class="cell-num sim-field" data-mi="${mi}" data-field="position" value="${m.position}"></label>
+          <label>Rack<input type="number" class="cell-num sim-field" data-mi="${mi}" data-field="rack" value="${m.rack}"></label>
+          <label>Denial<input type="number" class="cell-num sim-field" data-mi="${mi}" data-field="denial" value="${m.denial}"></label>
+          <label>Opp. Opportunity<input type="number" class="cell-num sim-field" data-mi="${mi}" data-field="oppOpp" value="${m.oppOpp}"></label>
+        </div>
+        <div class="sim-immediate-value">Move Value ตานี้: <strong>${m.immediate}</strong></div>
+
+        <div class="table-wrap"><table class="data-table">
+          <thead><tr><th>การตอบของคู่แข่ง</th><th>โอกาส (%)</th><th>คะแนนคู่แข่งตานั้น</th><th>Our Next Move (ประมาณ)</th><th>ผลตอบแทนกิ่งนี้</th><th></th></tr></thead>
+          <tbody>${m.branches.map((b, bi) => `
+            <tr>
+              <td><input class="cell-text sim-branch-field" data-mi="${mi}" data-bi="${bi}" data-field="label" value="${b.label}"></td>
+              <td><input type="number" class="cell-num sim-branch-field" data-mi="${mi}" data-bi="${bi}" data-field="prob" value="${b.prob}"></td>
+              <td><input type="number" class="cell-num sim-branch-field" data-mi="${mi}" data-bi="${bi}" data-field="oppScore" value="${b.oppScore}"></td>
+              <td><input type="number" class="cell-num sim-branch-field" data-mi="${mi}" data-bi="${bi}" data-field="nextMoveValue" value="${b.nextMoveValue}"></td>
+              <td>${b.nextMoveValue - b.oppScore}</td>
+              <td>${m.branches.length > 1 ? `<button class="row-del sim-branch-del" data-mi="${mi}" data-bi="${bi}">✕</button>` : ""}</td>
+            </tr>
+          `).join("")}</tbody>
+        </table></div>
+        <div class="row-actions">
+          <button class="btn-secondary sim-branch-add" data-mi="${mi}">+ เพิ่มการตอบ</button>
+          <span class="${m.probSum !== 100 ? "prob-warn" : "muted"}">รวมความน่าจะเป็น: ${m.probSum}%${m.probSum !== 100 ? " (ควรรวมให้ได้ 100%)" : ""}</span>
+        </div>
+        <div class="sim-ev">Expected Value รวม 2 ตา: <strong>${m.ev.toFixed(1)}</strong></div>
+      </div>
+    `).join("");
+
+    body.querySelectorAll(".sim-label").forEach(inp => {
+      inp.addEventListener("input", () => {
+        const mi = +inp.dataset.mi;
+        simMoves[mi].label = inp.value;
+        renderSimBody();
+        const again = document.querySelector(`.sim-label[data-mi="${mi}"]`);
+        if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+      });
+    });
+    body.querySelectorAll(".sim-field").forEach(inp => {
+      inp.addEventListener("input", () => {
+        const mi = +inp.dataset.mi, field = inp.dataset.field;
+        simMoves[mi][field] = parseFloat(inp.value) || 0;
+        renderSimBody();
+        const again = document.querySelector(`.sim-field[data-mi="${mi}"][data-field="${field}"]`);
+        if (again) again.focus();
+      });
+    });
+    body.querySelectorAll(".sim-branch-field").forEach(inp => {
+      inp.addEventListener("input", () => {
+        const mi = +inp.dataset.mi, bi = +inp.dataset.bi, field = inp.dataset.field;
+        simMoves[mi].branches[bi][field] = field === "label" ? inp.value : (parseFloat(inp.value) || 0);
+        renderSimBody();
+        const again = document.querySelector(`.sim-branch-field[data-mi="${mi}"][data-bi="${bi}"][data-field="${field}"]`);
+        if (again) { again.focus(); if (again.type !== "number") again.setSelectionRange(again.value.length, again.value.length); }
+      });
+    });
+    body.querySelectorAll(".sim-move-del").forEach(btn => {
+      btn.addEventListener("click", () => { simMoves.splice(+btn.dataset.mi, 1); renderSimBody(); });
+    });
+    body.querySelectorAll(".sim-branch-del").forEach(btn => {
+      btn.addEventListener("click", () => { simMoves[+btn.dataset.mi].branches.splice(+btn.dataset.bi, 1); renderSimBody(); });
+    });
+    body.querySelectorAll(".sim-branch-add").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const mi = +btn.dataset.mi;
+        if (simMoves[mi].branches.length >= 3) return;
+        simMoves[mi].branches.push(newBranch("Response " + (simMoves[mi].branches.length + 1)));
+        renderSimBody();
+      });
     });
   }
 
@@ -474,7 +596,8 @@
         <p>${s.story}</p>
         <p class="scenario-tags">GAP: <strong>${s.gap}</strong> · Phase: <strong>${s.phase}</strong> · Rack: <strong>${s.rack}</strong> · Board: <strong>${s.board}</strong> · Threat: <strong>${s.threat}</strong></p>
       </div>
-      <p>คิดล่วงหน้าอย่างน้อย 2 จังหวะ: Our Move → Opponent Response → Our Next Move</p>
+      <p>คิดล่วงหน้าอย่างน้อย 2 จังหวะ: Our Move → Opponent Response → Our Next Move
+      (อยากคำนวณ Expected Value เป็นตัวเลขจริง ไปต่อที่แท็บ <strong>Simulator</strong> ได้)</p>
       <form id="l4-form" class="two-turn-form">
         <label>การเดินของเรา (Our Move)<textarea name="ourMove" rows="2"></textarea></label>
         <label>คาดการตอบของคู่แข่ง (Opponent Response)<textarea name="oppResponse" rows="2"></textarea></label>
@@ -770,10 +893,14 @@
     });
   }
   function entrySummaryRow(e) {
-    const typeLabel = { advisor: "Tactical Advisor", move: "Move Comparator", rack: "Rack Health", checklist: "Checklist S-R-B-T-G", practice: "ฝึกซ้อม" }[e.type] || e.type;
+    const typeLabel = { advisor: "Tactical Advisor", move: "Move Comparator", simulation: "Simulator (2-Turn EV)", rack: "Rack Health", checklist: "Checklist S-R-B-T-G", practice: "ฝึกซ้อม" }[e.type] || e.type;
     let detail = "";
     if (e.type === "advisor") detail = `${e.state.gap} / ${e.state.phase} → ${modeBadge(e.mode, "sm")}`;
     else if (e.type === "move") detail = e.rows.map(r => `${r.label}:${r.value}`).join(", ");
+    else if (e.type === "simulation") {
+      const best = e.moves.reduce((a, b) => (b.ev > a.ev ? b : a));
+      detail = `ดีที่สุด: ${best.label} (EV ${best.ev.toFixed(1)}) — ${e.moves.map(m => `${m.label}:${m.ev.toFixed(1)}`).join(", ")}`;
+    }
     else if (e.type === "rack") detail = `${e.level} (${e.score})`;
     else if (e.type === "checklist") detail = D.SRBTG.map(i => i.code).join("");
     else if (e.type === "practice") detail = `Level ${e.level}${e.result ? " — " + e.result : ""}`;
@@ -826,6 +953,7 @@
     renderDashboardTab();
     renderAdvisorTab();
     renderMoveComparatorTab();
+    renderSimulatorTab();
     renderRackTab();
     renderChecklistTab();
     renderPracticeTab();
