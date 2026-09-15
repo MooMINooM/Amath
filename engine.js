@@ -1,103 +1,210 @@
-/* AMATS — Rule engine (Phase 1: Rule-based) ตามเอกสารแนวคิด AMATS */
-const AMATS_ENGINE = (() => {
-  const D = AMATS_DATA;
+/* A-Math Game — ตัวตรวจสมการ, กติกาการวาง, และการคิดคะแนน (อิงคู่มือกติกาทางการ) */
+const AMATH_ENGINE = (() => {
+  const D = AMATH_DATA;
+
+  /* ---------- Tokenizer + Evaluator (ไม่ใช้ eval ของ JS เพื่อคุมกติกาเองทั้งหมด) ---------- */
+
+  // แยกสมการทั้งสตริง (อาจมีหลาย "=" ต่อกัน) ออกเป็น segment แล้ว tokenize ทีละ segment
+  function tokenizeSegment(seg) {
+    if (!seg) return { ok: false, error: "ฝั่งสมการว่างเปล่า" };
+    let i = 0;
+    const tokens = [];
+    const n = seg.length;
+
+    function readUnsignedNumber() {
+      const start = i;
+      while (i < n && /[0-9]/.test(seg[i])) i++;
+      if (i === start) return null;
+      return seg.slice(start, i);
+    }
+
+    // ตัวแรกของ segment: อนุญาตเครื่องหมายลบนำหน้า (ค่าติดลบ) แต่ห้าม + นำหน้า
+    if (seg[0] === "+") return { ok: false, error: `ห้ามใช้เครื่องหมาย + นำหน้าตัวเลข ("${seg}")` };
+    let leadingMinus = false;
+    if (seg[0] === "-") { leadingMinus = true; i = 1; }
+    const firstNumRaw = readUnsignedNumber();
+    if (!firstNumRaw) return { ok: false, error: `รูปแบบไม่ถูกต้อง ("${seg}")` };
+    if (firstNumRaw.length > 1 && firstNumRaw[0] === "0") return { ok: false, error: `ห้ามใช้ 0 นำหน้าตัวเลข ("${firstNumRaw}")` };
+    if (leadingMinus && firstNumRaw === "0") return { ok: false, error: `ห้ามใช้เครื่องหมายลบนำหน้าเลข 0` };
+    tokens.push({ type: "num", value: (leadingMinus ? -1 : 1) * parseInt(firstNumRaw, 10) });
+
+    while (i < n) {
+      const opChar = seg[i];
+      if (!"+-×÷".includes(opChar)) return { ok: false, error: `พบอักขระที่ใช้ไม่ได้ "${opChar}"` };
+      i++;
+      const numRaw = readUnsignedNumber();
+      if (!numRaw) return { ok: false, error: `ห้ามวางเครื่องหมายติดกัน หรือจบด้วยเครื่องหมาย ("${seg}")` };
+      if (numRaw.length > 1 && numRaw[0] === "0") return { ok: false, error: `ห้ามใช้ 0 นำหน้าตัวเลข ("${numRaw}")` };
+      if (opChar === "-" && numRaw === "0") return { ok: false, error: `ห้ามใช้เครื่องหมายลบหรือบวกติดกับเลข 0` };
+      tokens.push({ type: "op", value: opChar });
+      tokens.push({ type: "num", value: parseInt(numRaw, 10) });
+    }
+    return { ok: true, tokens };
+  }
+
+  // คำนวณตาม ลำดับ ×÷ ก่อน +− (ซ้ายไปขวาในลำดับเดียวกัน) ห้ามหารด้วย 0
+  function evalTokens(tokens) {
+    // pass 1: × ÷
+    let vals = [tokens[0].value];
+    let ops = [];
+    for (let k = 1; k < tokens.length; k += 2) {
+      const op = tokens[k].value;
+      const num = tokens[k + 1].value;
+      if (op === "×" || op === "÷") {
+        if (op === "÷") {
+          if (num === 0) return { ok: false, error: "ห้ามหารด้วย 0" };
+          vals[vals.length - 1] = vals[vals.length - 1] / num;
+        } else {
+          vals[vals.length - 1] = vals[vals.length - 1] * num;
+        }
+      } else {
+        ops.push(op);
+        vals.push(num);
+      }
+    }
+    // pass 2: + −
+    let total = vals[0];
+    for (let k = 0; k < ops.length; k++) {
+      total = ops[k] === "+" ? total + vals[k + 1] : total - vals[k + 1];
+    }
+    return { ok: true, value: total };
+  }
+
+  function evalSegment(seg) {
+    const t = tokenizeSegment(seg);
+    if (!t.ok) return t;
+    return evalTokens(t.tokens);
+  }
+
+  /** ตรวจสมการทั้งสตริง (อาจมีหลาย "=" ต่อกันได้) — ทุกฝั่งต้องมีค่าเท่ากัน */
+  function validateEquation(fullString) {
+    const segments = fullString.split("=");
+    if (segments.length < 2) return { valid: false, error: "ต้องมีเครื่องหมาย = อย่างน้อยหนึ่งตัว" };
+    if (segments.some(s => s.length === 0)) return { valid: false, error: "ห้ามมี = ติดกัน หรือ = อยู่ที่ต้น/ท้ายสมการ" };
+    const values = [];
+    for (const seg of segments) {
+      const r = evalSegment(seg);
+      if (!r.ok) return { valid: false, error: r.error };
+      values.push(r.value);
+    }
+    const EPS = 1e-9;
+    for (let i = 1; i < values.length; i++) {
+      if (Math.abs(values[i] - values[0]) > EPS) return { valid: false, error: `สมการไม่สมดุล: ${segments[0]}=${values[0]} แต่ ${segments[i]}=${values[i]}` };
+    }
+    return { valid: true, value: values[0] };
+  }
+
+  /* ---------- คิดคะแนน ---------- */
+
+  const RACK_NUMERIC_STUB = null; // (ไม่ใช้ในไฟล์นี้ กันชื่อชนกับไฟล์อื่น)
 
   /**
-   * แนะนำ Tactical Mode จาก Game State
-   * ลำดับความสำคัญ: Threat Critical > Rack Critical > ตาราง GAP หลัก > ปรับจาก Threat/Board เพิ่มเติม
+   * tiles: รายการเบี้ยเรียงตามแนวเดียวกัน [{ r, c, points, isNew }]
+   * คะแนน = (คะแนนเบี้ยแต่ละตัว คูณช่องพิเศษเฉพาะตัวถ้าเป็นเบี้ยใหม่) รวมกัน แล้วคูณช่องพิเศษทั้งสมการ (เฉพาะจากเบี้ยใหม่)
+   * ช่องพิเศษใช้ได้แค่ตอนเบี้ยลงทับครั้งแรกเท่านั้น (เบี้ยเดิมไม่คิดซ้ำ)
    */
-  function recommendMode({ gap, phase, rack, board, threat }) {
-    const reasons = [];
-
-    // กฎที่ 1: Threat วิกฤต ต้องตัดก่อนคิดคะแนนของเรา
-    if (threat === "Critical") {
-      reasons.push("Threat อยู่ระดับ Critical — ตามหลักการ AMATS การเลือก DENY แม้ได้คะแนนต่ำกว่าอาจดีกว่า PRESS ที่เปิดเกมให้คู่แข่ง");
-      return {
-        primary: "DENY",
-        secondary: "CONTROL",
-        reasons,
-        risk: D.RISK_TABLE[gap] || null,
-      };
+  function scoreLine(tiles) {
+    let base = 0;
+    let equationMultiplier = 1;
+    for (const t of tiles) {
+      let pts = t.points;
+      if (t.isNew) {
+        const bonus = D.bonusAt(t.r, t.c);
+        if (bonus === "TP") pts *= 3;
+        else if (bonus === "DP") pts *= 2;
+        else if (bonus === "TE") equationMultiplier *= 3;
+        else if (bonus === "DE") equationMultiplier *= 2;
+      }
+      base += pts;
     }
-
-    // กฎที่ 2: Rack วิกฤต ควรปรับมือก่อน
-    if (rack === "Critical") {
-      reasons.push("Rack Health อยู่ระดับ Critical — แทบไม่มีการเดินที่คุ้มค่า ควรพิจารณา RESET เพื่อแก้คุณภาพมือก่อนเสีย Pace ต่อเนื่อง");
-      return {
-        primary: "RESET",
-        secondary: "CONTROL",
-        reasons,
-        risk: D.RISK_TABLE[gap] || null,
-      };
-    }
-
-    // กฎที่ 3: ฐานจากตาราง GAP
-    const base = D.GAP_TABLE[gap] || D.GAP_TABLE["สูสี"];
-    let primary = base.primary;
-    let secondary = base.secondary;
-    reasons.push(`สถานการณ์คะแนน “${gap}” → โหมดหลักตามตารางคือ ${primary}, โหมดรองคือ ${secondary}`);
-
-    // กฎที่ 4: Threat สูง ให้ดึงเข้าหา DENY/CONTROL มากขึ้น
-    if (threat === "High" && primary !== "DENY" && primary !== "GUARD") {
-      secondary = "DENY";
-      reasons.push("Threat อยู่ระดับ High — ปรับโหมดรองเป็น DENY เพื่อลดความเสี่ยงจากคู่แข่ง");
-    }
-
-    // กฎที่ 5: Rack อ่อนแรง ให้เตือนเรื่อง RESET เป็นทางเลือกเสริม
-    if (rack === "Weak") {
-      reasons.push("Rack Health อยู่ระดับ Weak — หากไม่มี BUILD ที่ดี ให้พิจารณาเตรียม RESET ในตาถัดไป");
-    }
-
-    // กฎที่ 6: กระดานอันตราย เตือนให้ระวังแม้โหมดหลักจะไม่ใช่ DENY
-    if (board === "Dangerous" && primary !== "DENY") {
-      reasons.push("Board State อยู่ในระดับ Dangerous — แม้โหมดหลักไม่ใช่ DENY ก็ควรประเมิน Threat ของคู่แข่งก่อนเดินทุกครั้ง");
-    }
-
-    // กฎที่ 7: กระดานเปิดกว้างและไม่ได้ตามอยู่มาก ให้โอกาส BUILD เป็นทางเลือกเสริม
-    if (board === "Open" && (gap === "สูสี" || gap === "นำเล็กน้อย" || gap === "ตามเล็กน้อย") && secondary !== "BUILD") {
-      reasons.push("Board State เปิดกว้างและมีโอกาสสร้างทางในตาถัดไป — BUILD เป็นทางเลือกเสริมที่ควรพิจารณา");
-    }
-
-    return {
-      primary,
-      secondary,
-      reasons,
-      risk: D.RISK_TABLE[gap] || null,
-    };
+    return base * equationMultiplier;
   }
 
-  /** คำนวณ Move Value = Score + Position + Rack + Denial − Opponent Opportunity */
-  function moveValue({ score = 0, position = 0, rack = 0, denial = 0, opponentOpportunity = 0 }) {
-    return score + position + rack + denial - opponentOpportunity;
+  /* ---------- ตรวจการวางเบี้ยบนกระดาน ---------- */
+
+  function inBounds(r, c) { return r >= 0 && r < D.BOARD_SIZE && c >= 0 && c < D.BOARD_SIZE; }
+
+  /** ดึงเส้นเบี้ยต่อเนื่อง (เดิม+ใหม่) ที่ผ่านจุด (r,c) ในทิศที่กำหนด (dr,dc) */
+  function extractLine(board, r, c, dr, dc) {
+    let r1 = r, c1 = c;
+    while (inBounds(r1 - dr, c1 - dc) && board[r1 - dr][c1 - dc]) { r1 -= dr; c1 -= dc; }
+    let r2 = r, c2 = c;
+    while (inBounds(r2 + dr, c2 + dc) && board[r2 + dr][c2 + dc]) { r2 += dr; c2 += dc; }
+    const tiles = [];
+    let rr = r1, cc = c1;
+    while (rr <= r2 && cc <= c2) {
+      tiles.push({ r: rr, c: cc, ...board[rr][cc] });
+      if (dr === 0 && dc === 0) break;
+      rr += dr; cc += dc;
+      if (dr === 0 && cc > c2) break;
+      if (dc === 0 && rr > r2) break;
+    }
+    return tiles;
   }
 
-  /** Net Gain = Our Score − Expected Opponent Score */
-  function netGain(ourScore, expectedOpponentScore) {
-    return ourScore - expectedOpponentScore;
-  }
+  function lineToString(tiles) { return tiles.map(t => t.resolvedChar).join(""); }
 
   /**
-   * Phase 3 — จำลอง 2 Turn ล่วงหน้า (Two-Turn Thinking: Our Move → Opponent Response → Our Next Move)
-   * คำนวณ Expected Value โดยถ่วงน้ำหนักการตอบของคู่แข่งแต่ละทางด้วยความน่าจะเป็น (prob เป็น 0–100)
-   * branches: [{ prob, oppScore, nextMoveValue }]
+   * ตรวจสอบและคิดคะแนนการเดินหนึ่งตา
+   * newCoords: [{r,c}] ตำแหน่งเบี้ยใหม่ที่เพิ่งวาง (board ต้อง set ค่าไว้แล้วที่ตำแหน่งเหล่านี้ พร้อม isNew:true)
    */
-  function twoTurnExpectedValue(immediateMoveValue, branches) {
-    const continuation = branches.reduce((sum, b) => sum + (b.prob / 100) * (b.nextMoveValue - b.oppScore), 0);
-    return immediateMoveValue + continuation;
+  function validateAndScoreMove(board, newCoords, isFirstMove) {
+    if (newCoords.length === 0) return { valid: false, error: "ยังไม่ได้วางเบี้ย" };
+
+    const rows = new Set(newCoords.map(t => t.r));
+    const cols = new Set(newCoords.map(t => t.c));
+    if (rows.size > 1 && cols.size > 1) return { valid: false, error: "เบี้ยต้องวางในแนวเดียวกัน (แถวหรือคอลัมน์เดียว)" };
+    const horizontal = rows.size === 1;
+
+    if (isFirstMove) {
+      const [cr, cc] = D.CENTER;
+      if (!newCoords.some(t => t.r === cr && t.c === cc)) return { valid: false, error: "ตาแรกต้องมีเบี้ยทับช่องดาวกลางกระดาน" };
+    } else {
+      const connected = newCoords.some(({ r, c }) => {
+        return [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].some(([rr,cc]) =>
+          inBounds(rr, cc) && board[rr][cc] && !newCoords.some(n => n.r === rr && n.c === cc));
+      });
+      if (!connected) return { valid: false, error: "เบี้ยใหม่ต้องสัมผัสกับเบี้ยที่มีอยู่บนกระดานแล้ว" };
+    }
+
+    // เส้นหลัก (แนวที่วางเบี้ยใหม่)
+    const first = newCoords[0];
+    const mainLine = horizontal ? extractLine(board, first.r, first.c, 0, 1) : extractLine(board, first.r, first.c, 1, 0);
+    const lines = [];
+    const seen = new Set();
+    if (mainLine.length > 1) {
+      lines.push(mainLine);
+      seen.add(mainLine.map(t => `${t.r},${t.c}`).join("|"));
+    }
+    // เส้นตัดขวางที่จุดของเบี้ยใหม่แต่ละตัว
+    for (const nc of newCoords) {
+      const cross = horizontal ? extractLine(board, nc.r, nc.c, 1, 0) : extractLine(board, nc.r, nc.c, 0, 1);
+      if (cross.length > 1) {
+        const key = cross.map(t => `${t.r},${t.c}`).join("|");
+        if (!seen.has(key)) { seen.add(key); lines.push(cross); }
+      }
+    }
+
+    if (lines.length === 0) return { valid: false, error: "ไม่พบสมการที่สมบูรณ์ (ต้องมีความยาวมากกว่า 1 ช่อง)" };
+
+    let totalScore = 0;
+    const details = [];
+    for (const line of lines) {
+      const str = lineToString(line);
+      const result = validateEquation(str);
+      if (!result.valid) return { valid: false, error: `สมการ "${str}" ไม่ถูกต้อง — ${result.error}` };
+      const score = scoreLine(line);
+      totalScore += score;
+      details.push({ string: str, score, tiles: line });
+    }
+
+    if (newCoords.length === D.RACK_SIZE) totalScore += 40; // Bingo
+
+    return { valid: true, score: totalScore, equations: details, bingo: newCoords.length === D.RACK_SIZE };
   }
 
-  /** ประเมิน Rack Health จากแบบสอบถามสั้น → คืนระดับ + คะแนนดิบ */
-  function assessRackHealth(answers) {
-    const total = D.RACK_CHECK_QUESTIONS.reduce((sum, q) => sum + (answers[q.id] ? q.weight : 0), 0);
-    const max = D.RACK_CHECK_QUESTIONS.reduce((sum, q) => sum + q.weight, 0);
-    let level;
-    if (total >= max) level = "Excellent";
-    else if (total >= max * 0.75) level = "Good";
-    else if (total >= max * 0.5) level = "Stable";
-    else if (total >= max * 0.25) level = "Weak";
-    else level = "Critical";
-    return { total, max, level };
-  }
-
-  return { recommendMode, moveValue, netGain, twoTurnExpectedValue, assessRackHealth };
+  return {
+    tokenizeSegment, evalTokens, evalSegment, validateEquation, scoreLine,
+    extractLine, lineToString, validateAndScoreMove, inBounds,
+  };
 })();
