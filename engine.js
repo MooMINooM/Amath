@@ -25,7 +25,6 @@ const AMATH_ENGINE = (() => {
     const firstNumRaw = readUnsignedNumber();
     if (!firstNumRaw) return { ok: false, error: `รูปแบบไม่ถูกต้อง ("${seg}")` };
     if (firstNumRaw.length > 1 && firstNumRaw[0] === "0") return { ok: false, error: `ห้ามใช้ 0 นำหน้าตัวเลข ("${firstNumRaw}")` };
-    if (leadingMinus && firstNumRaw === "0") return { ok: false, error: `ห้ามใช้เครื่องหมายลบนำหน้าเลข 0` };
     tokens.push({ type: "num", value: (leadingMinus ? -1 : 1) * parseInt(firstNumRaw, 10) });
 
     while (i < n) {
@@ -35,7 +34,6 @@ const AMATH_ENGINE = (() => {
       const numRaw = readUnsignedNumber();
       if (!numRaw) return { ok: false, error: `ห้ามวางเครื่องหมายติดกัน หรือจบด้วยเครื่องหมาย ("${seg}")` };
       if (numRaw.length > 1 && numRaw[0] === "0") return { ok: false, error: `ห้ามใช้ 0 นำหน้าตัวเลข ("${numRaw}")` };
-      if (opChar === "-" && numRaw === "0") return { ok: false, error: `ห้ามใช้เครื่องหมายลบหรือบวกติดกับเลข 0` };
       tokens.push({ type: "op", value: opChar });
       tokens.push({ type: "num", value: parseInt(numRaw, 10) });
     }
