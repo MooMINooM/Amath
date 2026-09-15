@@ -52,6 +52,14 @@
   }
   function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
   function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+  function downloadCSV(filename, csvText) {
+    const blob = new Blob(["﻿" + csvText], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   /* ================= TABS ================= */
   const TABS = [
@@ -61,6 +69,8 @@
     { id: "rack", label: "Rack Health" },
     { id: "checklist", label: "S-R-B-T-G" },
     { id: "practice", label: "ฝึกซ้อม" },
+    { id: "match", label: "บันทึกเกม" },
+    { id: "analytics", label: "วิเคราะห์ข้อมูล" },
     { id: "history", label: "ประวัติ/สถิติ" },
     { id: "playbook", label: "Playbook" },
   ];
@@ -90,6 +100,8 @@
     const modeCounts = {};
     log.forEach(e => { if (e.mode) modeCounts[e.mode] = (modeCounts[e.mode] || 0) + 1; });
     const topModes = Object.entries(modeCounts).sort((a, b) => b[1] - a[1]);
+    const matches = AMATS_PHASE2.loadMatches();
+    const agg = AMATS_PHASE2.computeAggregate(matches);
 
     panel.innerHTML = `
       <h2>AMATS — A-Math Tactical System</h2>
@@ -116,6 +128,8 @@
         <div class="kpi"><div class="kpi-num">${log.length}</div><div class="kpi-label">บันทึกทั้งหมด</div></div>
         <div class="kpi"><div class="kpi-num">${practiceL3.length}</div><div class="kpi-label">โจทย์ Tactical Choice ที่ทำ</div></div>
         <div class="kpi"><div class="kpi-num">${accuracy === null ? "—" : accuracy + "%"}</div><div class="kpi-label">ความแม่นยำ Tactical Choice</div></div>
+        <div class="kpi"><div class="kpi-num">${matches.length}</div><div class="kpi-label">เกมจริงที่บันทึก (Phase 2)</div></div>
+        <div class="kpi"><div class="kpi-num">${agg.winRate === null ? "—" : Math.round(agg.winRate * 100) + "%"}</div><div class="kpi-label">Win Rate</div></div>
       </div>
       ${topModes.length ? `
         <div class="mode-usage">
@@ -484,6 +498,254 @@
     document.getElementById("l4-new").addEventListener("click", () => { currentScenario = pick(D.PRACTICE_SCENARIOS); renderLevel4(body); });
   }
 
+  /* ================= MATCH LOG (Phase 2) ================= */
+  const CURRENT_MATCH_KEY = "amats_current_match_v1";
+  let currentMatch = null;
+  function persistCurrentMatch() {
+    try { localStorage.setItem(CURRENT_MATCH_KEY, JSON.stringify(currentMatch)); } catch (e) { /* storage unavailable */ }
+  }
+  function clearPersistedMatch() {
+    try { localStorage.removeItem(CURRENT_MATCH_KEY); } catch (e) { /* storage unavailable */ }
+  }
+  function loadPersistedMatch() {
+    try { return JSON.parse(localStorage.getItem(CURRENT_MATCH_KEY)) || null; } catch (e) { return null; }
+  }
+
+  function currentTurnContext() {
+    const settings = AMATS_PHASE2.loadSettings();
+    const turnNo = currentMatch.turns.length + 1;
+    const ourTotal = currentMatch.turns.reduce((s, t) => s + t.ourDelta, 0);
+    const oppTotal = currentMatch.turns.reduce((s, t) => s + t.oppDelta, 0);
+    const diff = ourTotal - oppTotal;
+    return {
+      turnNo, ourTotal, oppTotal, diff,
+      gap: AMATS_PHASE2.classifyGap(diff, settings),
+      phase: AMATS_PHASE2.classifyPhase(turnNo, currentMatch.totalTurns || settings.totalTurns),
+    };
+  }
+
+  function updateTurnSuggestion(ctx) {
+    const rack = document.getElementById("turn-rack").value;
+    const board = document.getElementById("turn-board").value;
+    const threat = document.getElementById("turn-threat").value;
+    const rec = E.recommendMode({ gap: ctx.gap, phase: ctx.phase, rack, board, threat });
+    document.getElementById("turn-suggestion").innerHTML = `
+      <div class="suggestion-box">
+        <div>ตาที่ ${ctx.turnNo} · GAP: <strong>${ctx.gap}</strong> (${ctx.diff >= 0 ? "+" : ""}${ctx.diff}) · Phase: <strong>${ctx.phase}</strong></div>
+        <div>คำแนะนำ AMATS: ${modeBadge(rec.primary)} / ${modeBadge(rec.secondary)}</div>
+      </div>`;
+  }
+
+  function renderMatchTab() {
+    const panel = document.getElementById("panel-match");
+
+    if (!currentMatch) {
+      const defaultTurns = AMATS_PHASE2.loadSettings().totalTurns;
+      panel.innerHTML = `
+        <h2>บันทึกเกม</h2>
+        <p class="lead">บันทึกเกมจริงทีละตา เพื่อสะสมข้อมูลไว้วิเคราะห์ (Phase 2: Data Analytics) — GAP และ Game Phase จะคำนวณอัตโนมัติจากคะแนนจริง</p>
+        <form id="match-start-form" class="form-grid">
+          <label>ชื่อคู่แข่ง (ถ้ามี)<input type="text" name="opponent" placeholder="ไม่ระบุก็ได้"></label>
+          <label>จำนวนตาทั้งเกม (โดยประมาณ)<input type="number" name="totalTurns" value="${defaultTurns}" min="4" max="60"></label>
+          <button type="submit" class="btn-primary">เริ่มเกม</button>
+        </form>
+      `;
+      document.getElementById("match-start-form").addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        const fd = new FormData(ev.target);
+        currentMatch = {
+          id: Date.now() + "-" + Math.random().toString(36).slice(2, 7),
+          opponent: fd.get("opponent") || "",
+          totalTurns: parseInt(fd.get("totalTurns"), 10) || defaultTurns,
+          startedAt: Date.now(),
+          turns: [],
+        };
+        persistCurrentMatch();
+        renderMatchTab();
+      });
+      return;
+    }
+
+    const ctx = currentTurnContext();
+    panel.innerHTML = `
+      <h2>บันทึกเกม${currentMatch.opponent ? " — vs " + currentMatch.opponent : ""}</h2>
+      <p class="lead">คะแนนรวม: เรา ${ctx.ourTotal} — คู่แข่ง ${ctx.oppTotal} (${ctx.diff >= 0 ? "นำอยู่" : "ตามอยู่"} ${Math.abs(ctx.diff)})</p>
+
+      <div class="table-wrap"><table class="data-table">
+        <thead><tr><th>ตา</th><th>GAP</th><th>Phase</th><th>Mode</th><th>ตรงคำแนะนำ</th><th>เรา</th><th>คู่แข่ง</th><th>Net</th></tr></thead>
+        <tbody>${currentMatch.turns.map(t => `
+          <tr><td>${t.turnNo}</td><td>${t.gap}</td><td>${t.phase}</td><td>${modeBadge(t.mode, "sm")}</td>
+          <td>${t.mode === t.recommendedPrimary ? "✓" : "—"}</td>
+          <td>${t.ourDelta}</td><td>${t.oppDelta}</td><td>${t.ourDelta - t.oppDelta}</td></tr>
+        `).join("") || `<tr><td colspan="8" class="muted">ยังไม่มีตาที่บันทึก</td></tr>`}</tbody>
+      </table></div>
+
+      <h3>บันทึกตาที่ ${ctx.turnNo}</h3>
+      <div id="turn-suggestion"></div>
+      <form id="turn-form" class="form-grid">
+        <label>Rack Health<select id="turn-rack" name="rack">${optionList(D.RACK_LEVELS, "Good")}</select></label>
+        <label>Board State<select id="turn-board" name="board">${optionList(D.BOARD_STATES, "Balanced")}</select></label>
+        <label>Threat<select id="turn-threat" name="threat">${optionList(D.THREAT_LEVELS, "Low")}</select></label>
+        <label>Tactical Mode ที่ใช้จริง<select name="mode">${Object.keys(D.MODES).map(k => `<option value="${k}">${k}</option>`).join("")}</select></label>
+        <label>คะแนนเราได้ตานี้<input type="number" name="ourDelta" value="0" required></label>
+        <label>คะแนนคู่แข่งตอบ<input type="number" name="oppDelta" value="0" required></label>
+        <label class="check-row"><input type="checkbox" name="bonusUsed"> ใช้โบนัสตานี้</label>
+        <label>บันทึกเพิ่มเติม<input type="text" name="note" placeholder="ไม่บังคับ"></label>
+        <button type="submit" class="btn-primary">บันทึกตานี้</button>
+      </form>
+
+      <div class="row-actions">
+        <button id="match-end" class="btn-secondary">จบเกม</button>
+        <button id="match-discard" class="btn-danger">ยกเลิกเกมนี้</button>
+      </div>
+      <div id="match-end-box"></div>
+    `;
+
+    ["turn-rack", "turn-board", "turn-threat"].forEach(id => {
+      document.getElementById(id).addEventListener("change", () => updateTurnSuggestion(ctx));
+    });
+    updateTurnSuggestion(ctx);
+
+    document.getElementById("turn-form").addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(ev.target);
+      const rack = fd.get("rack"), board = fd.get("board"), threat = fd.get("threat"), mode = fd.get("mode");
+      const rec = E.recommendMode({ gap: ctx.gap, phase: ctx.phase, rack, board, threat });
+      currentMatch.turns.push({
+        turnNo: ctx.turnNo, gap: ctx.gap, phase: ctx.phase, rack, board, threat, mode,
+        recommendedPrimary: rec.primary, recommendedSecondary: rec.secondary,
+        ourDelta: parseFloat(fd.get("ourDelta")) || 0,
+        oppDelta: parseFloat(fd.get("oppDelta")) || 0,
+        bonusUsed: fd.has("bonusUsed"),
+        note: fd.get("note") || "",
+      });
+      persistCurrentMatch();
+      renderMatchTab();
+    });
+
+    document.getElementById("match-end").addEventListener("click", () => {
+      document.getElementById("match-end-box").innerHTML = `
+        <form id="match-end-form" class="form-grid">
+          <label>ผลการแข่งขัน<select name="result">
+            <option value="win">ชนะ</option><option value="loss">แพ้</option><option value="draw">เสมอ</option>
+          </select></label>
+          <button type="submit" class="btn-primary">บันทึกผลและจบเกม</button>
+        </form>`;
+      document.getElementById("match-end-form").addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        const fd = new FormData(ev.target);
+        currentMatch.result = fd.get("result");
+        currentMatch.finishedAt = Date.now();
+        const matches = AMATS_PHASE2.loadMatches();
+        matches.unshift(currentMatch);
+        AMATS_PHASE2.saveMatches(matches);
+        currentMatch = null;
+        clearPersistedMatch();
+        renderMatchTab();
+        renderAnalyticsTab();
+        renderDashboardTab();
+      });
+    });
+
+    document.getElementById("match-discard").addEventListener("click", () => {
+      if (confirm("ยกเลิกเกมนี้โดยไม่บันทึกหรือไม่? การกระทำนี้ย้อนกลับไม่ได้")) {
+        currentMatch = null;
+        clearPersistedMatch();
+        renderMatchTab();
+      }
+    });
+  }
+
+  /* ================= ANALYTICS (Phase 2) ================= */
+  function renderAnalyticsTab() {
+    const panel = document.getElementById("panel-analytics");
+    const settings = AMATS_PHASE2.loadSettings();
+    const matches = AMATS_PHASE2.loadMatches();
+    const agg = AMATS_PHASE2.computeAggregate(matches);
+
+    panel.innerHTML = `
+      <h2>วิเคราะห์ข้อมูล (Phase 2: Data Analytics)</h2>
+      <p class="lead">สรุปจากเกมที่บันทึกไว้ ${matches.length} เกม (${agg.turnsCount || 0} ตา) — ยิ่งสะสมเกมมาก ค่าพวกนี้ยิ่งสะท้อนสไตล์การเล่นจริงมากขึ้น</p>
+
+      <h3>ปรับเกณฑ์ตัวเลข (Calibration)</h3>
+      <form id="settings-form" class="form-grid">
+        <label>จำนวนตาทั้งเกม (ค่าเริ่มต้น)<input type="number" name="totalTurns" value="${settings.totalTurns}" min="4" max="60"></label>
+        <label>ส่วนต่างคะแนนที่ถือว่า “นำ/ตามเล็กน้อย” (แต้ม)<input type="number" name="leadSmall" value="${settings.leadSmall}" min="1"></label>
+        <label>ส่วนต่างคะแนนที่ถือว่า “นำ/ตามมาก” (แต้ม)<input type="number" name="leadBig" value="${settings.leadBig}" min="1"></label>
+        <div class="row-actions">
+          <button type="submit" class="btn-primary">บันทึกเกณฑ์</button>
+          <button type="button" id="settings-reset" class="btn-secondary">รีเซ็ตเป็นค่าเริ่มต้น</button>
+        </div>
+      </form>
+      <p class="muted footnote">หมายเหตุจากเอกสาร AMATS: เกณฑ์เหล่านี้ควรปรับจากข้อมูลการฝึกจริงของผู้เล่นและรูปแบบการแข่งขัน ไม่ควรกำหนดเป็นค่าตายตัวตั้งแต่เริ่มต้น</p>
+
+      ${agg.turnsCount ? `
+        <h3>KPI ภาพรวม</h3>
+        <div class="kpi-row">
+          <div class="kpi"><div class="kpi-num">${agg.winRate === null ? "—" : Math.round(agg.winRate * 100) + "%"}</div><div class="kpi-label">Win Rate</div></div>
+          <div class="kpi"><div class="kpi-num">${agg.avgScore.toFixed(1)}</div><div class="kpi-label">Average Score / Turn</div></div>
+          <div class="kpi"><div class="kpi-num">${agg.netGainPerTurn.toFixed(1)}</div><div class="kpi-label">Net Gain / Turn</div></div>
+          <div class="kpi"><div class="kpi-num">${agg.avgOppScore.toFixed(1)}</div><div class="kpi-label">Opponent Score / Turn</div></div>
+          <div class="kpi"><div class="kpi-num">${agg.rackAvg.toFixed(2)}/5</div><div class="kpi-label">Rack Health เฉลี่ย</div></div>
+          <div class="kpi"><div class="kpi-num">${Math.round(agg.resetFreq * 100)}%</div><div class="kpi-label">Reset Frequency</div></div>
+          <div class="kpi"><div class="kpi-num">${agg.threatsAllowed}</div><div class="kpi-label">Threats Allowed</div></div>
+          <div class="kpi"><div class="kpi-num">${Math.round(agg.bonusConversion * 100)}%</div><div class="kpi-label">Bonus Conversion (โดยประมาณ)</div></div>
+          <div class="kpi"><div class="kpi-num">${agg.endgameEfficiency === null ? "—" : agg.endgameEfficiency.toFixed(1)}</div><div class="kpi-label">Endgame Efficiency</div></div>
+          <div class="kpi"><div class="kpi-num">${Math.round(agg.adherence * 100)}%</div><div class="kpi-label">AMATS Adherence</div></div>
+        </div>
+
+        <h3>ประสิทธิภาพรายโหมด</h3>
+        <div class="table-wrap"><table class="data-table">
+          <thead><tr><th>Mode</th><th>จำนวนตาที่ใช้</th><th>Net Gain เฉลี่ย</th></tr></thead>
+          <tbody>${Object.entries(agg.modeStats).sort((a, b) => b[1].count - a[1].count).map(([k, s]) => `
+            <tr><td>${modeBadge(k)}</td><td>${s.count}</td><td>${s.avgNetGain.toFixed(1)}</td></tr>
+          `).join("")}</tbody>
+        </table></div>
+
+        <h3>ประวัติเกม</h3>
+        <div class="table-wrap"><table class="data-table">
+          <thead><tr><th>วันที่</th><th>คู่แข่ง</th><th>ผล</th><th>ตา</th><th>คะแนนสุดท้าย</th><th></th></tr></thead>
+          <tbody>${matches.map(m => {
+            const kpi = AMATS_PHASE2.computeMatchKPIs(m);
+            const finalOur = (m.turns || []).reduce((s, t) => s + t.ourDelta, 0);
+            const finalOpp = (m.turns || []).reduce((s, t) => s + t.oppDelta, 0);
+            const resultLabel = { win: "ชนะ", loss: "แพ้", draw: "เสมอ" }[m.result] || m.result;
+            return `<tr><td>${fmtDate(m.startedAt)}</td><td>${m.opponent || "—"}</td><td>${resultLabel}</td>
+              <td>${kpi.turnsCount}</td><td>${finalOur} - ${finalOpp}</td>
+              <td><button class="row-del match-del" data-id="${m.id}">✕</button></td></tr>`;
+          }).join("")}</tbody>
+        </table></div>
+
+        <button id="export-csv" class="btn-secondary">Export CSV ทั้งหมด</button>
+      ` : `<p class="muted">ยังไม่มีเกมที่บันทึกจบ ลองไปที่แท็บ "บันทึกเกม" เพื่อเริ่มเก็บข้อมูล</p>`}
+    `;
+
+    document.getElementById("settings-form").addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(ev.target);
+      AMATS_PHASE2.saveSettings({
+        totalTurns: parseInt(fd.get("totalTurns"), 10) || AMATS_PHASE2.DEFAULT_SETTINGS.totalTurns,
+        leadSmall: parseFloat(fd.get("leadSmall")) || AMATS_PHASE2.DEFAULT_SETTINGS.leadSmall,
+        leadBig: parseFloat(fd.get("leadBig")) || AMATS_PHASE2.DEFAULT_SETTINGS.leadBig,
+      });
+      renderAnalyticsTab();
+    });
+    document.getElementById("settings-reset").addEventListener("click", () => {
+      AMATS_PHASE2.resetSettings();
+      renderAnalyticsTab();
+    });
+    const exportBtn = document.getElementById("export-csv");
+    if (exportBtn) exportBtn.addEventListener("click", () => downloadCSV("amats_matches.csv", AMATS_PHASE2.toCSV(matches)));
+    panel.querySelectorAll(".match-del").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (!confirm("ลบเกมนี้หรือไม่? การกระทำนี้ย้อนกลับไม่ได้")) return;
+        AMATS_PHASE2.saveMatches(AMATS_PHASE2.loadMatches().filter(m => m.id !== btn.dataset.id));
+        renderAnalyticsTab();
+        renderDashboardTab();
+      });
+    });
+  }
+
   /* ================= HISTORY ================= */
   function renderHistoryTab() {
     const panel = document.getElementById("panel-history");
@@ -559,6 +821,7 @@
 
   /* ================= INIT ================= */
   document.addEventListener("DOMContentLoaded", () => {
+    currentMatch = loadPersistedMatch();
     initTabs();
     renderDashboardTab();
     renderAdvisorTab();
@@ -566,6 +829,8 @@
     renderRackTab();
     renderChecklistTab();
     renderPracticeTab();
+    renderMatchTab();
+    renderAnalyticsTab();
     renderHistoryTab();
     renderPlaybookTab();
   });

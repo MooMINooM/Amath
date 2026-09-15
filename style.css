@@ -219,6 +219,18 @@ tr.best-row { background: rgba(76, 201, 240, 0.08); }
 
 .two-turn-form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
 
+.suggestion-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin: 10px 0;
+  font-size: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .footnote { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 24px; font-size: 0.85rem; }
 
 footer {
