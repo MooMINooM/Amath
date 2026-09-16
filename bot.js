@@ -83,11 +83,14 @@ const AMATH_GAME_BOT = (() => {
 
   /** สร้างสมการใหม่ทั้งหมดจากมือ (ไม่ต้องอิงกระดาน): X=X, a op b=c, หรือ a op1 b=c op2 d */
   function findFreshEquation(rack, cfg) {
-    const numbers = rack.filter(t => t.kind === "number" || t.kind === "blank");
-    const ops = rack.filter(t => t.kind === "operator" || t.kind === "wildcard-op");
-    const eqTiles = rack.filter(t => t.face === "=");
-    if (eqTiles.length === 0 || numbers.length < 2) return null;
+    // เบี้ยว่าง (Blank) เลือกเป็น "=" ได้ ให้ใช้ "=" จริงก่อนเสมอ ถ้าไม่มีค่อยยอมเสีย Blank มาทำหน้าที่นี้แทน
+    const realEq = rack.filter(t => t.face === "=");
+    const eqTiles = realEq.length ? realEq : rack.filter(t => t.kind === "blank");
+    if (eqTiles.length === 0) return null;
     const eq = eqTiles[0];
+    const numbers = rack.filter(t => (t.kind === "number" || t.kind === "blank") && t.id !== eq.id);
+    const ops = rack.filter(t => (t.kind === "operator" || t.kind === "wildcard-op") && t.id !== eq.id);
+    if (numbers.length < 2) return null;
 
     // X = X
     for (let i = 0; i < numbers.length; i++) {
@@ -249,7 +252,8 @@ const AMATH_GAME_BOT = (() => {
       const check = E.validateEquation(str);
       if (!check.valid) continue;
       const target = check.value;
-      const eqTiles = rack.filter(t => t.face === "=");
+      const realEq = rack.filter(t => t.face === "=");
+      const eqTiles = realEq.length ? realEq : rack.filter(t => t.kind === "blank");
       if (eqTiles.length === 0) continue;
       const expr = findExpressionEqualing(rack, target, cfg.useTriple, new Set([eqTiles[0].id]));
       if (!expr) continue;
@@ -289,7 +293,8 @@ const AMATH_GAME_BOT = (() => {
         anchors.push({ r, c, value: parseInt(cell.resolvedChar, 10) });
       }
     }
-    const eqTilesAll = rack.filter(t => t.face === "=");
+    const realEqAll = rack.filter(t => t.face === "=");
+    const eqTilesAll = realEqAll.length ? realEqAll : rack.filter(t => t.kind === "blank");
     if (eqTilesAll.length === 0) return results;
 
     for (const { r, c, value } of shuffle(anchors)) {
@@ -326,6 +331,45 @@ const AMATH_GAME_BOT = (() => {
               const result = tryValidatePlacement(board, seq, coords, false);
               if (result) { results.push(result); if (results.length >= limit) return results; }
             }
+          }
+        }
+      }
+    }
+    return results;
+  }
+
+  /**
+   * ลองต่อสมการใหม่ผ่านเบี้ย "=" ที่มีอยู่แล้วบนกระดาน (คนละเส้นกับสมการเดิมที่ "=" นั้นสังกัดอยู่)
+   * ข้อดีคือไม่ต้องเสียเบี้ย "=" ของตัวเองเลย — ต้องมีช่องว่างพอดี 1 ช่องทั้งสองฝั่งของ "=" ในแนวตั้งฉาก
+   * แล้วหาสองนิพจน์ที่ค่าเท่ากันจากมือมาวางคร่อม (ตอนนี้รองรับเบี้ยเดี่ยวต่อเบี้ยเดี่ยวก่อน ยังไม่รองรับ a op b ทั้งสองฝั่ง)
+   */
+  function attemptCrossAtEquals(board, rack, cfg, limit = 1) {
+    const results = [];
+    const anchors = [];
+    for (let r = 0; r < D.BOARD_SIZE; r++) {
+      for (let c = 0; c < D.BOARD_SIZE; c++) {
+        const cell = board[r][c];
+        if (cell && cell.resolvedChar === "=") anchors.push({ r, c });
+      }
+    }
+    const numbers = rack.filter(t => t.kind === "number" || t.kind === "blank");
+
+    for (const { r, c } of shuffle(anchors)) {
+      for (const [dr, dc] of [[0, 1], [1, 0]]) {
+        const before = { r: r - dr, c: c - dc };
+        const after = { r: r + dr, c: c + dc };
+        const beforeOpen = inBounds(before.r, before.c) && !board[before.r][before.c];
+        const afterOpen = inBounds(after.r, after.c) && !board[after.r][after.c];
+        if (!beforeOpen || !afterOpen) continue; // ต้องว่างทั้งสองฝั่งพอดี เพราะ "=" ตรงกลางมีอยู่แล้ว ไม่ใช่เบี้ยที่เราวาง
+
+        for (let i = 0; i < numbers.length; i++) {
+          for (let j = 0; j < numbers.length; j++) {
+            if (i === j) continue;
+            const common = possibleValues(numbers[i]).find(v => possibleValues(numbers[j]).includes(v));
+            if (common === undefined) continue;
+            const tiles = [asResolved(numbers[i], String(common)), asResolved(numbers[j], String(common))];
+            const result = tryValidatePlacement(board, tiles, [before, after], false);
+            if (result) { results.push(result); if (results.length >= limit) return results; }
           }
         }
       }
@@ -399,6 +443,9 @@ const AMATH_GAME_BOT = (() => {
       candidates = attemptExtendLines(board, rack, cfg, limit);
       if (candidates.length < limit) {
         candidates = candidates.concat(attemptCrossAtTile(board, rack, cfg, limit - candidates.length));
+      }
+      if (candidates.length < limit) {
+        candidates = candidates.concat(attemptCrossAtEquals(board, rack, cfg, limit - candidates.length));
       }
     }
     return candidates.filter(Boolean);
