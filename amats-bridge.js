@@ -100,30 +100,38 @@ const AMATS_BRIDGE = (() => {
     return spots.filter(([r, c]) => ["TE", "DE", "TP"].includes(GD.bonusAt(r, c))).length;
   }
 
-  /** Threat — ประมาณจากจำนวนช่องโบนัสชั้นดี (TE/DE/TP) ที่ "เปิด" ให้เข้าถึงได้ตอนนี้ (คู่แข่งอาจฉวยไปตาถัดไป) */
-  function threatLevel(board) {
-    const premium = premiumOpenCount(board);
+  /* V3: Opponent Model (แบบเบา) — ช่องโบนัสที่เปิดอยู่จำนวนเท่ากัน อันตรายไม่เท่ากันถ้าคู่แข่งฝีมือต่างกัน
+   * บอทระดับ Master มีโอกาสจริงที่จะหาทางฉวยช่องที่เปิดได้มากกว่า Rookie มาก จึงถ่วงน้ำหนัก Threat ตามระดับคู่แข่งที่รู้แน่ชัดอยู่แล้ว
+   * (ไม่ใช่การเรียนรู้ทางสถิติ แค่ใช้ข้อมูลที่มีอยู่แล้วตรงๆ — ผู้เล่นเลือกระดับบอทเองตอนเริ่มเกม) */
+  const OPPONENT_SKILL_MULT = { Rookie: 0.6, Standard: 1.0, Master: 1.3 };
+
+  /** Threat — ประมาณจากจำนวนช่องโบนัสชั้นดี (TE/DE/TP) ที่ "เปิด" ให้เข้าถึงได้ตอนนี้ ถ่วงน้ำหนักตามระดับคู่แข่ง (ถ้ารู้) */
+  function threatLevel(board, opponentDifficulty) {
+    const mult = OPPONENT_SKILL_MULT[opponentDifficulty] || 1.0;
+    const premium = premiumOpenCount(board) * mult;
     if (premium === 0) return "Low";
     if (premium <= 2) return "Medium";
     if (premium <= 5) return "High";
     return "Critical";
   }
 
-  /** % ระดับ Threat สำหรับแสดงเป็นแถบ — 6 ช่องโบนัสชั้นดีที่เปิดพร้อมกันถือว่าเต็ม 100% */
-  function threatPct(board) {
-    return Math.max(0, Math.min(100, Math.round((premiumOpenCount(board) / 6) * 100)));
+  /** % ระดับ Threat สำหรับแสดงเป็นแถบ — 6 ช่องโบนัสชั้นดีที่เปิดพร้อมกันถือว่าเต็ม 100% (ถ่วงน้ำหนักตามระดับคู่แข่งเช่นกัน) */
+  function threatPct(board, opponentDifficulty) {
+    const mult = OPPONENT_SKILL_MULT[opponentDifficulty] || 1.0;
+    return Math.max(0, Math.min(100, Math.round((premiumOpenCount(board) * mult / 6) * 100)));
   }
 
-  /** สรุปสถานการณ์ปัจจุบันทั้งหมด พร้อมคำแนะนำ AMATS */
-  function analyze({ board, myScore, oppScore, turnNumber, rack }) {
+  /** สรุปสถานการณ์ปัจจุบันทั้งหมด พร้อมคำแนะนำ AMATS
+   * opponentDifficulty: ระดับบอทที่รู้แน่ชัด ใช้ถ่วงน้ำหนัก Threat (V3) — ไม่ใส่ก็ได้ ถือเป็นกลาง (คูณ 1.0) */
+  function analyze({ board, myScore, oppScore, turnNumber, rack, opponentDifficulty }) {
     const gap = gapFromScores(myScore, oppScore);
     const phase = phaseFromTurn(turnNumber);
     const rh = rackHealth(rack);
     const board_ = boardState(board);
-    const threat = threatLevel(board);
+    const threat = threatLevel(board, opponentDifficulty);
     const rec = available ? AE.recommendMode({ gap, phase, rack: rh.level, board: board_, threat }) : null;
     const confidence = available ? AE.confidenceScore({ gap, rack: rh.level, threat }) : null;
-    return { gap, phase, rackHealth: rh, board: board_, boardPct: boardPct(board), threat, threatPct: threatPct(board), confidence, recommendation: rec };
+    return { gap, phase, rackHealth: rh, board: board_, boardPct: boardPct(board), threat, threatPct: threatPct(board, opponentDifficulty), confidence, recommendation: rec };
   }
 
   return {

@@ -408,12 +408,23 @@ const AMATH_GAME_BOT = (() => {
     return Math.max(...nextCandidates.map(c => c.score));
   }
 
+  /**
+   * V3: Opponent Model (แบบเบา) — ถ้ารู้ว่าคู่แข่ง (ผู้เล่น) มีโปรไฟล์แบบ Aggressive (จาก V2 ที่เรียนรู้จากประวัติเล่นจริง)
+   * แปลว่ามีแนวโน้มฉวยช่องโบนัสที่เปิดไปทำคะแนนก้อนใหญ่ได้จริง ควรกันช่องเปิดให้เข้มขึ้นกว่าค่าเฉลี่ย
+   * ไม่มีข้อมูลพอ (opponentProfile เป็น null) ก็ใช้น้ำหนักกลาง ไม่กระทบพฤติกรรมเดิม
+   */
+  function exposurePenaltyMultiplier(opponentProfile) {
+    return opponentProfile && opponentProfile.primary && opponentProfile.primary.name === "Aggressive Player" ? 1.3 : 1.0;
+  }
+
   /** ให้คะแนนผู้ท้าชิงแต่ละตัวตาม Tactical Mode ที่ AMATS แนะนำ ยิ่งสูงยิ่งเหมาะกับโหมดนั้น
-   * (difficulty ใช้แค่เปิด/ปิด V4 lookahead สำหรับ BUILD/RESET — จำกัดไว้ที่ Master ก่อนเพื่อคุมต้นทุนการคำนวณ) */
-  function scoreCandidateForMode(candidate, mode, board, rackAfter, difficulty) {
+   * (difficulty ใช้แค่เปิด/ปิด V4 lookahead สำหรับ BUILD/RESET — จำกัดไว้ที่ Master ก่อนเพื่อคุมต้นทุนการคำนวณ
+   * opponentProfile คือ V3 Opponent Model — ปรับความเข้มงวดของ GUARD/CONTROL ตามสไตล์คู่แข่งที่ประเมินจากประวัติเล่นจริง) */
+  function scoreCandidateForMode(candidate, mode, board, rackAfter, difficulty, opponentProfile) {
+    const exposureMult = exposurePenaltyMultiplier(opponentProfile);
     switch (mode) {
       case "PRESS": return candidate.score;
-      case "GUARD": return candidate.score * 0.3 - premiumExposureAfter(board, candidate) * 8;
+      case "GUARD": return candidate.score * 0.3 - premiumExposureAfter(board, candidate) * 8 * exposureMult;
       case "DENY": return premiumCellsClaimed(candidate) * 10 + candidate.score * 0.2;
       case "BUILD":
       case "RESET": {
@@ -422,7 +433,7 @@ const AMATH_GAME_BOT = (() => {
         return rackScore * 4 + lookahead * 1.5 + candidate.score * 0.15;
       }
       case "CONTROL":
-      default: return candidate.score - premiumExposureAfter(board, candidate) * 3;
+      default: return candidate.score - premiumExposureAfter(board, candidate) * 3 * exposureMult;
     }
   }
 
@@ -471,7 +482,7 @@ const AMATH_GAME_BOT = (() => {
     const mode = analysis.recommendation ? analysis.recommendation.primary : "CONTROL";
     let best = candidates[0], bestScore = -Infinity;
     for (const c of candidates) {
-      const s = scoreCandidateForMode(c, mode, board, rackAfterMove(rack, c), difficulty);
+      const s = scoreCandidateForMode(c, mode, board, rackAfterMove(rack, c), difficulty, context.opponentProfile);
       if (s > bestScore) { bestScore = s; best = c; }
     }
     return { found: true, ...best, amatsMode: mode };

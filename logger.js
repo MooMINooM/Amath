@@ -29,10 +29,10 @@ const AMATS_LOGGER = (() => {
    */
   function logPlayerTurn(ctx) {
     if (!currentMatch) return null;
-    const { board, rackBefore, playerScoreBefore, botScoreBefore, turnNumber, isFirstMove, candidate, moveResult } = ctx;
+    const { board, rackBefore, playerScoreBefore, botScoreBefore, turnNumber, isFirstMove, candidate, moveResult, opponentDifficulty } = ctx;
 
     const gapBefore = AMATS_BRIDGE.gapFromScores(playerScoreBefore, botScoreBefore);
-    const before = AMATS_BRIDGE.analyze({ board, myScore: playerScoreBefore, oppScore: botScoreBefore, turnNumber, rack: rackBefore });
+    const before = AMATS_BRIDGE.analyze({ board, myScore: playerScoreBefore, oppScore: botScoreBefore, turnNumber, rack: rackBefore, opponentDifficulty });
 
     const rackAfter = AMATH_GAME_BOT.rackAfterMove(rackBefore, candidate);
     const playerScoreAfter = playerScoreBefore + moveResult.score;
