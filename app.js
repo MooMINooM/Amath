@@ -14,6 +14,7 @@
   let turnStartRack = [];
   let turnStartBoard = null;
   let turnHistory = [];
+  let opponentProfile = null; // V3: โปรไฟล์ผู้เล่น (จาก V2) ที่บอทใช้ปรับน้ำหนักการตัดสินใจของตัวเอง
 
   const RACK_TONE = { Excellent: "good", Good: "good", Stable: "accent", Weak: "warn", Critical: "bad" };
   const BOARD_TONE = { Open: "good", Balanced: "accent", Controlled: "accent", Restricted: "warn", Dangerous: "bad" };
@@ -52,6 +53,8 @@
     isFirstMove = true; currentTurn = "player"; pendingCoords = [];
     consecutivePasses = 0; gameOver = false; selectedRackIndex = null; turnNumber = 0;
     turnHistory = [];
+    const profile = typeof AMATS_PROFILE !== "undefined" ? AMATS_PROFILE.computeProfile() : null;
+    opponentProfile = profile && !profile.insufficient ? profile : null;
     turnStartRack = playerRack.slice();
     turnStartBoard = cloneBoardDeep(board);
     clearLog();
@@ -95,7 +98,7 @@
       return;
     }
     const analysis = AMATS_BRIDGE.analyze({
-      board, myScore: playerScore, oppScore: botScore, turnNumber: turnNumber + 1, rack: playerRack,
+      board, myScore: playerScore, oppScore: botScore, turnNumber: turnNumber + 1, rack: playerRack, opponentDifficulty: difficulty,
     });
     const body = document.getElementById("amats-body");
     const modes = AMATS_DATA.MODES;
@@ -375,7 +378,7 @@
 
     AMATS_LOGGER.logPlayerTurn({
       board: turnStartBoard, rackBefore: turnStartRack, playerScoreBefore, botScoreBefore,
-      turnNumber, isFirstMove: wasFirstMove, candidate: candidateForLog, moveResult: result,
+      turnNumber, isFirstMove: wasFirstMove, candidate: candidateForLog, moveResult: result, opponentDifficulty: difficulty,
     });
 
     if (checkImmediateEndgame("player")) return;
@@ -405,7 +408,7 @@
   /* ---------- Bot turn ---------- */
   function botTakeTurn() {
     const move = BOT.findMove(board, botRack, isFirstMove, difficulty, {
-      myScore: botScore, oppScore: playerScore, turnNumber: turnNumber + 1,
+      myScore: botScore, oppScore: playerScore, turnNumber: turnNumber + 1, opponentProfile,
     });
     if (move.found) {
       move.coords.forEach(({ r, c }, i) => {
