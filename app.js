@@ -520,6 +520,48 @@
     document.getElementById("summary-close").addEventListener("click", () => { overlay.hidden = true; });
   }
 
+  /* ---------- Player profile (V2: Statistical Player Model) ---------- */
+  function renderProfileModal() {
+    const modal = document.getElementById("modal");
+    const profile = AMATS_PROFILE.computeProfile();
+    if (profile.insufficient) {
+      modal.innerHTML = `
+        <div class="modal-box profile-box">
+          <h3>โปรไฟล์นักเล่น</h3>
+          <p class="muted">ข้อมูลยังไม่พอวิเคราะห์ (เล่นแล้ว ${profile.sampleSize} ตา ต้องการอย่างน้อย ${profile.minTurns} ตา) ลองเล่นอีกสักเกมแล้วกลับมาดูใหม่</p>
+          <div class="row-actions"><button id="profile-close" class="btn-primary">ปิด</button></div>
+        </div>`;
+    } else {
+      const ranked = Object.entries(profile.scores).sort((a, b) => b[1] - a[1]);
+      modal.innerHTML = `
+        <div class="modal-box profile-box">
+          <h3>โปรไฟล์นักเล่น</h3>
+          <p class="muted">จากการเล่น ${profile.matchesCount} เกม (${profile.sampleSize} ตา)</p>
+          <div class="profile-primary">
+            <div class="profile-primary-name">${profile.primary.name}</div>
+            <p class="profile-primary-desc">${profile.primary.strength}</p>
+            <p class="profile-primary-watch muted">ข้อควรระวัง: ${profile.primary.watch}</p>
+          </div>
+          <div class="profile-bars">
+            ${ranked.map(([name, score]) => `
+              <div class="profile-bar-row">
+                <span class="profile-bar-label">${name}</span>
+                <div class="meter"><div class="meter-fill accent" style="width:${score}%"></div></div>
+                <span class="profile-bar-pct">${score}%</span>
+              </div>`).join("")}
+          </div>
+          <div class="summary-kpis">
+            <div class="summary-kpi"><div class="summary-kpi-label">อัตราชนะ</div><div class="summary-kpi-value">${profile.winRate === null ? "-" : Math.round(profile.winRate * 100) + "%"}</div></div>
+            <div class="summary-kpi"><div class="summary-kpi-label">คะแนนเฉลี่ย/ตา</div><div class="summary-kpi-value">${profile.avgScore.toFixed(1)}</div></div>
+            <div class="summary-kpi"><div class="summary-kpi-label">Decision Quality เฉลี่ย</div><div class="summary-kpi-value">${profile.avgDecisionQuality.toFixed(0)}%</div></div>
+          </div>
+          <div class="row-actions"><button id="profile-close" class="btn-primary">ปิด</button></div>
+        </div>`;
+    }
+    modal.hidden = false;
+    document.getElementById("profile-close").addEventListener("click", () => { modal.hidden = true; });
+  }
+
   /* ---------- Log & Toast ---------- */
   function log(msg) {
     const el = document.getElementById("log");
@@ -565,5 +607,6 @@
     document.getElementById("modal").addEventListener("click", (e) => {
       if (e.target.id === "modal") e.currentTarget.hidden = true;
     });
+    document.getElementById("btn-profile").addEventListener("click", renderProfileModal);
   });
 })();
