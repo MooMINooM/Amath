@@ -351,14 +351,32 @@ const AMATH_GAME_BOT = (() => {
       .filter(([r, c]) => ["TE", "DE", "TP"].includes(D.bonusAt(r, c))).length;
   }
 
-  /** ให้คะแนนผู้ท้าชิงแต่ละตัวตาม Tactical Mode ที่ AMATS แนะนำ ยิ่งสูงยิ่งเหมาะกับโหมดนั้น */
-  function scoreCandidateForMode(candidate, mode, board, rackAfter) {
+  /**
+   * V4 (แบบเบา) — Multi-turn Simulation: จำลองว่าถ้าเดินจบด้วยมือที่เหลือนี้ จะหาทางเดิน "ตาถัดไป" ที่ดีที่สุด
+   * ได้จริงแค่ไหน (ค้นหาจริงด้วย collectCandidates ไม่ใช่แค่ฮิวริสติกกะคุณภาพมือลอยๆ แบบเดิม)
+   * ข้อจำกัด: ใช้กระดานปัจจุบันเป็นฐานประมาณ เพราะยังไม่รู้ว่าคู่แข่งจะเดินอะไรคั่นกลาง (ยังไม่มี Opponent Model — V3)
+   * จึงเป็นการประมาณค่าตาถัดไปของ "ตัวเอง" เท่านั้น ไม่ใช่การจำลองครบ 4 ชั้นตาม Roadmap
+   * จำกัดค้นหาระดับ "Standard" คงที่ (ไม่ใช้ระดับความยากของบอทเอง) เพื่อคุมต้นทุนการคำนวณให้เดา
+   */
+  function simulateNextTurnValue(board, rackAfter) {
+    const nextCandidates = collectCandidates(board, rackAfter, false, "Standard");
+    if (nextCandidates.length === 0) return 0;
+    return Math.max(...nextCandidates.map(c => c.score));
+  }
+
+  /** ให้คะแนนผู้ท้าชิงแต่ละตัวตาม Tactical Mode ที่ AMATS แนะนำ ยิ่งสูงยิ่งเหมาะกับโหมดนั้น
+   * (difficulty ใช้แค่เปิด/ปิด V4 lookahead สำหรับ BUILD/RESET — จำกัดไว้ที่ Master ก่อนเพื่อคุมต้นทุนการคำนวณ) */
+  function scoreCandidateForMode(candidate, mode, board, rackAfter, difficulty) {
     switch (mode) {
       case "PRESS": return candidate.score;
       case "GUARD": return candidate.score * 0.3 - premiumExposureAfter(board, candidate) * 8;
       case "DENY": return premiumCellsClaimed(candidate) * 10 + candidate.score * 0.2;
       case "BUILD":
-      case "RESET": return AMATS_BRIDGE.rackHealthScore(rackAfter) * 6 + candidate.score * 0.15;
+      case "RESET": {
+        const rackScore = AMATS_BRIDGE.rackHealthScore(rackAfter);
+        const lookahead = difficulty === "Master" ? simulateNextTurnValue(board, rackAfter) : 0;
+        return rackScore * 4 + lookahead * 1.5 + candidate.score * 0.15;
+      }
       case "CONTROL":
       default: return candidate.score - premiumExposureAfter(board, candidate) * 3;
     }
@@ -406,11 +424,11 @@ const AMATH_GAME_BOT = (() => {
     const mode = analysis.recommendation ? analysis.recommendation.primary : "CONTROL";
     let best = candidates[0], bestScore = -Infinity;
     for (const c of candidates) {
-      const s = scoreCandidateForMode(c, mode, board, rackAfterMove(rack, c));
+      const s = scoreCandidateForMode(c, mode, board, rackAfterMove(rack, c), difficulty);
       if (s > bestScore) { bestScore = s; best = c; }
     }
     return { found: true, ...best, amatsMode: mode };
   }
 
-  return { DIFFICULTY, findMove, collectCandidates, premiumCellsClaimed, premiumExposureAfter, rackAfterMove, scoreCandidateForMode };
+  return { DIFFICULTY, findMove, collectCandidates, premiumCellsClaimed, premiumExposureAfter, rackAfterMove, scoreCandidateForMode, simulateNextTurnValue };
 })();
