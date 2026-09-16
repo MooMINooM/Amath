@@ -363,7 +363,7 @@
     }
     drawFromBag(playerRack, returned.length);
     log(`คุณแลกเบี้ย ${returned.length} ใบ`);
-    consecutivePasses = 0; // แลกเบี้ยคือการเล่นเชิงรุก ไม่นับเป็นการผ่าน
+    consecutivePasses++; // แลกเบี้ยไม่ทำคะแนน นับรวมกับการผ่านตา ไม่งั้นแลกวนไปเรื่อยๆ จะหนีเงื่อนไขจบเกมได้ตลอด
     endTurn();
   }
 
@@ -451,7 +451,7 @@
         for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
         drawFromBag(botRack, n);
         log(`บอทแลกเบี้ย ${n} ใบ`);
-        consecutivePasses = 0; // แลกเบี้ยคือการเล่นเชิงรุก ไม่นับเป็นการผ่าน
+        consecutivePasses++; // แลกเบี้ยไม่ทำคะแนน นับรวมกับการผ่านตา ไม่งั้นแลกวนไปเรื่อยๆ จะหนีเงื่อนไขจบเกมได้ตลอด
       } else {
         log("บอทผ่านตา (ไม่พบทางเดินที่ถูกกติกา และแลกเบี้ยไม่ได้)");
         consecutivePasses++;
