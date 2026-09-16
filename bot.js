@@ -83,11 +83,14 @@ const AMATH_GAME_BOT = (() => {
 
   /** สร้างสมการใหม่ทั้งหมดจากมือ (ไม่ต้องอิงกระดาน): X=X, a op b=c, หรือ a op1 b=c op2 d */
   function findFreshEquation(rack, cfg) {
-    const numbers = rack.filter(t => t.kind === "number" || t.kind === "blank");
-    const ops = rack.filter(t => t.kind === "operator" || t.kind === "wildcard-op");
-    const eqTiles = rack.filter(t => t.face === "=");
-    if (eqTiles.length === 0 || numbers.length < 2) return null;
+    // เบี้ยว่าง (Blank) เลือกเป็น "=" ได้ ให้ใช้ "=" จริงก่อนเสมอ ถ้าไม่มีค่อยยอมเสีย Blank มาทำหน้าที่นี้แทน
+    const realEq = rack.filter(t => t.face === "=");
+    const eqTiles = realEq.length ? realEq : rack.filter(t => t.kind === "blank");
+    if (eqTiles.length === 0) return null;
     const eq = eqTiles[0];
+    const numbers = rack.filter(t => (t.kind === "number" || t.kind === "blank") && t.id !== eq.id);
+    const ops = rack.filter(t => (t.kind === "operator" || t.kind === "wildcard-op") && t.id !== eq.id);
+    if (numbers.length < 2) return null;
 
     // X = X
     for (let i = 0; i < numbers.length; i++) {
@@ -249,7 +252,8 @@ const AMATH_GAME_BOT = (() => {
       const check = E.validateEquation(str);
       if (!check.valid) continue;
       const target = check.value;
-      const eqTiles = rack.filter(t => t.face === "=");
+      const realEq = rack.filter(t => t.face === "=");
+      const eqTiles = realEq.length ? realEq : rack.filter(t => t.kind === "blank");
       if (eqTiles.length === 0) continue;
       const expr = findExpressionEqualing(rack, target, cfg.useTriple, new Set([eqTiles[0].id]));
       if (!expr) continue;
@@ -289,7 +293,8 @@ const AMATH_GAME_BOT = (() => {
         anchors.push({ r, c, value: parseInt(cell.resolvedChar, 10) });
       }
     }
-    const eqTilesAll = rack.filter(t => t.face === "=");
+    const realEqAll = rack.filter(t => t.face === "=");
+    const eqTilesAll = realEqAll.length ? realEqAll : rack.filter(t => t.kind === "blank");
     if (eqTilesAll.length === 0) return results;
 
     for (const { r, c, value } of shuffle(anchors)) {
@@ -333,6 +338,45 @@ const AMATH_GAME_BOT = (() => {
     return results;
   }
 
+  /**
+   * ลองต่อสมการใหม่ผ่านเบี้ย "=" ที่มีอยู่แล้วบนกระดาน (คนละเส้นกับสมการเดิมที่ "=" นั้นสังกัดอยู่)
+   * ข้อดีคือไม่ต้องเสียเบี้ย "=" ของตัวเองเลย — ต้องมีช่องว่างพอดี 1 ช่องทั้งสองฝั่งของ "=" ในแนวตั้งฉาก
+   * แล้วหาสองนิพจน์ที่ค่าเท่ากันจากมือมาวางคร่อม (ตอนนี้รองรับเบี้ยเดี่ยวต่อเบี้ยเดี่ยวก่อน ยังไม่รองรับ a op b ทั้งสองฝั่ง)
+   */
+  function attemptCrossAtEquals(board, rack, cfg, limit = 1) {
+    const results = [];
+    const anchors = [];
+    for (let r = 0; r < D.BOARD_SIZE; r++) {
+      for (let c = 0; c < D.BOARD_SIZE; c++) {
+        const cell = board[r][c];
+        if (cell && cell.resolvedChar === "=") anchors.push({ r, c });
+      }
+    }
+    const numbers = rack.filter(t => t.kind === "number" || t.kind === "blank");
+
+    for (const { r, c } of shuffle(anchors)) {
+      for (const [dr, dc] of [[0, 1], [1, 0]]) {
+        const before = { r: r - dr, c: c - dc };
+        const after = { r: r + dr, c: c + dc };
+        const beforeOpen = inBounds(before.r, before.c) && !board[before.r][before.c];
+        const afterOpen = inBounds(after.r, after.c) && !board[after.r][after.c];
+        if (!beforeOpen || !afterOpen) continue; // ต้องว่างทั้งสองฝั่งพอดี เพราะ "=" ตรงกลางมีอยู่แล้ว ไม่ใช่เบี้ยที่เราวาง
+
+        for (let i = 0; i < numbers.length; i++) {
+          for (let j = 0; j < numbers.length; j++) {
+            if (i === j) continue;
+            const common = possibleValues(numbers[i]).find(v => possibleValues(numbers[j]).includes(v));
+            if (common === undefined) continue;
+            const tiles = [asResolved(numbers[i], String(common)), asResolved(numbers[j], String(common))];
+            const result = tryValidatePlacement(board, tiles, [before, after], false);
+            if (result) { results.push(result); if (results.length >= limit) return results; }
+          }
+        }
+      }
+    }
+    return results;
+  }
+
   const CANDIDATE_LIMIT = { Rookie: 1, Standard: 4, Master: 10 };
 
   /** ช่องโบนัสชั้นดี (TE/DE/TP) ที่เบี้ยใหม่ในการเดินนี้ไปครอบครอง (ยิ่งมากยิ่ง "กัน" ไม่ให้อีกฝ่ายได้) */
@@ -351,14 +395,32 @@ const AMATH_GAME_BOT = (() => {
       .filter(([r, c]) => ["TE", "DE", "TP"].includes(D.bonusAt(r, c))).length;
   }
 
-  /** ให้คะแนนผู้ท้าชิงแต่ละตัวตาม Tactical Mode ที่ AMATS แนะนำ ยิ่งสูงยิ่งเหมาะกับโหมดนั้น */
-  function scoreCandidateForMode(candidate, mode, board, rackAfter) {
+  /**
+   * V4 (แบบเบา) — Multi-turn Simulation: จำลองว่าถ้าเดินจบด้วยมือที่เหลือนี้ จะหาทางเดิน "ตาถัดไป" ที่ดีที่สุด
+   * ได้จริงแค่ไหน (ค้นหาจริงด้วย collectCandidates ไม่ใช่แค่ฮิวริสติกกะคุณภาพมือลอยๆ แบบเดิม)
+   * ข้อจำกัด: ใช้กระดานปัจจุบันเป็นฐานประมาณ เพราะยังไม่รู้ว่าคู่แข่งจะเดินอะไรคั่นกลาง (ยังไม่มี Opponent Model — V3)
+   * จึงเป็นการประมาณค่าตาถัดไปของ "ตัวเอง" เท่านั้น ไม่ใช่การจำลองครบ 4 ชั้นตาม Roadmap
+   * จำกัดค้นหาระดับ "Standard" คงที่ (ไม่ใช้ระดับความยากของบอทเอง) เพื่อคุมต้นทุนการคำนวณให้เดา
+   */
+  function simulateNextTurnValue(board, rackAfter) {
+    const nextCandidates = collectCandidates(board, rackAfter, false, "Standard");
+    if (nextCandidates.length === 0) return 0;
+    return Math.max(...nextCandidates.map(c => c.score));
+  }
+
+  /** ให้คะแนนผู้ท้าชิงแต่ละตัวตาม Tactical Mode ที่ AMATS แนะนำ ยิ่งสูงยิ่งเหมาะกับโหมดนั้น
+   * (difficulty ใช้แค่เปิด/ปิด V4 lookahead สำหรับ BUILD/RESET — จำกัดไว้ที่ Master ก่อนเพื่อคุมต้นทุนการคำนวณ) */
+  function scoreCandidateForMode(candidate, mode, board, rackAfter, difficulty) {
     switch (mode) {
       case "PRESS": return candidate.score;
       case "GUARD": return candidate.score * 0.3 - premiumExposureAfter(board, candidate) * 8;
       case "DENY": return premiumCellsClaimed(candidate) * 10 + candidate.score * 0.2;
       case "BUILD":
-      case "RESET": return AMATS_BRIDGE.rackHealthScore(rackAfter) * 6 + candidate.score * 0.15;
+      case "RESET": {
+        const rackScore = AMATS_BRIDGE.rackHealthScore(rackAfter);
+        const lookahead = difficulty === "Master" ? simulateNextTurnValue(board, rackAfter) : 0;
+        return rackScore * 4 + lookahead * 1.5 + candidate.score * 0.15;
+      }
       case "CONTROL":
       default: return candidate.score - premiumExposureAfter(board, candidate) * 3;
     }
@@ -381,6 +443,9 @@ const AMATH_GAME_BOT = (() => {
       candidates = attemptExtendLines(board, rack, cfg, limit);
       if (candidates.length < limit) {
         candidates = candidates.concat(attemptCrossAtTile(board, rack, cfg, limit - candidates.length));
+      }
+      if (candidates.length < limit) {
+        candidates = candidates.concat(attemptCrossAtEquals(board, rack, cfg, limit - candidates.length));
       }
     }
     return candidates.filter(Boolean);
@@ -406,11 +471,11 @@ const AMATH_GAME_BOT = (() => {
     const mode = analysis.recommendation ? analysis.recommendation.primary : "CONTROL";
     let best = candidates[0], bestScore = -Infinity;
     for (const c of candidates) {
-      const s = scoreCandidateForMode(c, mode, board, rackAfterMove(rack, c));
+      const s = scoreCandidateForMode(c, mode, board, rackAfterMove(rack, c), difficulty);
       if (s > bestScore) { bestScore = s; best = c; }
     }
     return { found: true, ...best, amatsMode: mode };
   }
 
-  return { DIFFICULTY, findMove, collectCandidates, premiumCellsClaimed, premiumExposureAfter, rackAfterMove, scoreCandidateForMode };
+  return { DIFFICULTY, findMove, collectCandidates, premiumCellsClaimed, premiumExposureAfter, rackAfterMove, scoreCandidateForMode, simulateNextTurnValue };
 })();
