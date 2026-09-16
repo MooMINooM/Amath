@@ -15,6 +15,8 @@
   let turnStartBoard = null;
   let turnHistory = [];
   let opponentProfile = null; // V3: โปรไฟล์ผู้เล่น (จาก V2) ที่บอทใช้ปรับน้ำหนักการตัดสินใจของตัวเอง
+  let lastPrimaryMode = null; // V6: ใช้เช็คว่าโหมดที่ AMATS แนะนำเปลี่ยนจากตาก่อนไหม เพื่อเน้นให้เห็นว่ามันวิเคราะห์ใหม่สดๆ จริง
+  let csCurrentScenario = null, csCorrect = 0, csTotal = 0; // V6: สถานีฝึกคิด (Coach Station)
 
   const RACK_TONE = { Excellent: "good", Good: "good", Stable: "accent", Weak: "warn", Critical: "bad" };
   const BOARD_TONE = { Open: "good", Balanced: "accent", Controlled: "accent", Restricted: "warn", Dangerous: "bad" };
@@ -53,6 +55,7 @@
     isFirstMove = true; currentTurn = "player"; pendingCoords = [];
     consecutivePasses = 0; gameOver = false; selectedRackIndex = null; turnNumber = 0;
     turnHistory = [];
+    lastPrimaryMode = null;
     const profile = typeof AMATS_PROFILE !== "undefined" ? AMATS_PROFILE.computeProfile() : null;
     opponentProfile = profile && !profile.insufficient ? profile : null;
     turnStartRack = playerRack.slice();
@@ -114,6 +117,11 @@
     const winProb = analysis.winProb;
     const winProbTone = winProb === null ? "" : (winProb >= 50 ? "positive" : "negative");
 
+    // V6: บอกให้เห็นชัดๆ ว่า AMATS วิเคราะห์ใหม่สดทุกครั้งที่ state เปลี่ยนจริง (Continuous Re-optimization) —
+    // เมื่อโหมดที่แนะนำเปลี่ยนจากตาก่อน badge จะกระพริบเน้นให้สังเกตเห็น
+    const modeChanged = lastPrimaryMode !== null && rec && rec.primary !== lastPrimaryMode;
+    lastPrimaryMode = rec ? rec.primary : lastPrimaryMode;
+
     body.innerHTML = `
       ${winProb !== null ? `
         <div class="winprob-banner ${winProbTone}">
@@ -124,7 +132,7 @@
       <div class="coach-head">
         <div class="coach-strategy">
           <div class="amats-stat-label">กลยุทธ์ปัจจุบัน</div>
-          <div class="mode-chip is-primary coach-strategy-badge" style="--mc:${primaryColor}">${rec ? rec.primary : "-"}</div>
+          <div class="mode-chip is-primary coach-strategy-badge${modeChanged ? " mode-changed" : ""}" style="--mc:${primaryColor}">${rec ? rec.primary : "-"}</div>
         </div>
         <div class="coach-confidence">
           <div class="amats-stat-label">ความมั่นใจ</div>
@@ -574,6 +582,61 @@
     document.getElementById("profile-close").addEventListener("click", () => { modal.hidden = true; });
   }
 
+  /* ---------- Coach Station (V6) — ฝึกเลือก Tactical Mode จาก PRACTICE_SCENARIOS ที่เขียนไว้ใน amats-data.js
+   * (เดิมเป็นหน้า AMATS Trainer แยกต่างหากที่เคยถูกลบไปตอนรวมเป็นเกมเดียว เนื้อหาเดิมยังอยู่ครบแค่ไม่เคยถูกใช้เลย) */
+  function renderCoachStation() {
+    csCorrect = 0; csTotal = 0;
+    const modal = document.getElementById("modal");
+    modal.innerHTML = `
+      <div class="modal-box coach-station-box">
+        <h3>สถานีฝึกคิด AMATS</h3>
+        <p class="muted">อ่านสถานการณ์ แล้วเลือกโหมดที่ควรใช้ ก่อนดูคำตอบจาก AMATS</p>
+        <div class="cs-score">ตอบถูก <b id="cs-score">0</b>/<b id="cs-total">0</b></div>
+        <div class="cs-scenario" id="cs-scenario"></div>
+        <div class="amats-mode-grid" id="cs-mode-grid"></div>
+        <div id="cs-result"></div>
+        <div class="row-actions">
+          <button id="cs-next" class="btn-secondary" hidden type="button">โจทย์ถัดไป</button>
+          <button id="cs-close" class="btn-primary" type="button">ปิด</button>
+        </div>
+      </div>`;
+    modal.hidden = false;
+    document.getElementById("cs-close").addEventListener("click", () => { modal.hidden = true; });
+    document.getElementById("cs-next").addEventListener("click", nextCsScenario);
+    nextCsScenario();
+  }
+
+  function nextCsScenario() {
+    const scenarios = AMATS_DATA.PRACTICE_SCENARIOS;
+    csCurrentScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+    document.getElementById("cs-scenario").innerHTML = `<p>${csCurrentScenario.story}</p>`;
+    document.getElementById("cs-result").innerHTML = "";
+    document.getElementById("cs-next").hidden = true;
+    const modes = AMATS_DATA.MODES;
+    const grid = document.getElementById("cs-mode-grid");
+    grid.innerHTML = Object.keys(modes).map(key =>
+      `<button class="mode-chip cs-mode-btn" style="--mc:${modes[key].color}" data-mode="${key}" type="button">${key}</button>`
+    ).join("");
+    grid.querySelectorAll(".cs-mode-btn").forEach(btn => btn.addEventListener("click", () => answerCsScenario(btn.dataset.mode)));
+  }
+
+  function answerCsScenario(chosenMode) {
+    const s = csCurrentScenario;
+    const rec = AMATS_ENGINE.recommendMode({ gap: s.gap, phase: s.phase, rack: s.rack, board: s.board, threat: s.threat });
+    const correct = chosenMode === rec.primary;
+    csTotal++;
+    if (correct) csCorrect++;
+    document.getElementById("cs-score").textContent = csCorrect;
+    document.getElementById("cs-total").textContent = csTotal;
+    document.getElementById("cs-result").innerHTML = `
+      <div class="cs-result-box ${correct ? "positive" : "negative"}">
+        <p>${correct ? "ตอบถูก!" : `ยังไม่ตรง — AMATS แนะนำ <b>${rec.primary}</b> (สำรอง ${rec.secondary})`}</p>
+        <ul>${rec.reasons.map(r => `<li>${r}</li>`).join("")}</ul>
+      </div>`;
+    document.getElementById("cs-mode-grid").querySelectorAll(".cs-mode-btn").forEach(b => b.disabled = true);
+    document.getElementById("cs-next").hidden = false;
+  }
+
   /* ---------- Log & Toast ---------- */
   function log(msg) {
     const el = document.getElementById("log");
@@ -620,5 +683,6 @@
       if (e.target.id === "modal") e.currentTarget.hidden = true;
     });
     document.getElementById("btn-profile").addEventListener("click", renderProfileModal);
+    document.getElementById("btn-coach-station").addEventListener("click", renderCoachStation);
   });
 })();
