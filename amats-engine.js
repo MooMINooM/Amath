@@ -81,6 +81,23 @@ const AMATS_ENGINE = (() => {
     return Math.round((g + t + r) / 3);
   }
 
+  // ยิ่งใกล้จบเกม ผลต่างคะแนนที่มีอยู่ ณ ตอนนี้ยิ่ง "นิ่ง" ขึ้น (พลิกกลับได้ยากกว่าช่วงต้นเกมที่เหลือเวลาเยอะ)
+  const PHASE_GAP_WEIGHT = { Opening: 0.5, "Early Midgame": 0.7, Midgame: 0.9, "Late Game": 1.2, Endgame: 1.6 };
+
+  /**
+   * V5: Win Probability Engine (แบบเบา) — ข้อมูลแมตช์จริงที่เก็บได้ (สูงสุด 30 เกมต่อเบราว์เซอร์) ยังน้อยเกินกว่าจะฝึกโมเดล
+   * สถิติที่แม่นยำได้ (ตามหลักการข้อ 12: อย่าเริ่มจาก AI ซับซ้อนก่อน) จึงใช้สูตร logistic รวมสัญญาณที่ AMATS
+   * คำนวณอยู่แล้วทั้งหมด (GAP ดิบ, ช่วงเกม, คุณภาพมือ, Threat ที่ถ่วงน้ำหนักตามคู่แข่งจาก V3 แล้ว)
+   * ค่าที่ได้เป็น "ตัวชี้แนวโน้ม" ไม่ใช่ความน่าจะเป็นที่ผ่านการ calibrate จากข้อมูลจริง — ควรอ่านแบบเปรียบเทียบ
+   * (ตานี้ดีขึ้น/แย่ลงกว่าเมื่อครู่) มากกว่าเชื่อเป็นตัวเลขสัมบูรณ์
+   */
+  function winProbability({ gap, phase, rackPct, threatPct }) {
+    const phaseWeight = PHASE_GAP_WEIGHT[phase] ?? 0.9;
+    const z = (gap / 15) * phaseWeight + ((rackPct - 50) / 100) * 1.2 - (threatPct / 100) * 1.0;
+    const p = 1 / (1 + Math.exp(-z));
+    return Math.round(p * 100);
+  }
+
   /** คำนวณ Move Value = Score + Position + Rack + Denial − Opponent Opportunity */
   function moveValue({ score = 0, position = 0, rack = 0, denial = 0, opponentOpportunity = 0 }) {
     return score + position + rack + denial - opponentOpportunity;
@@ -114,5 +131,5 @@ const AMATS_ENGINE = (() => {
     return { total, max, level };
   }
 
-  return { recommendMode, moveValue, netGain, twoTurnExpectedValue, assessRackHealth, confidenceScore };
+  return { recommendMode, moveValue, netGain, twoTurnExpectedValue, assessRackHealth, confidenceScore, winProbability };
 })();
