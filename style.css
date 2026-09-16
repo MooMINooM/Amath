@@ -195,6 +195,13 @@ main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .confidence-ring::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--panel); }
 .confidence-ring span { position: relative; z-index: 1; }
 .coach-meta { text-align: center; font-size: 0.75rem; margin-bottom: 10px; }
+.winprob-banner { display: flex; justify-content: space-between; align-items: center; border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 14px; }
+.winprob-banner.positive { background: #dcfce7; }
+.winprob-banner.negative { background: #fee2e2; }
+.winprob-label { font-size: 0.78rem; color: var(--muted); }
+.winprob-value { font-size: 1.6rem; font-weight: 800; font-family: "IBM Plex Mono", monospace; }
+.winprob-value.positive { color: #15803d; }
+.winprob-value.negative { color: #b91c1c; }
 .advice-box {
   background: #eef4ff; border: 1px solid #cfe0ff; border-radius: var(--radius-sm);
   padding: 10px 12px; font-size: 0.82rem; color: #1d4ed8; margin-bottom: 6px; line-height: 1.5;

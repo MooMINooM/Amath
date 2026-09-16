@@ -129,9 +129,11 @@ const AMATS_BRIDGE = (() => {
     const rh = rackHealth(rack);
     const board_ = boardState(board);
     const threat = threatLevel(board, opponentDifficulty);
+    const threatPctVal = threatPct(board, opponentDifficulty);
     const rec = available ? AE.recommendMode({ gap, phase, rack: rh.level, board: board_, threat }) : null;
     const confidence = available ? AE.confidenceScore({ gap, rack: rh.level, threat }) : null;
-    return { gap, phase, rackHealth: rh, board: board_, boardPct: boardPct(board), threat, threatPct: threatPct(board, opponentDifficulty), confidence, recommendation: rec };
+    const winProb = available ? AE.winProbability({ gap: myScore - oppScore, phase, rackPct: rh.pct, threatPct: threatPctVal }) : null;
+    return { gap, phase, rackHealth: rh, board: board_, boardPct: boardPct(board), threat, threatPct: threatPctVal, confidence, winProb, recommendation: rec };
   }
 
   return {

@@ -111,7 +111,16 @@
       return `<div class="mode-chip${isPrimary ? " is-primary" : ""}${isSecondary ? " is-secondary" : ""}" style="--mc:${modes[key].color}">${key}</div>`;
     }).join("");
 
+    const winProb = analysis.winProb;
+    const winProbTone = winProb === null ? "" : (winProb >= 50 ? "positive" : "negative");
+
     body.innerHTML = `
+      ${winProb !== null ? `
+        <div class="winprob-banner ${winProbTone}">
+          <span class="winprob-label">โอกาสชนะ (ประมาณการ)</span>
+          <span class="winprob-value ${winProbTone}">${winProb}%</span>
+        </div>
+      ` : ""}
       <div class="coach-head">
         <div class="coach-strategy">
           <div class="amats-stat-label">กลยุทธ์ปัจจุบัน</div>
