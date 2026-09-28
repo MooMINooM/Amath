@@ -31,10 +31,14 @@ const AMATH_GAME_BOT = (() => {
 
   function asResolved(tile, ch) { return { ...tile, resolvedChar: ch }; }
 
-  /** ค่าที่เป็นไปได้ของเบี้ยหนึ่งใบ (เบี้ยตัวเลขคือค่าตายตัว, BLANK คือ 0-20 ได้ทั้งหมด) */
+  /** ค่าตัวเลขที่เป็นไปได้ของเบี้ยหนึ่งใบ — BLANK ต้องเคารพ choices ของ ruleset ที่ใช้อยู่ */
   function possibleValues(tile) {
     if (tile.kind === "number") return [parseInt(tile.face, 10)];
-    if (tile.kind === "blank") return Array.from({ length: 21 }, (_, i) => i);
+    if (tile.kind === "blank") {
+      return (tile.choices || D.BLANK_TILE.choices)
+        .filter(ch => /^\\d+$/.test(String(ch)))
+        .map(ch => parseInt(ch, 10));
+    }
     return [];
   }
 
