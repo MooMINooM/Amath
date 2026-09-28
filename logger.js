@@ -23,6 +23,9 @@ const AMATS_LOGGER = (() => {
       turns: [],
     };
     turnStartedAt = Date.now();
+    if (typeof AMATH_SUPABASE_TELEMETRY !== "undefined") {
+      AMATH_SUPABASE_TELEMETRY.startMatch(currentMatch);
+    }
     return currentMatch;
   }
 
@@ -74,13 +77,20 @@ const AMATS_LOGGER = (() => {
       ts: Date.now(),
     };
     currentMatch.turns.push(entry);
+    if (typeof AMATH_SUPABASE_TELEMETRY !== "undefined") {
+      AMATH_SUPABASE_TELEMETRY.logTurn(currentMatch, entry);
+    }
     turnStartedAt = Date.now();
     return entry;
   }
 
   function logBotTurn(turnNumber, score) {
     if (!currentMatch) return;
-    currentMatch.turns.push({ actor: "bot", turnNumber, moveScore: score, ts: Date.now() });
+    const botEntry = { actor: "bot", turnNumber, moveScore: score, ts: Date.now() };
+    currentMatch.turns.push(botEntry);
+    if (typeof AMATH_SUPABASE_TELEMETRY !== "undefined") {
+      AMATH_SUPABASE_TELEMETRY.logTurn(currentMatch, botEntry);
+    }
     // เติมคะแนนคู่แข่ง (บอท) ในตาถัดไป ย้อนกลับเข้าตาผู้เล่นล่าสุด
     for (let i = currentMatch.turns.length - 2; i >= 0; i--) {
       if (currentMatch.turns[i].actor === "player") { currentMatch.turns[i].opponentNextScore = score; break; }
@@ -103,6 +113,9 @@ const AMATS_LOGGER = (() => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(all.slice(0, MAX_STORED_MATCHES)));
     } catch (e) { /* storage unavailable — session summary still returned below */ }
     const finished = currentMatch;
+    if (typeof AMATH_SUPABASE_TELEMETRY !== "undefined") {
+      AMATH_SUPABASE_TELEMETRY.finishMatch(finished);
+    }
     currentMatch = null;
     return finished;
   }
@@ -129,5 +142,7 @@ const AMATS_LOGGER = (() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch (e) { return []; }
   }
 
-  return { startMatch, markTurnStart, logPlayerTurn, logBotTurn, finalizeMatch, computeSummary, loadAll };
+  function getCurrentMatch() { return currentMatch; }
+
+  return { startMatch, markTurnStart, logPlayerTurn, logBotTurn, finalizeMatch, computeSummary, loadAll, getCurrentMatch };
 })();
