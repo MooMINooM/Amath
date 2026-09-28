@@ -331,3 +331,21 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   .rack-tile { width: 34px; height: 34px; }
   #topbar { flex-direction: column; align-items: flex-start; gap: 8px; }
 }
+
+
+/* Beta Core 0.1 — ruleset selection */
+.ruleset-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 12px 0 22px;
+}
+.ruleset-picker label { font-weight: 700; }
+.ruleset-picker select {
+  font: inherit;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+}
