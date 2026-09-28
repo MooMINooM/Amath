@@ -11,7 +11,7 @@
   let clock = null, clockInterval = null, botTimeout = null;
   let selectedRackIndex = null;
   let turnNumber = 0;
-  let showAmats = false;
+  let showAmats = true;
   let turnStartRack = [];
   let turnStartBoard = null;
   let turnHistory = [];
@@ -148,64 +148,32 @@
   }
 
   function renderAmatsPanel() {
-    const panel = document.getElementById("amats-panel");
-    panel.hidden = !showAmats;
-    if (!showAmats) return;
-    if (!AMATS_BRIDGE.available) {
-      document.getElementById("amats-body").innerHTML = `<p class="muted">โหลดโมดูล AMATS ไม่สำเร็จ</p>`;
+    const bubble = document.getElementById("advice-text");
+    bubble.replaceChildren();
+    if (!showAmats || !AMATS_BRIDGE.available) {
+      bubble.textContent = showAmats ? "ไม่สามารถโหลด AMATS ได้" : "มองหาสมการที่ใช้ช่อง 2× หรือ 3× และระวังช่องที่เปิดให้คู่แข่ง";
       return;
     }
     const analysis = AMATS_BRIDGE.analyze({
       board, myScore: playerScore, oppScore: botScore, turnNumber: turnNumber + 1, rack: playerRack, opponentDifficulty: difficulty,
     });
-    const body = document.getElementById("amats-body");
-    const modes = AMATS_DATA.MODES;
-    const rec = analysis.recommendation;
-    const primaryColor = rec ? modes[rec.primary].color : "#94a3b8";
-
-    const modeGrid = Object.keys(modes).map(key => {
-      const isPrimary = rec && rec.primary === key;
-      const isSecondary = rec && rec.secondary === key;
-      return `<div class="mode-chip${isPrimary ? " is-primary" : ""}${isSecondary ? " is-secondary" : ""}" style="--mc:${modes[key].color}">${key}</div>`;
-    }).join("");
-
-    const winProb = analysis.winProb;
-    const winProbTone = winProb === null ? "" : (winProb >= 50 ? "positive" : "negative");
-
-    // V6: บอกให้เห็นชัดๆ ว่า AMATS วิเคราะห์ใหม่สดทุกครั้งที่ state เปลี่ยนจริง (Continuous Re-optimization) —
-    // เมื่อโหมดที่แนะนำเปลี่ยนจากตาก่อน badge จะกระพริบเน้นให้สังเกตเห็น
-    const modeChanged = lastPrimaryMode !== null && rec && rec.primary !== lastPrimaryMode;
-    lastPrimaryMode = rec ? rec.primary : lastPrimaryMode;
-
-    body.innerHTML = `
-      ${winProb !== null ? `
-        <div class="winprob-banner ${winProbTone}">
-          <span class="winprob-label">โอกาสชนะ (ประมาณการ)</span>
-          <span class="winprob-value ${winProbTone}">${winProb}%</span>
-        </div>
-      ` : ""}
-      <div class="coach-head">
-        <div class="coach-strategy">
-          <div class="amats-stat-label">กลยุทธ์ปัจจุบัน</div>
-          <div class="mode-chip is-primary coach-strategy-badge${modeChanged ? " mode-changed" : ""}" style="--mc:${primaryColor}">${rec ? rec.primary : "-"}</div>
-        </div>
-        <div class="coach-confidence">
-          <div class="amats-stat-label">ความมั่นใจ</div>
-          <div class="confidence-ring" style="--pct:${analysis.confidence ?? 0}"><span>${analysis.confidence ?? 0}%</span></div>
-        </div>
-      </div>
-      <div class="coach-meta muted">GAP ${analysis.gap} · ${analysis.phase}</div>
-      ${rec ? `<div class="advice-box">💡 ${rec.reasons[0]}</div>` : ""}
-      <div class="section-title">การประเมินสถานการณ์</div>
-      <div class="situ-grid">
-        ${situationStat("Rack", analysis.rackHealth.level, analysis.rackHealth.pct, RACK_TONE[analysis.rackHealth.level] || "accent")}
-        ${situationStat("Board", analysis.board, analysis.boardPct, BOARD_TONE[analysis.board] || "accent")}
-        ${situationStat("Threat", analysis.threat, analysis.threatPct, THREAT_TONE[analysis.threat] || "accent")}
-      </div>
-      <div class="section-title">โหมดกลยุทธ์ AMATS</div>
-      <div class="amats-mode-grid">${modeGrid}</div>
-      ${rec && rec.reasons.length > 1 ? `<ul class="amats-reasons">${rec.reasons.slice(1).map(r => `<li>${r}</li>`).join("")}</ul>` : ""}
-    `;
+    const mode = analysis.recommendation?.primary;
+    const tips = {
+      PRESS: "เร่งทำคะแนนจากช่องโบนัสที่คุ้มค่า",
+      BUILD: "วางเบี้ยเพื่อเตรียมทางทำคะแนนตาถัดไป",
+      CONTROL: "เก็บแต้มพร้อมรักษาทางเลือกในมือ",
+      DENY: "ปิดช่องโบนัสที่คู่แข่งอาจใช้ทำคะแนน",
+      GUARD: "รักษาคะแนนนำและเลี่ยงเปิดช่องใหญ่",
+      RESET: "ปรับคุณภาพเบี้ยในมือก่อนเดินต่อ",
+    };
+    const heading = document.createElement("strong");
+    heading.textContent = `AMATS · ${mode || "กำลังประเมิน"}`;
+    const tip = document.createElement("span");
+    tip.className = "advice-tip";
+    tip.textContent = tips[mode] || "พิจารณาสถานการณ์บนกระดานก่อนเดิน";
+    const context = document.createElement("small");
+    context.textContent = `คะแนน${analysis.gap} · โอกาสชนะประมาณ ${analysis.winProb ?? "–"}%`;
+    bubble.append(heading, tip, context);
   }
 
   function renderScorePanel() {
@@ -770,11 +738,9 @@
     const setAnalysis = enabled => {
       showAmats = enabled;
       document.getElementById("amats-toggle").checked = enabled;
-      document.getElementById("btn-advice-more").textContent = enabled ? "ย่อข้อมูล ⌃" : "ดูเพิ่มเติม ›";
       renderAmatsPanel();
     };
     document.getElementById("amats-toggle").addEventListener("change", e => setAnalysis(e.target.checked));
-    document.getElementById("btn-advice-more").addEventListener("click", () => setAnalysis(!showAmats));
     const setScoreTab = selected => {
       document.getElementById("history-table").hidden = selected;
       document.getElementById("scoreboard-view").hidden = !selected;
