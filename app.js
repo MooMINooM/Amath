@@ -4,14 +4,14 @@
   const E = AMATH_ENGINE;
   const BOT = AMATH_GAME_BOT;
 
-  const BONUS_LABEL = { TE: "3E", DE: "2E", TP: "3P", DP: "2P" };
+  const BONUS_LABEL = { TE: "3×", DE: "2×", TP: "3×", DP: "2×" };
 
   let board, bag, playerRack, botRack, playerScore, botScore;
   let isFirstMove, currentTurn, pendingCoords, nonScoringAfterBagEmpty, gameOver, difficulty;
   let clock = null, clockInterval = null, botTimeout = null;
   let selectedRackIndex = null;
   let turnNumber = 0;
-  let showAmats = true;
+  let showAmats = false;
   let turnStartRack = [];
   let turnStartBoard = null;
   let turnHistory = [];
@@ -29,9 +29,11 @@
     const wrap = document.getElementById("board-wrap");
     const boardEl = document.getElementById("board");
     if (!wrap || !boardEl) return;
-    const size = Math.max(200, Math.min(wrap.clientWidth, wrap.clientHeight));
+    const size = Math.max(220, Math.min(wrap.clientWidth - 24, wrap.clientHeight - 24, 720));
     boardEl.style.width = size + "px";
     boardEl.style.height = size + "px";
+    const shell = wrap.querySelector(".board-shell");
+    if (shell) shell.style.width = size + 24 + "px";
   }
   window.addEventListener("resize", sizeBoard);
 
@@ -67,6 +69,9 @@
     turnStartBoard = cloneBoardDeep(board);
     clearLog();
     log(`เริ่มเกมใหม่ — ${D.RULESET_LABEL} · บอทระดับ ${diff}`);
+    document.getElementById("header-ruleset").textContent = D.RULESET_LABEL;
+    document.getElementById("bag-total").textContent = D.TOTAL_TILES;
+    document.getElementById("bot-difficulty").textContent = { Rookie: "เริ่มต้น", Standard: "ปกติ", Master: "เชี่ยวชาญ" }[diff] || diff;
     document.getElementById("setup-panel").hidden = true;
     document.getElementById("game-layout").hidden = false;
     document.getElementById("bottom-bar").hidden = false;
@@ -79,7 +84,7 @@
       rulesetLabel: D.RULESET_LABEL,
     });
     renderAll();
-    sizeBoard();
+    requestAnimationFrame(sizeBoard);
     clock.switchTo("player");
     clockInterval = setInterval(checkClock, 200);
     renderClock();
@@ -98,7 +103,9 @@
       el.textContent = AMATH_CLOCK.format(state.remainingMs[side]);
       el.classList.toggle("clock-active", state.active === side);
       el.classList.toggle("clock-overtime", state.remainingMs[side] < 0);
-      document.getElementById(`penalty-${side}`).textContent = `หักเวลา ${state.penalties[side]} คะแนน`;
+      document.getElementById(`penalty-${side}`).textContent = state.penalties[side] ? `หักเวลา ${state.penalties[side]} คะแนน` : "";
+      const fill = document.getElementById(`clock-fill-${side}`);
+      if (fill?.style) fill.style.width = `${Math.min(100, Math.max(0, state.remainingMs[side] / (D.CLOCK_MINUTES * 60000) * 100))}%`;
     }
   }
 
@@ -215,30 +222,29 @@
     const estTotal = AMATS_BRIDGE.totalTurns || 20;
     document.getElementById("turn-progress-text").textContent = `${turnNumber + 1}/${estTotal}`;
     document.getElementById("diff-progress-text").textContent = difficulty || "-";
+    document.getElementById("sp-player-score-detail").textContent = playerScore;
     const rackPct = AMATS_BRIDGE.available ? AMATS_BRIDGE.rackHealth(playerRack).pct : 0;
     document.getElementById("rack-power-fill").style.width = rackPct + "%";
     document.getElementById("rack-power-text").textContent = rackPct + "%";
   }
 
   function pushHistory(entry) {
-    turnHistory.unshift(entry);
+    turnHistory.unshift({ ...entry, time: new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) });
     renderHistoryTable();
   }
 
   function renderHistoryTable() {
     const el = document.getElementById("history-table");
     if (!el) return;
-    if (turnHistory.length === 0) { el.innerHTML = `<p class="muted">ยังไม่มีการเล่น</p>`; return; }
-    el.innerHTML = `
-      <div class="history-row history-head"><span>ตา</span><span>ผู้เล่น</span><span>แต้ม</span><span>สมการ</span></div>
-      ${turnHistory.slice(0, 12).map(h => `
-        <div class="history-row ${h.actor}">
-          <span>${h.turnNumber}</span>
-          <span>${h.actor === "player" ? "ผู้เล่น" : "BOT"}</span>
-          <span class="history-score">+${h.score}</span>
-          <span class="history-eq">${h.equation}</span>
-        </div>`).join("")}
-    `;
+    if (turnHistory.length === 0) { el.innerHTML = `<p class="empty-history">การเดินแต่ละตาจะปรากฏที่นี่</p>`; return; }
+    el.innerHTML = turnHistory.slice(0, 20).map(h => `
+      <div class="history-row ${h.actor}">
+        <span class="history-number">${h.turnNumber}</span>
+        <strong>${h.actor === "player" ? "นักเรียน" : "บอท"}</strong>
+        <span class="history-eq">วาง ${h.equation}</span>
+        <span class="history-score">+${h.score}</span>
+        <time>${h.time}</time>
+      </div>`).join("");
   }
 
   function renderBoard() {
@@ -274,7 +280,7 @@
   function renderRack() {
     const el = document.getElementById("player-rack");
     el.innerHTML = "";
-    document.getElementById("rack-count-text").textContent = `${playerRack.length}/${D.RACK_SIZE}`;
+    document.getElementById("rack-count-text").textContent = `${playerRack.length}`;
     playerRack.forEach((tile, i) => {
       const slot = document.createElement("div");
       slot.className = "rack-tile" + (i === selectedRackIndex ? " selected" : "");
@@ -282,6 +288,13 @@
       slot.addEventListener("click", () => selectRackTile(i));
       el.appendChild(slot);
     });
+    for (let i = playerRack.length; i < D.RACK_SIZE; i++) {
+      const empty = document.createElement("div");
+      empty.className = "rack-slot empty";
+      empty.setAttribute("aria-hidden", "true");
+      el.appendChild(empty);
+    }
+    document.getElementById("bot-rack-count").textContent = botRack.length;
     const botEl = document.getElementById("bot-rack");
     botEl.innerHTML = "";
     for (let i = 0; i < botRack.length; i++) {
@@ -295,7 +308,10 @@
   function renderStatus() {
     document.getElementById("bot-score").textContent = botScore;
     document.getElementById("bag-count").textContent = bag.length;
-    document.getElementById("turn-indicator").textContent = gameOver ? "จบเกมแล้ว" : (currentTurn === "player" ? "ตาของคุณ" : "ตาของบอท…");
+    document.getElementById("turn-indicator").textContent = gameOver ? "จบเกมแล้ว" : "กำลังเล่น";
+    const active = currentTurn === "player" && !gameOver;
+    document.getElementById("human-turn-status").textContent = gameOver ? "จบเกมแล้ว" : active ? "▶ ตาของคุณ" : "● รอบอทเดิน";
+    document.getElementById("player-card").classList.toggle("active-turn", active);
     document.getElementById("bottom-rack").classList.toggle("active-turn", currentTurn === "player" && !gameOver);
     document.getElementById("bot-strip").classList.toggle("active-turn", currentTurn === "bot" && !gameOver);
   }
@@ -751,20 +767,59 @@
     document.getElementById("btn-shuffle").addEventListener("click", shuffleRackOrder);
     document.getElementById("btn-exchange").addEventListener("click", openExchangeModal);
     document.getElementById("btn-pass").addEventListener("click", passTurn);
-    document.getElementById("amats-toggle").addEventListener("change", (e) => {
-      showAmats = e.target.checked;
-      document.getElementById("game-layout").classList.toggle("no-amats", !showAmats);
+    const setAnalysis = enabled => {
+      showAmats = enabled;
+      document.getElementById("amats-toggle").checked = enabled;
+      document.getElementById("btn-advice-more").textContent = enabled ? "ย่อข้อมูล ⌃" : "ดูเพิ่มเติม ›";
       renderAmatsPanel();
-      sizeBoard();
-    });
-    document.getElementById("btn-restart").addEventListener("click", () => {
-      stopTimers();
-      gameOver = true;
+    };
+    document.getElementById("amats-toggle").addEventListener("change", e => setAnalysis(e.target.checked));
+    document.getElementById("btn-advice-more").addEventListener("click", () => setAnalysis(!showAmats));
+    const setScoreTab = selected => {
+      document.getElementById("history-table").hidden = selected;
+      document.getElementById("scoreboard-view").hidden = !selected;
+      document.getElementById("tab-history").classList.toggle("selected", !selected);
+      document.getElementById("tab-score").classList.toggle("selected", selected);
+    };
+    document.getElementById("tab-history").addEventListener("click", () => setScoreTab(false));
+    document.getElementById("tab-score").addEventListener("click", () => setScoreTab(true));
+    const exitGame = () => {
+      stopTimers(); gameOver = true;
       document.getElementById("modal").hidden = true;
       document.getElementById("game-layout").hidden = true;
       document.getElementById("bottom-bar").hidden = true;
       document.getElementById("topbar-status").hidden = true;
       document.getElementById("setup-panel").hidden = false;
+    };
+    document.getElementById("btn-restart").addEventListener("click", exitGame);
+    document.getElementById("btn-restart-bottom").addEventListener("click", () => {
+      if (window.confirm("เริ่มเกมใหม่ด้วยชุดกติกาเดิม? เกมปัจจุบันจะสิ้นสุด")) startGame(difficulty);
+    });
+    document.getElementById("btn-rules").addEventListener("click", () => {
+      const modal = document.getElementById("modal");
+      modal.innerHTML = `<div class="modal-box"><h3>วิธีเล่น A-Math</h3><p>เลือกเบี้ยในมือ แล้วเลือกช่องบนกระดานเพื่อสร้างสมการแนวนอนหรือแนวตั้ง ตาแรกต้องผ่านดาวกลางกระดาน สมการทุกแนวต้องถูกต้อง</p><p>ช่อง 2× / 3× ให้คะแนนพิเศษเฉพาะเมื่อวางเบี้ยทับครั้งแรก เวลาที่เกินกำหนดจะถูกหักคะแนน</p><p>ทางลัด: Enter ยืนยัน · Ctrl+Z ดึงเบี้ยกลับ · Ctrl+R แลกเบี้ย · Ctrl+P ผ่านตา</p><button id="modal-close" class="btn-primary">เข้าใจแล้ว</button></div>`;
+      modal.hidden = false;
+      document.getElementById("modal-close").addEventListener("click", () => { modal.hidden = true; });
+    });
+    document.getElementById("btn-settings").addEventListener("click", () => {
+      const modal = document.getElementById("modal");
+      modal.innerHTML = `<div class="modal-box"><h3>ตั้งค่าการแสดงผล</h3><label class="settings-choice"><input type="checkbox" id="settings-analysis" ${showAmats ? "checked" : ""}> แสดงการวิเคราะห์ AMATS</label><button id="modal-close" class="btn-primary">ปิด</button></div>`;
+      modal.hidden = false;
+      document.getElementById("settings-analysis").addEventListener("change", e => setAnalysis(e.target.checked));
+      document.getElementById("modal-close").addEventListener("click", () => { modal.hidden = true; });
+    });
+    const cols = document.getElementById("board-col-labels"), rows = document.getElementById("board-row-labels");
+    for (let i = 0; i < D.BOARD_SIZE; i++) {
+      const col = document.createElement("span"), row = document.createElement("span");
+      col.textContent = i + 1; row.textContent = String.fromCharCode(65 + i);
+      cols.appendChild(col); rows.appendChild(row);
+    }
+    document.addEventListener("keydown", e => {
+      if (document.getElementById("game-layout").hidden || !document.getElementById("modal").hidden) return;
+      if (e.key === "Enter" && !e.ctrlKey) { e.preventDefault(); submitMove(); }
+      if (!e.ctrlKey) return;
+      const action = { z: () => recallAll(), r: () => openExchangeModal(), p: () => passTurn() }[e.key.toLowerCase()];
+      if (action) { e.preventDefault(); action(); }
     });
     document.getElementById("modal").addEventListener("click", (e) => {
       if (e.target.id === "modal") e.currentTarget.hidden = true;
