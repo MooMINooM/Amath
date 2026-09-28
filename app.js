@@ -45,6 +45,11 @@
   }
 
   function startGame(diff) {
+    const signedInStudent = typeof AMATH_AUTH !== "undefined" ? AMATH_AUTH.currentStudent() : null;
+    if (!signedInStudent) {
+      showToast("กรุณาเข้าสู่ระบบก่อนเริ่มเกม", "error");
+      return;
+    }
     difficulty = diff;
     const rulesetId = document.getElementById("ruleset-select")?.value || "STANDARD_100";
     D.setRuleset(rulesetId);
@@ -74,6 +79,11 @@
       difficulty: diff,
       rulesetId: D.RULESET_ID,
       rulesetLabel: D.RULESET_LABEL,
+      studentUserId: signedInStudent.user_id,
+      studentCode: signedInStudent.student_code,
+      studentName: signedInStudent.full_name,
+      className: signedInStudent.class_name,
+      roomNo: signedInStudent.room_no,
     });
     renderAll();
     sizeBoard();
@@ -682,8 +692,76 @@
     setTimeout(() => { toast.classList.remove("show"); setTimeout(() => toast.remove(), 300); }, 3000);
   }
 
+  async function unlockForStudent(student) {
+    const loginScreen = document.getElementById("login-screen");
+    if (loginScreen) loginScreen.hidden = true;
+    document.body.classList.remove("auth-locked");
+    const identity = document.getElementById("student-identity");
+    if (identity) {
+      const cls = [student.class_name, student.room_no].filter(Boolean).join("/");
+      identity.textContent = cls ? `${student.full_name} · ${cls}` : student.full_name;
+    }
+  }
+
+  async function initStudentAuth() {
+    const form = document.getElementById("student-login-form");
+    const codeInput = document.getElementById("student-code");
+    const pinInput = document.getElementById("student-pin");
+    const submit = document.getElementById("login-submit");
+    const errorEl = document.getElementById("login-error");
+    const setupNote = document.getElementById("login-setup-note");
+
+    const showError = (msg) => {
+      errorEl.textContent = msg || "เข้าสู่ระบบไม่สำเร็จ";
+      errorEl.hidden = false;
+    };
+
+    const restored = await AMATH_AUTH.restore();
+    if (restored.ok) {
+      await unlockForStudent(restored.student);
+    } else if (restored.setupRequired) {
+      setupNote.hidden = false;
+      submit.disabled = true;
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorEl.hidden = true;
+      setupNote.hidden = true;
+      submit.disabled = true;
+      submit.textContent = "กำลังเข้าสู่ระบบ…";
+
+      const result = await AMATH_AUTH.signIn(codeInput.value, pinInput.value);
+      submit.disabled = false;
+      submit.textContent = "เข้าสู่เกม";
+
+      if (!result.ok) {
+        if (result.setupRequired) setupNote.hidden = false;
+        else showError(result.message || "รหัสนักเรียนหรือ PIN ไม่ถูกต้อง");
+        return;
+      }
+
+      pinInput.value = "";
+      await unlockForStudent(result.student);
+    });
+
+    document.getElementById("btn-logout").addEventListener("click", async () => {
+      await AMATH_AUTH.signOut();
+      document.getElementById("game-layout").hidden = true;
+      document.getElementById("bottom-bar").hidden = true;
+      document.getElementById("topbar-status").hidden = true;
+      document.getElementById("setup-panel").hidden = false;
+      document.body.classList.add("auth-locked");
+      document.getElementById("login-screen").hidden = false;
+      codeInput.value = "";
+      pinInput.value = "";
+      errorEl.hidden = true;
+    });
+  }
+
   /* ---------- Init ---------- */
   document.addEventListener("DOMContentLoaded", () => {
+    initStudentAuth();
     document.querySelectorAll(".difficulty-btn").forEach(btn => {
       btn.addEventListener("click", () => startGame(btn.dataset.diff));
     });
