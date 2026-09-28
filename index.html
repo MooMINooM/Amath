@@ -73,6 +73,11 @@
           <div class="score-card"><span class="score-card-label">ผู้เล่น</span><span class="score-card-value" id="sp-player-score">0</span></div>
           <div class="score-card bot"><span class="score-card-label">บอท</span><span class="score-card-value" id="sp-bot-score">0</span></div>
         </div>
+        <div class="clock-row" aria-label="นาฬิกาการแข่งขัน">
+          <div><span>ผู้เล่น</span><output id="clock-player">22:00</output><small id="penalty-player"></small></div>
+          <div><span>บอท</span><output id="clock-bot">22:00</output><small id="penalty-bot"></small></div>
+        </div>
+        <p class="muted">เกินเวลาหักนาทีละ 10 คะแนน (ปัดขึ้น) · เกิน 5 นาทีแพ้</p>
         <div id="gap-badge" class="gap-badge neutral">Gap 0</div>
         <div class="mini-meter">
           <div class="mini-meter-label"><span>เบี้ยในถุง</span><span id="bag-meter-text">0/0</span></div>
@@ -129,6 +134,7 @@
 <script src="move-analysis.js"></script>
 <script src="logger.js"></script>
 <script src="amats-profile.js"></script>
+<script src="clock.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

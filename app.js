@@ -8,6 +8,7 @@
 
   let board, bag, playerRack, botRack, playerScore, botScore;
   let isFirstMove, currentTurn, pendingCoords, nonScoringAfterBagEmpty, gameOver, difficulty;
+  let clock = null, clockInterval = null, botTimeout = null;
   let selectedRackIndex = null;
   let turnNumber = 0;
   let showAmats = true;
@@ -45,9 +46,11 @@
   }
 
   function startGame(diff) {
+    stopTimers();
     difficulty = diff;
     const rulesetId = document.getElementById("ruleset-select")?.value || "STANDARD_100";
     D.setRuleset(rulesetId);
+    clock = AMATH_CLOCK.create(D.CLOCK_MINUTES);
     board = newBoard();
     bag = D.buildBag();
     playerRack = []; botRack = [];
@@ -77,6 +80,43 @@
     });
     renderAll();
     sizeBoard();
+    clock.switchTo("player");
+    clockInterval = setInterval(checkClock, 200);
+    renderClock();
+  }
+
+  function stopTimers() {
+    clearInterval(clockInterval);
+    clearTimeout(botTimeout);
+    if (clock) clock.pause();
+  }
+
+  function renderClock(state = clock?.snapshot()) {
+    if (!state) return;
+    for (const side of ["player", "bot"]) {
+      const el = document.getElementById(`clock-${side}`);
+      el.textContent = AMATH_CLOCK.format(state.remainingMs[side]);
+      el.classList.toggle("clock-active", state.active === side);
+      el.classList.toggle("clock-overtime", state.remainingMs[side] < 0);
+      document.getElementById(`penalty-${side}`).textContent = `หักเวลา ${state.penalties[side]} คะแนน`;
+    }
+  }
+
+  function checkClock() {
+    if (gameOver || !clock) return gameOver;
+    const state = clock.snapshot();
+    renderClock(state);
+    if (!state.bothExpired && state.expired.length === 0) return false;
+    // Unsubmitted tiles still belong to the player rack for final deductions.
+    recallAll();
+    endGame("แพ้เวลา — ใช้เวลาเกินกำหนด 5 นาที");
+    return true;
+  }
+
+  function acceptAction(side) {
+    if (gameOver || currentTurn !== side || checkClock()) return false;
+    clock.pause();
+    return true;
   }
 
   /* ---------- Rendering ---------- */
@@ -88,6 +128,7 @@
     renderAmatsPanel();
     renderScorePanel();
     renderHistoryTable();
+    renderClock();
   }
 
   function situationStat(label, levelText, pct, tone) {
@@ -278,6 +319,7 @@
     if (selectedRackIndex === null || currentTurn !== "player" || gameOver) return;
     const tile = playerRack[selectedRackIndex];
     const finish = (resolvedChar) => {
+      if (gameOver || currentTurn !== "player" || checkClock()) return;
       board[r][c] = { points: tile.points, resolvedChar, isNew: true, locked: false, kind: tile.kind, face: tile.face, id: tile.id };
       playerRack.splice(selectedRackIndex, 1);
       pendingCoords.push({ r, c });
@@ -330,6 +372,7 @@
 
   /* ---------- Exchange ---------- */
   function openExchangeModal() {
+    if (gameOver || currentTurn !== "player" || checkClock()) return;
     if (bag.length < 5) { showToast("เบี้ยในถุงเหลือไม่ถึง 5 ใบ แลกไม่ได้", "error"); return; }
     const modal = document.getElementById("modal");
     const chosen = new Set();
@@ -361,6 +404,7 @@
   }
 
   function doExchange(indices) {
+    if (!acceptAction("player")) return;
     const returned = indices.map(i => playerRack[i]);
     playerRack = playerRack.filter((_, i) => !indices.includes(i));
     bag.push(...returned);
@@ -376,10 +420,12 @@
 
   /* ---------- Submit / Pass ---------- */
   function submitMove() {
+    if (gameOver || currentTurn !== "player" || checkClock()) return;
     if (pendingCoords.length === 0) { showToast("ยังไม่ได้วางเบี้ย", "error"); return; }
     const result = E.validateAndScoreMove(board, pendingCoords, isFirstMove);
     if (!result.valid) { showToast(result.error, "error"); return; }
 
+    if (!acceptAction("player")) return;
     const candidateForLog = {
       coords: pendingCoords.slice(),
       tiles: pendingCoords.map(({ r, c }) => board[r][c]),
@@ -410,6 +456,7 @@
   }
 
   function passTurn() {
+    if (!acceptAction("player")) return;
     recallAll();
     log("คุณผ่านตา");
     recordNonScoringTurn("player");
@@ -426,14 +473,18 @@
       AMATS_LOGGER.markTurnStart();
     }
     renderAll();
-    if (currentTurn === "bot" && !gameOver) setTimeout(botTakeTurn, 700);
+    clock.switchTo(currentTurn);
+    renderClock();
+    if (currentTurn === "bot" && !gameOver) botTimeout = setTimeout(botTakeTurn, 700);
   }
 
   /* ---------- Bot turn ---------- */
   function botTakeTurn() {
+    if (gameOver || currentTurn !== "bot" || checkClock()) return;
     const move = BOT.findMove(board, botRack, isFirstMove, difficulty, {
       myScore: botScore, oppScore: playerScore, turnNumber: turnNumber + 1, opponentProfile,
     });
+    if (!acceptAction("bot")) return;
     if (move.found) {
       move.coords.forEach(({ r, c }, i) => {
         const tile = move.tiles[i];
@@ -465,9 +516,7 @@
       }
       AMATS_LOGGER.logBotTurn(turnNumber, 0);
     }
-    if (checkStuckEndgame()) return;
-    currentTurn = "player";
-    renderAll();
+    endTurn();
   }
 
   /* ---------- Endgame ---------- */
@@ -513,14 +562,24 @@
   }
 
   function endGame(reason) {
+    if (gameOver) return;
+    stopTimers();
+    const clockState = clock.snapshot();
+    const ruling = AMATH_CLOCK.adjudicate(
+      { player: playerScore, bot: botScore },
+      { player: tilePointSum(playerRack), bot: tilePointSum(botRack) }, clockState);
+    playerScore = ruling.scores.player;
+    botScore = ruling.scores.bot;
     gameOver = true;
+    document.getElementById("modal").hidden = true;
+    log(`หักเวลา: คุณ ${clockState.penalties.player} · บอท ${clockState.penalties.bot} คะแนน`);
     renderAll();
-    const winner = playerScore > botScore ? "คุณชนะ!" : playerScore < botScore ? "บอทชนะ" : "เสมอกัน";
-    const result = playerScore > botScore ? "win" : playerScore < botScore ? "loss" : "draw";
+    const winner = ruling.bothLost ? "แพ้เวลาทั้งสองฝ่าย" : ruling.loser === "player" ? "บอทชนะ (เวลา)" : ruling.loser === "bot" ? "คุณชนะ! (เวลา)" : playerScore > botScore ? "คุณชนะ!" : playerScore < botScore ? "บอทชนะ" : "เสมอกัน";
+    const result = ruling.bothLost ? "double_loss" : ruling.loser === "player" ? "loss" : ruling.loser === "bot" ? "win" : playerScore > botScore ? "win" : playerScore < botScore ? "loss" : "draw";
     log(`จบเกม — ${reason}`);
     log(`ผลสุดท้าย: คุณ ${playerScore} — บอท ${botScore} (${winner})`);
     showToast(`จบเกม: ${winner} (${playerScore} - ${botScore})`, "info");
-    const finished = AMATS_LOGGER.finalizeMatch({ result, finalPlayerScore: playerScore, finalBotScore: botScore });
+    const finished = AMATS_LOGGER.finalizeMatch({ result, finalPlayerScore: playerScore, finalBotScore: botScore, clock: clockState, endReason: reason });
     renderSummary(finished, winner);
   }
 
@@ -699,6 +758,9 @@
       sizeBoard();
     });
     document.getElementById("btn-restart").addEventListener("click", () => {
+      stopTimers();
+      gameOver = true;
+      document.getElementById("modal").hidden = true;
       document.getElementById("game-layout").hidden = true;
       document.getElementById("bottom-bar").hidden = true;
       document.getElementById("topbar-status").hidden = true;
