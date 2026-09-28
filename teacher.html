@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>A-Math Teacher</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="teacher.css">
+</head>
+<body class="teacher-locked">
+  <section id="teacher-login" class="teacher-login">
+    <form id="teacher-login-form" class="login-card">
+      <div class="teacher-brand"><span>›</span><div><h1>A-Math</h1><p>Teacher Console</p></div></div>
+      <label>อีเมลครู</label>
+      <input id="teacher-email" type="email" autocomplete="username" required>
+      <label>รหัสผ่าน</label>
+      <input id="teacher-password" type="password" autocomplete="current-password" required>
+      <button type="submit">เข้าสู่ระบบ</button>
+      <p id="teacher-login-error" class="error" hidden></p>
+    </form>
+  </section>
+
+  <header class="teacher-header">
+    <div class="teacher-brand compact"><span>›</span><div><h1>A-Math</h1><p>Teacher Console</p></div></div>
+    <nav>
+      <button class="nav-btn active" data-view="home">หน้าหลัก</button>
+      <button class="nav-btn" data-view="pitwall">Pitwall</button>
+      <button class="nav-btn" data-view="students">ข้อมูลนักเรียน</button>
+    </nav>
+    <div class="teacher-account"><strong id="teacher-name"></strong><button id="teacher-logout">ออกจากระบบ</button></div>
+  </header>
+
+  <main>
+    <section id="view-home" class="view">
+      <div class="welcome"><p class="eyebrow">TEACHER CONSOLE</p><h2 id="welcome-title">เลือกเมนูที่ต้องการ</h2></div>
+      <div class="menu-grid">
+        <button class="menu-card pitwall-card" data-open="pitwall">
+          <span class="menu-number">01</span><strong>Pitwall</strong>
+          <small>ดูการเล่นสด คะแนน เวลา และ Telemetry ของนักเรียน</small>
+          <span class="menu-arrow">→</span>
+        </button>
+        <button class="menu-card" data-open="students">
+          <span class="menu-number">02</span><strong>ข้อมูลนักเรียน</strong>
+          <small>โปรไฟล์ ประวัติการแข่งขัน และ Deep Analysis รายบุคคล</small>
+          <span class="menu-arrow">→</span>
+        </button>
+      </div>
+    </section>
+
+    <section id="view-pitwall" class="view" hidden>
+      <div class="page-head">
+        <div><p class="eyebrow">LIVE CONTROL</p><h2>Pitwall</h2></div>
+        <div class="live-summary"><span><b id="live-count">0</b> กำลังเล่น</span><span id="last-refresh">—</span></div>
+      </div>
+      <div class="pitwall-layout">
+        <aside class="student-live-list">
+          <div class="filter-row"><input id="live-search" placeholder="ค้นหานักเรียน"><select id="live-status-filter"><option value="all">ทั้งหมด</option><option value="playing">กำลังเล่น</option><option value="finished">จบแล้ว</option></select></div>
+          <div id="live-list"></div>
+        </aside>
+        <section id="live-detail" class="live-detail empty"><p>เลือกนักเรียนจากรายการด้านซ้าย</p></section>
+      </div>
+    </section>
+
+    <section id="view-students" class="view" hidden>
+      <div class="page-head"><div><p class="eyebrow">STUDENT DATABASE</p><h2>ข้อมูลนักเรียน</h2></div></div>
+      <div class="students-toolbar"><input id="student-search" placeholder="ค้นหาชื่อหรือรหัสนักเรียน"></div>
+      <div id="students-table" class="students-table"></div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="teacher-auth.js"></script>
+  <script src="teacher-app.js"></script>
+</body>
+</html>
