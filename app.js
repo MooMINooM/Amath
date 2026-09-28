@@ -478,6 +478,7 @@
     }
     drawFromBag(playerRack, returned.length);
     log(`คุณแลกเบี้ย ${returned.length} ใบ`);
+    AMATS_LOGGER.logPlayerAction("exchange", turnNumber + 1, { exchangedTiles: returned.length });
     recordNonScoringTurn("player");
     endTurn();
   }
@@ -523,6 +524,7 @@
     if (!acceptAction("player")) return;
     recallAll();
     log("คุณผ่านตา");
+    AMATS_LOGGER.logPlayerAction("pass", turnNumber + 1);
     recordNonScoringTurn("player");
     endTurn();
   }
