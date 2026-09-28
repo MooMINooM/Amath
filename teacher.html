@@ -68,8 +68,60 @@
       <div class="students-toolbar"><input id="student-search" placeholder="ค้นหาชื่อหรือรหัสนักเรียน"></div>
       <div id="students-table" class="students-table"></div>
     </section>
+
+    <section id="view-student-detail" class="view" hidden>
+      <div class="page-head student-detail-head">
+        <div>
+          <button id="student-detail-back" class="back-btn" type="button">← ข้อมูลนักเรียน</button>
+          <p class="eyebrow">STUDENT DEEP ANALYSIS</p>
+          <h2 id="student-detail-name">นักเรียน</h2>
+          <p id="student-detail-meta" class="detail-meta"></p>
+        </div>
+        <div class="student-detail-status" id="student-detail-status"></div>
+      </div>
+
+      <div id="student-kpis" class="deep-kpi-grid"></div>
+
+      <div class="analysis-grid two">
+        <section class="analysis-card">
+          <div class="analysis-card-head"><div><small>PERFORMANCE TREND</small><h3>คะแนนต่อเกม</h3></div></div>
+          <div class="chart-wrap"><canvas id="score-trend-chart"></canvas></div>
+        </section>
+        <section class="analysis-card">
+          <div class="analysis-card-head"><div><small>DECISION QUALITY</small><h3>คุณภาพการตัดสินใจ</h3></div></div>
+          <div class="chart-wrap"><canvas id="dq-trend-chart"></canvas></div>
+        </section>
+      </div>
+
+      <div class="analysis-grid three">
+        <section class="analysis-card">
+          <div class="analysis-card-head"><div><small>TACTICAL LOSS</small><h3>โอกาสที่เสียไป</h3></div></div>
+          <div class="chart-wrap compact"><canvas id="loss-chart"></canvas></div>
+        </section>
+        <section class="analysis-card">
+          <div class="analysis-card-head"><div><small>DECISION TIME</small><h3>เวลาเฉลี่ยต่อการตัดสินใจ</h3></div></div>
+          <div class="chart-wrap compact"><canvas id="decision-time-chart"></canvas></div>
+        </section>
+        <section class="analysis-card">
+          <div class="analysis-card-head"><div><small>OUTCOMES</small><h3>ผลการแข่งขัน</h3></div></div>
+          <div class="chart-wrap compact"><canvas id="result-chart"></canvas></div>
+        </section>
+      </div>
+
+      <div class="analysis-grid lower">
+        <section class="analysis-card">
+          <div class="analysis-card-head"><div><small>RECENT MATCHES</small><h3>ประวัติการแข่งขัน</h3></div></div>
+          <div id="student-match-history" class="match-history"></div>
+        </section>
+        <section class="analysis-card">
+          <div class="analysis-card-head"><div><small>TURN ANALYSIS</small><h3>ตาที่ควรย้อนดู</h3></div></div>
+          <div id="student-turn-analysis" class="turn-analysis"></div>
+        </section>
+      </div>
+    </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="teacher-auth.js"></script>
