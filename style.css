@@ -425,3 +425,7 @@ body.auth-locked > #toast-container { visibility: hidden; }
   color: var(--text);
   padding-right: 4px;
 }
+
+.topbar-right { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.auth-status { display: flex; align-items: center; gap: 8px; }
+body.auth-locked .auth-status { display: none; }
