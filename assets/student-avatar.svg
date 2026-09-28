@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="นักเรียน">
+<defs><linearGradient id="sky" x2="1" y2="1"><stop stop-color="#76d9fb"/><stop offset="1" stop-color="#d4ebff"/></linearGradient></defs>
+<rect width="120" height="120" rx="30" fill="url(#sky)"/>
+<path d="M18 119q7-30 42-30t42 30" fill="#fff"/><path d="M46 91l14 13 14-13" fill="#8ac7e9"/><path d="M54 99l6 5 6-5-4 21h-4" fill="#f13f4d"/>
+<ellipse cx="59" cy="55" rx="31" ry="35" fill="#ffd2a8"/>
+<path d="M27 53q-4-32 21-38 6-17 23-9 29-2 26 35l-5 14q-3-13-11-18-24 3-36-3-11 7-18 19" fill="#2a2025"/>
+<circle cx="45" cy="59" r="3.5" fill="#261d22"/><circle cx="73" cy="59" r="3.5" fill="#261d22"/>
+<path d="M52 76q8 9 16 0" fill="none" stroke="#b85355" stroke-width="3" stroke-linecap="round"/>
+<ellipse cx="33" cy="69" rx="6" ry="4" fill="#ffad96" opacity=".8"/><ellipse cx="83" cy="69" rx="6" ry="4" fill="#ffad96" opacity=".8"/>
+</svg>

@@ -3,219 +3,86 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AMATS A-Math</title>
+<meta name="theme-color" content="#e3f2ff">
+<title>A-Math · เกมคณิตศาสตร์</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-<svg id="bg-deco" viewBox="0 0 220 220" aria-hidden="true" focusable="false">
-  <text x="18" y="52" font-family="Georgia, serif" font-size="46" font-style="italic" fill="#3b6ef5">&#960;</text>
-  <path d="M118 20 L158 20 L118 60 Z" fill="none" stroke="#3b6ef5" stroke-width="3"/>
-  <text x="140" y="95" font-family="Georgia, serif" font-size="42" fill="#3b6ef5">&#8730;</text>
-  <line x1="163" y1="72" x2="205" y2="72" stroke="#3b6ef5" stroke-width="3"/>
-  <g transform="translate(50,140)">
-    <rect x="0" y="18" width="70" height="12" rx="2" fill="#3b6ef5"/>
-    <rect x="6" y="4" width="58" height="12" rx="2" fill="#3b6ef5"/>
-    <rect x="12" y="-10" width="46" height="12" rx="2" fill="#3b6ef5"/>
-  </g>
-</svg>
-
 <header id="topbar">
-  <div class="brand">
-    <span class="brand-chevron">&rsaquo;</span>
-    <span class="brand-word"><span class="hl">A-</span>Math</span>
-    <p class="brand-tagline">เกมฝึกคณิตศาสตร์ สร้างสมการ แซร์ไอเดีย คิดให้ไกลกว่าเดิม</p>
-  </div>
+  <div class="brand"><span class="brand-chevron" aria-hidden="true">›</span><div class="brand-text"><h1>A-Math</h1></div><span class="brand-tagline">เกมฝึกคณิตศาสตร์ สร้างสมการ แชร์ไอเดีย คิดให้ไกลกว่าเดิม</span></div>
   <div id="topbar-status" hidden>
-    <span class="info-chip">👤 ผู้เล่น: <b>นักเรียน</b></span>
-    <span class="info-chip">🏅 โหมด: <b id="mode-chip-text">-</b></span>
-    <span class="info-chip"><i id="status-dot" class="status-dot"></i> สถานะ: <b id="status-chip-text">กำลังเล่น</b></span>
-    <button id="btn-help" class="icon-btn" type="button"><span class="icon-badge help">❓</span> วิธีเล่น</button>
-    <button id="btn-settings" class="icon-btn" type="button"><span class="icon-badge settings">⚙️</span> ตั้งค่า</button>
-    <button id="btn-restart" class="icon-btn danger" type="button"><span class="icon-badge exit">🚪</span> ออกจากเกม</button>
+    <span class="header-divider" aria-hidden="true"></span>
+    <span class="header-context">♙&nbsp; ผู้เล่น: <strong>นักเรียน</strong></span>
+    <span class="header-divider" aria-hidden="true"></span>
+    <span class="header-context">🎁&nbsp; โหมด: <strong id="header-ruleset">มาตรฐาน 100 เบี้ย</strong></span>
+    <span class="header-divider" aria-hidden="true"></span>
+    <span class="header-context game-state"><span class="status-dot"></span> สถานะ: <strong id="turn-indicator">ตาของคุณ</strong></span>
+    <span class="header-divider" aria-hidden="true"></span>
+    <button id="btn-rules" class="btn-ghost header-button" type="button" title="วิธีเล่น">ⓘ <span>วิธีเล่น</span></button>
+    <button id="btn-settings" class="btn-ghost header-button" type="button" title="ตั้งค่าการแสดงผล">⚙ <span>ตั้งค่า</span></button>
+    <button id="btn-restart" class="btn-ghost header-button" type="button">⇥ <span>ออกจากเกม</span></button>
+    <label class="amats-toggle-row visually-hidden"><input type="checkbox" id="amats-toggle"> AMATS</label>
   </div>
 </header>
-
 <main>
   <section id="setup-panel">
-    <h2>เลือกรูปแบบการแข่งขัน</h2>
-    <div class="ruleset-picker">
-      <label for="ruleset-select">ชุดกติกา</label>
-      <select id="ruleset-select">
-        <option value="PRIMARY_70">ประถมศึกษา 70 เบี้ย</option>
-        <option value="STANDARD_100" selected>มาตรฐาน 100 เบี้ย</option>
-      </select>
-      <span class="muted">ใช้ Core Engine เดียวกัน แต่จำนวน/ชนิดเบี้ยและเวลาตามรุ่น</span>
-    </div>
-    <h2>เลือกระดับบอท</h2>
-    <p class="muted">Rookie เดินหาทางง่ายๆ ไม่กี่ครั้งแล้วเลือกที่เจอ · Standard/Master ค้นหลายรอบกว่าและเลือกทางที่เข้ากับแผนของ AMATS ที่สุด</p>
+    <div class="setup-badge">A-MATH TRAINING</div>
+    <h2>เตรียมพร้อมสร้างสมการ</h2>
+    <p>เลือกชุดเบี้ยและระดับบอท แล้วเริ่มฝึกคิดไปพร้อมกัน</p>
+    <div class="ruleset-picker"><label for="ruleset-select">ชุดเบี้ย</label><select id="ruleset-select"><option value="PRIMARY_70" selected>ประถม 70 เบี้ย</option><option value="STANDARD_100">มาตรฐาน 100 เบี้ย</option></select></div>
+    <h3>เลือกระดับบอท</h3>
     <div class="difficulty-row">
-      <button class="difficulty-btn" data-diff="Rookie"><span class="diff-name">Rookie</span><span class="diff-desc">เพิ่งเริ่มเล่น เดินพลาดบ่อย</span></button>
-      <button class="difficulty-btn" data-diff="Standard"><span class="diff-name">Standard</span><span class="diff-desc">เล่นได้เรื่อยๆ พอสู้ได้</span></button>
-      <button class="difficulty-btn" data-diff="Master"><span class="diff-name">Master</span><span class="diff-desc">ค้นหาทางเดินที่เข้ากับแผน AMATS ที่สุด</span></button>
+      <button class="difficulty-btn" data-diff="Rookie"><span class="diff-name">เริ่มต้น</span><span class="diff-desc">Rookie · ฝึกวางสมการ</span></button>
+      <button class="difficulty-btn" data-diff="Standard"><span class="diff-name">ปกติ</span><span class="diff-desc">Standard · ท้าทายพอดี</span></button>
+      <button class="difficulty-btn" data-diff="Master"><span class="diff-name">เชี่ยวชาญ</span><span class="diff-desc">Master · คิดหลายทาง</span></button>
     </div>
-    <div class="profile-link-row">
-      <button id="btn-profile" class="btn-ghost" type="button">ดูโปรไฟล์นักเล่น</button>
-      <button id="btn-coach-station" class="btn-ghost" type="button">สถานีฝึกคิด</button>
-    </div>
+    <div class="profile-link-row"><button id="btn-profile" class="btn-ghost" type="button">โปรไฟล์นักเล่น</button><button id="btn-coach-station" class="btn-ghost" type="button">สถานีฝึกคิด</button></div>
   </section>
 
   <div id="game-layout" hidden>
-    <aside id="side-left">
-      <div class="char-card" id="bot-card">
-        <div class="char-head">
-          <span class="char-avatar bot-avatar">
-            <svg viewBox="0 0 52 52" aria-hidden="true"><defs><linearGradient id="botGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c7d9ff"/><stop offset="1" stop-color="#8fb0ff"/></linearGradient></defs>
-              <circle cx="26" cy="26" r="26" fill="url(#botGrad)"/>
-              <rect x="23" y="9" width="6" height="8" rx="2" fill="#2c3e6b"/>
-              <circle cx="26" cy="8" r="2.6" fill="#ff8b6b"/>
-              <rect x="13" y="17" width="26" height="21" rx="9" fill="#2c3e6b"/>
-              <circle cx="21" cy="27" r="4" fill="#9fd8ff"/>
-              <circle cx="31" cy="27" r="4" fill="#9fd8ff"/>
-              <path d="M20 33 Q26 37 32 33" stroke="#9fd8ff" stroke-width="2" fill="none" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <div>
-            <div class="char-name">บอท</div>
-            <div class="char-sub" id="bot-sub">ระดับ: -</div>
-          </div>
-        </div>
-        <div class="stat-row">
-          <div class="stat-box"><span class="stat-label">คะแนน</span><span class="stat-value" id="bot-score">0</span></div>
-          <div class="stat-box">
-            <span class="stat-label">เวลา</span>
-            <output class="stat-value mono" id="clock-bot">22:00</output>
-            <div class="time-bar"><div class="time-bar-fill" id="clock-bot-fill"></div></div>
-            <small class="stat-penalty" id="penalty-bot"></small>
-          </div>
-        </div>
-        <div class="hidden-rack-row">
-          <span class="hidden-rack-label">เบี้ยที่เหลือ (ซ่อนจากคุณ)</span>
-          <div class="hidden-rack-tiles" id="bot-rack"></div>
-        </div>
-      </div>
-
-      <div class="char-card" id="player-card">
-        <div class="char-head">
-          <span class="char-avatar player-avatar">
-            <svg viewBox="0 0 52 52" aria-hidden="true"><defs><linearGradient id="playerGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe3c2"/><stop offset="1" stop-color="#ffc98f"/></linearGradient></defs>
-              <circle cx="26" cy="26" r="26" fill="url(#playerGrad)"/>
-              <path d="M12 41 Q26 31 40 41 L40 46 Q26 51 12 46 Z" fill="#ffffff"/>
-              <circle cx="26" cy="24" r="11" fill="#f7c99a"/>
-              <path d="M13 21 Q15 8 26 8 Q37 8 39 21 Q35 14 26 14 Q17 14 13 21Z" fill="#6b4429"/>
-              <circle cx="22" cy="25" r="1.6" fill="#3a2417"/>
-              <circle cx="30" cy="25" r="1.6" fill="#3a2417"/>
-              <path d="M22 30 Q26 33 30 30" stroke="#3a2417" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <div>
-            <div class="char-name">นักเรียน</div>
-            <div class="char-sub turn-indicator" id="turn-indicator">ตาของคุณ</div>
-          </div>
-        </div>
-        <div class="stat-row">
-          <div class="stat-box"><span class="stat-label">คะแนน</span><span class="stat-value" id="sp-player-score">0</span></div>
-          <div class="stat-box">
-            <span class="stat-label">เวลา</span>
-            <output class="stat-value mono" id="clock-player">22:00</output>
-            <div class="time-bar"><div class="time-bar-fill" id="clock-player-fill"></div></div>
-            <small class="stat-penalty" id="penalty-player"></small>
-          </div>
-        </div>
-        <div class="bag-row">
-          <span class="bag-icon">🎒</span>
-          <span class="bag-value" id="bag-count">0</span>
-          <span class="bag-total">จาก <span id="bag-total-text">0</span> เบี้ย</span>
-        </div>
-      </div>
+    <aside id="players-panel" aria-label="ผู้เล่นและเวลา">
+      <section class="player-card" id="bot-strip">
+        <div class="player-head"><img src="assets/bot-avatar.svg" alt="ภาพบอท" class="avatar"><div><h2>บอท</h2><div class="player-subtitle">ระดับ: <span id="bot-difficulty">ปกติ</span></div></div></div>
+        <div class="player-stats"><div><span>คะแนน</span><strong id="bot-score">0</strong></div><div><span>เวลา</span><output id="clock-bot">22:00</output><div class="time-track"><span id="clock-fill-bot"></span></div></div></div>
+        <small id="penalty-bot" class="clock-penalty"></small>
+        <div class="player-extra"><span>เบี้ยที่เหลือ (ซ่อนจากคุณ)</span><div class="bot-tiles"><div class="rack rack-sm" id="bot-rack"></div><strong id="bot-rack-count">8</strong></div></div>
+      </section>
+      <section class="player-card human" id="player-card">
+        <div class="player-head"><img src="assets/student-avatar.svg" alt="ภาพนักเรียน" class="avatar"><div><h2>นักเรียน</h2><div class="player-subtitle turn-label" id="human-turn-status">▶ ตาของคุณ</div></div></div>
+        <div class="player-stats"><div><span>คะแนน</span><strong id="sp-player-score">0</strong></div><div><span>เวลา</span><output id="clock-player">22:00</output><div class="time-track"><span id="clock-fill-player"></span></div></div></div>
+        <small id="penalty-player" class="clock-penalty"></small>
+        <div class="bag-count">เบี้ยที่เหลือในถุง <span class="bag-pill">♙ <strong id="bag-count">0</strong></span> <span>จาก <b id="bag-total">70</b> เบี้ย</span></div>
+      </section>
     </aside>
 
-    <div id="board-col">
-      <div class="board-frame" id="board-frame">
-        <div class="board-corner"></div>
-        <div class="board-cols" id="board-col-labels"></div>
-        <div class="board-rows" id="board-row-labels"></div>
-        <div id="board"></div>
-      </div>
-    </div>
+    <div id="board-col"><div id="board-wrap"><div class="board-shell"><div class="col-labels" id="board-col-labels" aria-hidden="true"></div><div class="board-middle"><div class="row-labels" id="board-row-labels" aria-hidden="true"></div><div id="board" role="grid" aria-label="กระดาน A-Math 15 คูณ 15"></div></div></div></div></div>
 
     <aside id="side-panel">
-      <div class="panel tabs-panel">
-        <div class="tab-switch">
-          <button class="tab-btn active" data-tab="history" type="button">🕐 ประวัติการเดิน</button>
-          <button class="tab-btn" data-tab="scoreboard" type="button">📊 กระดานคะแนน</button>
-        </div>
-        <div class="tab-body" id="tab-history">
-          <div id="history-table" class="history-table"></div>
-        </div>
-        <div class="tab-body" id="tab-scoreboard" hidden>
+      <section class="panel history-panel">
+        <div class="panel-tabs"><button id="tab-history" class="panel-tab selected" type="button">◷ &nbsp; ประวัติการเดิน</button><button id="tab-score" class="panel-tab" type="button">▦ &nbsp; กระดานคะแนน</button></div>
+        <div id="history-table" class="history-table"></div>
+        <div id="scoreboard-view" class="scoreboard-view" hidden>
+          <h3>คะแนนปัจจุบัน</h3><div>นักเรียน <strong id="sp-player-score-detail">0</strong></div><div>บอท <strong id="sp-bot-score">0</strong></div>
           <div id="gap-badge" class="gap-badge neutral">Gap 0</div>
-          <div class="mini-meter">
-            <div class="mini-meter-label"><span>เบี้ยในถุง</span><span id="bag-meter-text">0/0</span></div>
-            <div class="meter"><div id="bag-meter-fill" class="meter-fill accent" style="width:100%"></div></div>
-          </div>
-          <div class="mini-meter">
-            <div class="mini-meter-label"><span>พลัง Rack</span><span id="rack-power-text">0%</span></div>
-            <div class="meter"><div id="rack-power-fill" class="meter-fill good" style="width:0%"></div></div>
-          </div>
-          <div class="progress-row">
-            <span>ตาที่ <b id="turn-progress-text">1/20</b></span>
-            <span>ระดับ <b id="diff-progress-text">-</b></span>
-          </div>
+          <div class="mini-meter"><div class="mini-meter-label">เบี้ยในถุง <span id="bag-meter-text">0/0</span></div><div class="meter"><div id="bag-meter-fill" class="meter-fill accent"></div></div></div>
+          <div class="progress-row">ตาที่ <b id="turn-progress-text">1/20</b> &nbsp; ระดับ <b id="diff-progress-text">-</b></div>
         </div>
-      </div>
-
-      <div class="panel tip-card">
-        <div class="tip-head"><span>💡 คำแนะนำเบื้องต้น</span><button id="btn-amats-detail" class="tip-more" type="button">ดูเพิ่มเติม ›</button></div>
-        <div class="tip-body">
-          <span class="tip-avatar">🧑‍🎓</span>
-          <p id="tip-text" class="tip-text">-</p>
-        </div>
-      </div>
+      </section>
+      <section class="panel advice-panel"><div class="advice-heading"><span>💡 &nbsp; คำแนะนำเบื้องต้น</span><button id="btn-advice-more" type="button">ดูเพิ่มเติม ›</button></div><div class="advice-content"><img src="assets/student-avatar.svg" alt="" class="advice-avatar"><p id="advice-text">ระวังคู่แข่งเปิดช่องคะแนนสูง<br>ลองมองหาจุด 2× หรือ 3×<br>เพื่อทำคะแนนได้มากขึ้น!</p></div></section>
+      <section id="amats-panel" class="panel analysis-panel" hidden><h2>AMATS วิเคราะห์สถานการณ์</h2><div id="amats-body"></div></section>
+      <details class="panel log-panel"><summary>บันทึกการเล่น</summary><div id="log"></div></details>
     </aside>
   </div>
 
   <div class="panel" id="bottom-bar" hidden>
-    <div id="bottom-rack">
-      <div class="bottom-rack-head">
-        <span id="rack-count-text">เบี้ยของคุณ (0 เบี้ย)</span>
-        <button id="btn-shuffle" class="shuffle-btn" type="button" title="สลับเรียง">🔀</button>
-      </div>
-      <div class="rack" id="player-rack"></div>
-    </div>
-    <div id="bottom-actions">
-      <button id="btn-submit" class="btn-primary"><span>✓ ยืนยันสมการ</span><small>Enter</small></button>
-      <button id="btn-recall" class="btn-secondary"><span>↺ ดึงกลับ</span><small>Ctrl+Z</small></button>
-      <button id="btn-exchange" class="btn-secondary"><span>🔁 แลกเบี้ย</span><small>Ctrl+R</small></button>
-      <button id="btn-pass" class="btn-secondary"><span>⏭ ผ่านตา</span><small>Ctrl+P</small></button>
-      <button id="btn-restart-bottom" class="btn-danger"><span>🎮 เริ่มเกมใหม่</span></button>
-    </div>
+    <div id="bottom-rack"><div class="bottom-rack-head"><span>เบี้ยของคุณ (<b id="rack-count-text">0</b> เบี้ย)</span></div><div class="rack" id="player-rack"></div><div class="rack-power visually-hidden"><span>พลัง Rack</span><span id="rack-power-text">0%</span></div><div class="meter visually-hidden"><div id="rack-power-fill" class="meter-fill good"></div></div></div>
+    <div id="bottom-actions"><button id="btn-submit" class="btn-primary" title="Enter">✓ <span>ยืนยันสมการ</span><kbd>Enter</kbd></button><button id="btn-recall" class="btn-secondary" title="Ctrl+Z">↶ <span>ดึงกลับ</span><kbd>Ctrl+Z</kbd></button><button id="btn-shuffle" class="visually-hidden" type="button">สลับเรียง</button><button id="btn-exchange" class="btn-secondary" title="Ctrl+R">⟳ <span>แลกเบี้ย</span><kbd>Ctrl+R</kbd></button><button id="btn-pass" class="btn-secondary" title="Ctrl+P">⏭ <span>ผ่านตา</span><kbd>Ctrl+P</kbd></button><button id="btn-restart-bottom" class="btn-danger" type="button">🎮 <span>เริ่มเกมใหม่</span></button></div>
   </div>
 </main>
-
-<div id="summary-overlay" hidden>
-  <div id="summary-box"></div>
-</div>
-
-<div id="modal" hidden></div>
-<div id="toast-container"></div>
-<div id="log" hidden></div>
-
-<script src="amats-data.js"></script>
-<script src="amats-engine.js"></script>
-<script src="amats-phase2.js"></script>
-<script src="rulesets.js"></script>
-<script src="data.js"></script>
-<script src="engine.js"></script>
-<script src="amats-bridge.js"></script>
-<script src="bot.js"></script>
-<script src="move-analysis.js"></script>
-<script src="logger.js"></script>
-<script src="amats-profile.js"></script>
-<script src="clock.js"></script>
-<script src="app.js"></script>
-</body>
-</html>
+<div id="summary-overlay" hidden><div id="summary-box"></div></div>
+<div id="modal" hidden></div><div id="toast-container"></div>
+<script src="amats-data.js"></script><script src="amats-engine.js"></script><script src="amats-phase2.js"></script><script src="rulesets.js"></script><script src="data.js"></script><script src="engine.js"></script><script src="amats-bridge.js"></script><script src="bot.js"></script><script src="move-analysis.js"></script><script src="logger.js"></script><script src="amats-profile.js"></script><script src="clock.js"></script><script src="app.js"></script>
+</body></html>

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="บอท">
+<defs><linearGradient id="sky" x2="1" y2="1"><stop stop-color="#71d8ff"/><stop offset="1" stop-color="#d8e9ff"/></linearGradient><linearGradient id="metal" x2="1" y2="1"><stop stop-color="#f9fcff"/><stop offset="1" stop-color="#77b1d8"/></linearGradient></defs>
+<rect width="120" height="120" rx="30" fill="url(#sky)"/>
+<ellipse cx="60" cy="111" rx="45" ry="16" fill="#3a8cc3" opacity=".22"/>
+<path d="M48 103V90h24v13M40 104c4-10 13-16 20-16s16 6 20 16" fill="#eefbff" stroke="#348bb6" stroke-width="3"/>
+<rect x="29" y="25" width="62" height="66" rx="27" fill="url(#metal)" stroke="#3187b4" stroke-width="4"/>
+<path d="M60 26V13" stroke="#1d74a7" stroke-width="5" stroke-linecap="round"/><circle cx="60" cy="11" r="5" fill="#0075a9"/>
+<rect x="18" y="51" width="12" height="23" rx="6" fill="#166f9f"/><rect x="90" y="51" width="12" height="23" rx="6" fill="#166f9f"/>
+<rect x="36" y="41" width="48" height="37" rx="16" fill="#062a4c"/>
+<ellipse cx="48" cy="58" rx="5" ry="7" fill="#43dcf5"/><ellipse cx="72" cy="58" rx="5" ry="7" fill="#43dcf5"/>
+<path d="M52 69q8 6 16 0" fill="none" stroke="#8aeaff" stroke-width="3" stroke-linecap="round"/>
+<circle cx="60" cy="95" r="4" fill="#30d6ee"/>
+</svg>
