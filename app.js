@@ -7,7 +7,7 @@
   const BONUS_LABEL = { TE: "3E", DE: "2E", TP: "3P", DP: "2P" };
 
   let board, bag, playerRack, botRack, playerScore, botScore;
-  let isFirstMove, currentTurn, pendingCoords, consecutivePasses, gameOver, difficulty;
+  let isFirstMove, currentTurn, pendingCoords, nonScoringAfterBagEmpty, gameOver, difficulty;
   let selectedRackIndex = null;
   let turnNumber = 0;
   let showAmats = true;
@@ -55,7 +55,7 @@
     drawFromBag(botRack, D.RACK_SIZE);
     playerScore = 0; botScore = 0;
     isFirstMove = true; currentTurn = "player"; pendingCoords = [];
-    consecutivePasses = 0; gameOver = false; selectedRackIndex = null; turnNumber = 0;
+    nonScoringAfterBagEmpty = { player: 0, bot: 0 }; gameOver = false; selectedRackIndex = null; turnNumber = 0;
     turnHistory = [];
     lastPrimaryMode = null;
     const profile = typeof AMATS_PROFILE !== "undefined" ? AMATS_PROFILE.computeProfile() : null;
@@ -69,7 +69,12 @@
     document.getElementById("bottom-bar").hidden = false;
     document.getElementById("topbar-status").hidden = false;
     document.getElementById("summary-overlay").hidden = true;
-    AMATS_LOGGER.startMatch({ opponentType: "bot", difficulty: diff });
+    AMATS_LOGGER.startMatch({
+      opponentType: "bot",
+      difficulty: diff,
+      rulesetId: D.RULESET_ID,
+      rulesetLabel: D.RULESET_LABEL,
+    });
     renderAll();
     sizeBoard();
   }
@@ -365,7 +370,7 @@
     }
     drawFromBag(playerRack, returned.length);
     log(`คุณแลกเบี้ย ${returned.length} ใบ`);
-    consecutivePasses++; // แลกเบี้ยไม่ทำคะแนน นับรวมกับการผ่านตา ไม่งั้นแลกวนไปเรื่อยๆ จะหนีเงื่อนไขจบเกมได้ตลอด
+    recordNonScoringTurn("player");
     endTurn();
   }
 
@@ -387,7 +392,7 @@
     pendingCoords.forEach(({ r, c }) => { board[r][c].locked = true; board[r][c].isNew = false; });
     playerScore += result.score;
     isFirstMove = false;
-    consecutivePasses = 0;
+    resetNonScoringSequence();
     turnNumber++;
     result.equations.forEach(eq => log(`คุณเล่น "${eq.string}" ได้ ${eq.score} คะแนน`));
     if (result.bingo) { log("BINGO! +40 คะแนนพิเศษ"); showToast("BINGO! +40 คะแนน", "success"); }
@@ -407,7 +412,7 @@
   function passTurn() {
     recallAll();
     log("คุณผ่านตา");
-    consecutivePasses++;
+    recordNonScoringTurn("player");
     endTurn();
   }
 
@@ -437,7 +442,7 @@
       });
       botScore += move.score;
       isFirstMove = false;
-      consecutivePasses = 0;
+      resetNonScoringSequence();
       turnNumber++;
       move.equations.forEach(eq => log(`บอทเล่น "${eq.string}" ได้ ${eq.score} คะแนน`));
       if (move.coords.length === D.RACK_SIZE) log("บอททำ BINGO! +40 คะแนน");
@@ -453,10 +458,10 @@
         for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
         drawFromBag(botRack, n);
         log(`บอทแลกเบี้ย ${n} ใบ`);
-        consecutivePasses++; // แลกเบี้ยไม่ทำคะแนน นับรวมกับการผ่านตา ไม่งั้นแลกวนไปเรื่อยๆ จะหนีเงื่อนไขจบเกมได้ตลอด
+        recordNonScoringTurn("bot");
       } else {
         log("บอทผ่านตา (ไม่พบทางเดินที่ถูกกติกา และแลกเบี้ยไม่ได้)");
-        consecutivePasses++;
+        recordNonScoringTurn("bot");
       }
       AMATS_LOGGER.logBotTurn(turnNumber, 0);
     }
@@ -479,11 +484,29 @@
     return true;
   }
 
+  function resetNonScoringSequence() {
+    nonScoringAfterBagEmpty = { player: 0, bot: 0 };
+  }
+
+  function recordNonScoringTurn(actor) {
+    // กติกาแข่งขัน 2569 ใช้เงื่อนไขนี้หลังเบี้ยหมดถุงเท่านั้น:
+    // แต่ละฝ่ายไม่ทำคะแนน 3 ครั้งติดต่อกัน รวม 6 ครั้ง
+    if (bag.length > 0) {
+      resetNonScoringSequence();
+      return;
+    }
+    nonScoringAfterBagEmpty[actor]++;
+  }
+
   function checkStuckEndgame() {
-    if (consecutivePasses >= 3) {
+    if (
+      bag.length === 0 &&
+      nonScoringAfterBagEmpty.player >= 3 &&
+      nonScoringAfterBagEmpty.bot >= 3
+    ) {
       playerScore -= tilePointSum(playerRack);
       botScore -= tilePointSum(botRack);
-      endGame("ทั้งสองฝ่ายเล่นต่อไม่ได้ — หักคะแนนเบี้ยที่เหลือในมือของแต่ละฝ่ายออกจากคะแนนตัวเอง");
+      endGame("เบี้ยหมดถุงและทั้งสองฝ่ายไม่ทำคะแนนฝ่ายละ 3 ครั้งติดต่อกัน — หักคะแนนเบี้ยที่เหลือในมือของแต่ละฝ่าย");
       return true;
     }
     return false;
