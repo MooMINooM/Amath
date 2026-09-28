@@ -11,6 +11,18 @@
 </head>
 <body>
 
+<svg id="bg-deco" viewBox="0 0 220 220" aria-hidden="true" focusable="false">
+  <text x="18" y="52" font-family="Georgia, serif" font-size="46" font-style="italic" fill="#3b6ef5">&#960;</text>
+  <path d="M118 20 L158 20 L118 60 Z" fill="none" stroke="#3b6ef5" stroke-width="3"/>
+  <text x="140" y="95" font-family="Georgia, serif" font-size="42" fill="#3b6ef5">&#8730;</text>
+  <line x1="163" y1="72" x2="205" y2="72" stroke="#3b6ef5" stroke-width="3"/>
+  <g transform="translate(50,140)">
+    <rect x="0" y="18" width="70" height="12" rx="2" fill="#3b6ef5"/>
+    <rect x="6" y="4" width="58" height="12" rx="2" fill="#3b6ef5"/>
+    <rect x="12" y="-10" width="46" height="12" rx="2" fill="#3b6ef5"/>
+  </g>
+</svg>
+
 <header id="topbar">
   <div class="brand">
     <span class="brand-chevron">&rsaquo;</span>
@@ -21,9 +33,9 @@
     <span class="info-chip">👤 ผู้เล่น: <b>นักเรียน</b></span>
     <span class="info-chip">🏅 โหมด: <b id="mode-chip-text">-</b></span>
     <span class="info-chip"><i id="status-dot" class="status-dot"></i> สถานะ: <b id="status-chip-text">กำลังเล่น</b></span>
-    <button id="btn-help" class="icon-btn" type="button">❓ วิธีเล่น</button>
-    <button id="btn-settings" class="icon-btn" type="button">⚙️ ตั้งค่า</button>
-    <button id="btn-restart" class="icon-btn danger" type="button">🚪 ออกจากเกม</button>
+    <button id="btn-help" class="icon-btn" type="button"><span class="icon-badge help">❓</span> วิธีเล่น</button>
+    <button id="btn-settings" class="icon-btn" type="button"><span class="icon-badge settings">⚙️</span> ตั้งค่า</button>
+    <button id="btn-restart" class="icon-btn danger" type="button"><span class="icon-badge exit">🚪</span> ออกจากเกม</button>
   </div>
 </header>
 
@@ -55,7 +67,17 @@
     <aside id="side-left">
       <div class="char-card" id="bot-card">
         <div class="char-head">
-          <span class="char-avatar bot-avatar">🤖</span>
+          <span class="char-avatar bot-avatar">
+            <svg viewBox="0 0 52 52" aria-hidden="true"><defs><linearGradient id="botGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c7d9ff"/><stop offset="1" stop-color="#8fb0ff"/></linearGradient></defs>
+              <circle cx="26" cy="26" r="26" fill="url(#botGrad)"/>
+              <rect x="23" y="9" width="6" height="8" rx="2" fill="#2c3e6b"/>
+              <circle cx="26" cy="8" r="2.6" fill="#ff8b6b"/>
+              <rect x="13" y="17" width="26" height="21" rx="9" fill="#2c3e6b"/>
+              <circle cx="21" cy="27" r="4" fill="#9fd8ff"/>
+              <circle cx="31" cy="27" r="4" fill="#9fd8ff"/>
+              <path d="M20 33 Q26 37 32 33" stroke="#9fd8ff" stroke-width="2" fill="none" stroke-linecap="round"/>
+            </svg>
+          </span>
           <div>
             <div class="char-name">บอท</div>
             <div class="char-sub" id="bot-sub">ระดับ: -</div>
@@ -78,7 +100,17 @@
 
       <div class="char-card" id="player-card">
         <div class="char-head">
-          <span class="char-avatar player-avatar">🧑‍🎓</span>
+          <span class="char-avatar player-avatar">
+            <svg viewBox="0 0 52 52" aria-hidden="true"><defs><linearGradient id="playerGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe3c2"/><stop offset="1" stop-color="#ffc98f"/></linearGradient></defs>
+              <circle cx="26" cy="26" r="26" fill="url(#playerGrad)"/>
+              <path d="M12 41 Q26 31 40 41 L40 46 Q26 51 12 46 Z" fill="#ffffff"/>
+              <circle cx="26" cy="24" r="11" fill="#f7c99a"/>
+              <path d="M13 21 Q15 8 26 8 Q37 8 39 21 Q35 14 26 14 Q17 14 13 21Z" fill="#6b4429"/>
+              <circle cx="22" cy="25" r="1.6" fill="#3a2417"/>
+              <circle cx="30" cy="25" r="1.6" fill="#3a2417"/>
+              <path d="M22 30 Q26 33 30 30" stroke="#3a2417" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+            </svg>
+          </span>
           <div>
             <div class="char-name">นักเรียน</div>
             <div class="char-sub turn-indicator" id="turn-indicator">ตาของคุณ</div>
