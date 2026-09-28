@@ -98,6 +98,7 @@
     clock.switchTo("player");
     clockInterval = setInterval(checkClock, 200);
     renderClock();
+    syncLiveSession("playing");
   }
 
   function stopTimers() {
@@ -146,6 +147,75 @@
     renderScorePanel();
     renderHistoryTable();
     renderClock();
+  }
+
+  function compactBoardSnapshot() {
+    return board.map(row => row.map(cell => {
+      if (!cell) return null;
+      return {
+        c: cell.resolvedChar,
+        p: cell.points,
+        k: cell.kind,
+        f: cell.face,
+      };
+    }));
+  }
+
+  function syncLiveSession(status = "playing") {
+    if (typeof AMATH_SUPABASE_TELEMETRY === "undefined") return;
+    const student = typeof AMATH_AUTH !== "undefined" ? AMATH_AUTH.currentStudent() : null;
+    const match = AMATS_LOGGER.getCurrentMatch?.();
+    if (!student || !match) return;
+
+    let analysis = null;
+    try {
+      analysis = AMATS_BRIDGE.available ? AMATS_BRIDGE.analyze({
+        board,
+        myScore: playerScore,
+        oppScore: botScore,
+        turnNumber: turnNumber + 1,
+        rack: playerRack,
+        opponentDifficulty: difficulty,
+      }) : null;
+    } catch (e) { analysis = null; }
+
+    const playerTurns = match.turns.filter(t => t.actor === "player");
+    const lastPlayerTurn = playerTurns[playerTurns.length - 1] || null;
+    const lastTurn = match.turns[match.turns.length - 1] || null;
+    const clockState = clock?.snapshot?.() || null;
+
+    AMATH_SUPABASE_TELEMETRY.syncLive({
+      studentUserId: student.user_id,
+      matchId: match.id,
+      studentCode: student.student_code,
+      studentName: student.full_name,
+      className: student.class_name,
+      roomNo: student.room_no,
+      status,
+      rulesetId: D.RULESET_ID,
+      difficulty,
+      turnNumber,
+      activeSide: status === "playing" ? currentTurn : null,
+      playerScore,
+      botScore,
+      bagCount: bag.length,
+      playerTimeMs: clockState?.remainingMs?.player ?? null,
+      botTimeMs: clockState?.remainingMs?.bot ?? null,
+      decisionQuality: lastPlayerTurn?.decisionQuality ?? null,
+      tacticalLoss: lastPlayerTurn?.tacticalLoss ?? null,
+      winProbability: analysis?.winProb ?? null,
+      pressureLevel: null,
+      rackQuality: analysis?.rackHealth?.pct ?? null,
+      boardSnapshot: compactBoardSnapshot(),
+      rackSnapshot: playerRack.map(t => ({
+        kind: t.kind,
+        face: t.face,
+        points: t.points,
+        resolvedChar: t.resolvedChar || null,
+      })),
+      lastEquation: lastTurn?.equation ?? null,
+      lastMoveScore: lastTurn?.moveScore ?? null,
+    });
   }
 
   function situationStat(label, levelText, pct, tone) {
@@ -469,6 +539,7 @@
     renderAll();
     clock.switchTo(currentTurn);
     renderClock();
+    syncLiveSession("playing");
     if (currentTurn === "bot" && !gameOver) botTimeout = setTimeout(botTakeTurn, 700);
   }
 
@@ -573,6 +644,7 @@
     log(`จบเกม — ${reason}`);
     log(`ผลสุดท้าย: คุณ ${playerScore} — บอท ${botScore} (${winner})`);
     showToast(`จบเกม: ${winner} (${playerScore} - ${botScore})`, "info");
+    syncLiveSession("finished");
     const finished = AMATS_LOGGER.finalizeMatch({ result, finalPlayerScore: playerScore, finalBotScore: botScore, clock: clockState, endReason: reason });
     renderSummary(finished, winner);
   }
