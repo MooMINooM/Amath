@@ -6,10 +6,10 @@ const AMATS_LOGGER = (() => {
   let currentMatch = null;
   let turnStartedAt = null;
 
-  function startMatch({ opponentType, difficulty }) {
+  function startMatch({ opponentType, difficulty, rulesetId = null, rulesetLabel = null }) {
     currentMatch = {
       id: Date.now() + "-" + Math.random().toString(36).slice(2, 7),
-      opponentType, difficulty,
+      opponentType, difficulty, rulesetId, rulesetLabel,
       startedAt: Date.now(),
       finishedAt: null,
       result: null,
