@@ -2,6 +2,8 @@
  * Remote persistence is best-effort. The local AMATS logger remains a fallback.
  */
 const AMATH_SUPABASE_TELEMETRY = (() => {
+  const pendingMatchStarts = new Map();
+
   function client() {
     return typeof AMATH_AUTH !== "undefined" ? AMATH_AUTH.getClient() : null;
   }
@@ -14,31 +16,42 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     if (error) console.warn("[A-Math telemetry]", label, error);
   }
 
-  async function startMatch(match) {
+  function startMatch(match) {
     const sb = client();
-    if (!sb || !match?.studentUserId) return false;
-    const { error } = await sb.from("matches").upsert({
-      id: match.id,
-      student_user_id: match.studentUserId,
-      student_code: match.studentCode,
-      student_name: match.studentName,
-      class_name: match.className,
-      room_no: match.roomNo,
-      opponent_type: match.opponentType || "bot",
-      difficulty: match.difficulty,
-      ruleset_id: match.rulesetId,
-      ruleset_label: match.rulesetLabel,
-      status: "active",
-      started_at: iso(match.startedAt),
-      updated_at: new Date().toISOString(),
-    });
-    report("startMatch", error);
-    return !error;
+    if (!sb || !match?.studentUserId) return Promise.resolve(false);
+    const task = (async () => {
+      const { error } = await sb.from("matches").upsert({
+        id: match.id,
+        student_user_id: match.studentUserId,
+        student_code: match.studentCode,
+        student_name: match.studentName,
+        class_name: match.className,
+        room_no: match.roomNo,
+        opponent_type: match.opponentType || "bot",
+        difficulty: match.difficulty,
+        ruleset_id: match.rulesetId,
+        ruleset_label: match.rulesetLabel,
+        status: "active",
+        started_at: iso(match.startedAt),
+        updated_at: new Date().toISOString(),
+      });
+      report("startMatch", error);
+      return !error;
+    })();
+    pendingMatchStarts.set(match.id, task);
+    task.finally(() => pendingMatchStarts.delete(match.id));
+    return task;
+  }
+
+  async function waitForMatch(matchId) {
+    const pending = pendingMatchStarts.get(matchId);
+    if (pending) await pending;
   }
 
   async function logTurn(match, entry) {
     const sb = client();
     if (!sb || !match?.studentUserId || !entry) return false;
+    await waitForMatch(match.id);
     const { error } = await sb.from("turn_events").insert({
       match_id: match.id,
       student_user_id: match.studentUserId,
@@ -89,6 +102,7 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
   async function syncLive(state) {
     const sb = client();
     if (!sb || !state?.studentUserId) return false;
+    if (state.matchId) await waitForMatch(state.matchId);
     const { error } = await sb.from("live_sessions").upsert({
       student_user_id: state.studentUserId,
       match_id: state.matchId || null,
