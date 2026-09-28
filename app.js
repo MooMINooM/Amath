@@ -46,6 +46,8 @@
 
   function startGame(diff) {
     difficulty = diff;
+    const rulesetId = document.getElementById("ruleset-select")?.value || "STANDARD_100";
+    D.setRuleset(rulesetId);
     board = newBoard();
     bag = D.buildBag();
     playerRack = []; botRack = [];
@@ -61,7 +63,7 @@
     turnStartRack = playerRack.slice();
     turnStartBoard = cloneBoardDeep(board);
     clearLog();
-    log(`เริ่มเกมใหม่ — บอทระดับ ${diff}`);
+    log(`เริ่มเกมใหม่ — ${D.RULESET_LABEL} · บอทระดับ ${diff}`);
     document.getElementById("setup-panel").hidden = true;
     document.getElementById("game-layout").hidden = false;
     document.getElementById("bottom-bar").hidden = false;
@@ -162,8 +164,8 @@
     const gapEl = document.getElementById("gap-badge");
     gapEl.textContent = `Gap ${gap > 0 ? "+" : ""}${gap}`;
     gapEl.className = "gap-badge " + (gap > 0 ? "positive" : gap < 0 ? "negative" : "neutral");
-    document.getElementById("bag-meter-text").textContent = `${bag.length}/100`;
-    document.getElementById("bag-meter-fill").style.width = Math.round((bag.length / 100) * 100) + "%";
+    document.getElementById("bag-meter-text").textContent = `${bag.length}/${D.TOTAL_TILES}`;
+    document.getElementById("bag-meter-fill").style.width = Math.round((bag.length / D.TOTAL_TILES) * 100) + "%";
     const estTotal = AMATS_BRIDGE.totalTurns || 20;
     document.getElementById("turn-progress-text").textContent = `${turnNumber + 1}/${estTotal}`;
     document.getElementById("diff-progress-text").textContent = difficulty || "-";
