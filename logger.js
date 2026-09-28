@@ -82,10 +82,12 @@ const AMATS_LOGGER = (() => {
     }
   }
 
-  function finalizeMatch({ result, finalPlayerScore, finalBotScore }) {
+  function finalizeMatch({ result, finalPlayerScore, finalBotScore, clock = null, endReason = null }) {
     if (!currentMatch) return null;
     currentMatch.finishedAt = Date.now();
     currentMatch.result = result;
+    currentMatch.clock = clock;
+    currentMatch.endReason = endReason;
     currentMatch.finalPlayerScore = finalPlayerScore;
     currentMatch.finalBotScore = finalBotScore;
     const summary = computeSummary(currentMatch);

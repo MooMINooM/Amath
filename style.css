@@ -349,3 +349,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   border-radius: 10px;
   background: #fff;
 }
+
+.clock-row { display: flex; gap: 12px; margin-top: 12px; }
+.clock-row > div { flex: 1; min-width: 0; text-align: center; }
+.clock-row output { display: block; font: 700 25px monospace; border: 2px solid transparent; border-radius: 8px; padding: 6px 0; }
+.clock-row small { display: block; font-size: 11px; }
+.clock-row .clock-active { border-color: #2875b9; background: #edf6ff; color: #163b60; }
+.clock-row .clock-overtime { color: #b42318; background: #fff0ec; }
