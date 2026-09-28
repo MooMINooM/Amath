@@ -28,10 +28,21 @@
   function cloneBoardDeep(b) { return b.map(row => row.map(cell => (cell ? { ...cell } : null))); }
 
   function sizeBoard() {
-    const col = document.getElementById("board-col");
+    const layout = document.getElementById("game-layout");
     const frame = document.getElementById("board-frame");
-    if (!col || !frame) return;
-    const size = Math.max(220, Math.min(col.clientWidth, col.clientHeight));
+    if (!layout || !frame) return;
+    // #board-col is an `auto` grid track (sized to its content) so we can't
+    // measure it directly without a circular dependency on the size we're
+    // about to set — compute the worst-case available width algebraically
+    // instead, assuming both flexible side columns are at their CSS floor
+    // (must match the CSS: minmax(260px,1fr)/minmax(300px,1fr) side columns,
+    // 14px gaps ×2, 14px horizontal padding ×2). This only caps the board so
+    // it never overflows a narrow desktop viewport; on a wide one the side
+    // columns grow past their floor to absorb the extra space themselves.
+    const SIDE_LEFT = 260, SIDE_RIGHT = 300, GAP = 14, PAD = 14;
+    const availWidth = layout.clientWidth - SIDE_LEFT - SIDE_RIGHT - GAP * 2 - PAD * 2;
+    const availHeight = layout.clientHeight;
+    const size = Math.max(220, Math.min(availWidth, availHeight));
     frame.style.width = size + "px";
     frame.style.height = size + "px";
   }

@@ -8,8 +8,8 @@
   --muted: #78809c;
   --accent: #3b6ef5;
   --accent-ink: #ffffff;
-  --te: #fbcfe0; --de: #ffe9a8; --tp: #bfe0fb; --dp: #ffdcb0;
-  --te-text: #c2255c; --de-text: #9c6b06; --tp-text: #1f6fb2; --dp-text: #b25b0a;
+  --te: #fd95a1; --de: #ffd25c; --tp: #7bd4fc; --dp: #ffb15c;
+  --te-text: #7a1030; --de-text: #7a5400; --tp-text: #0d5586; --dp-text: #8a4200;
   --plain: #ffffff; --plain-border: #e6eaf3;
   --tile-bg: linear-gradient(160deg, #fffaf0 0%, #fdecc4 100%);
   --tile-text: #4a3410;
@@ -105,14 +105,18 @@ main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .help-list { padding-left: 18px; font-size: 0.85rem; line-height: 1.8; color: var(--text); margin: 10px 0 0; }
 .help-list li { margin-bottom: 6px; }
 
-/* Game grid — one screen on desktop */
+/* Game grid — one screen on desktop. The middle column is sized to the
+   square board's actual content (not 1fr), so it never reserves more width
+   than the board uses; the side columns are flexible (floor at 260px/300px)
+   so they grow to absorb whatever width is left, keeping all three columns
+   flush against each other with no dead gap and no unused outer margin. */
 #game-layout {
-  grid-template-columns: 260px minmax(380px, 1fr) 300px;
+  grid-template-columns: minmax(260px, 1fr) auto minmax(300px, 1fr);
   gap: 14px; width: 100%; padding: 14px 14px 0; min-height: 0; flex: 1;
 }
 #game-layout:not([hidden]) { display: grid; }
 #game-layout[hidden] { display: none; }
-#side-left { grid-column: 1; display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; }
+#side-left { grid-column: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; min-height: 0; overflow-y: auto; }
 #board-col { grid-column: 2; display: flex; align-items: center; justify-content: center; min-height: 0; min-width: 0; }
 #side-panel { grid-column: 3; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
 
