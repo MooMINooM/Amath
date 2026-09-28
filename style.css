@@ -543,3 +543,25 @@ body::before { content: "π   △     √x"; position: fixed; right: 4%; bottom:
 #bot-strip { flex: 1; display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: clamp(14px,1.4vw,24px); }
 #bot-strip #bot-rack { flex: 1; justify-content: flex-start; min-height: 0; }
 #amats-panel { grid-column: auto; }
+
+/* Student Login */
+body.auth-locked > #topbar,
+body.auth-locked > main,
+body.auth-locked > #summary-overlay,
+body.auth-locked > #modal,
+body.auth-locked > #toast-container { visibility: hidden; }
+.login-screen { position:fixed; inset:0; z-index:5000; display:grid; place-items:center; padding:24px; background:#eef6ff; }
+.login-screen[hidden] { display:none; }
+.login-card { width:min(420px,100%); background:#fff; border:1px solid #dfe8f5; border-radius:22px; padding:28px; box-shadow:0 20px 55px rgba(40,70,120,.16); }
+.login-brand { display:flex; align-items:center; gap:10px; margin-bottom:20px; }
+.login-brand h1 { margin:0; }
+.login-brand p { margin:2px 0 0; color:#7a8798; }
+#student-login-form { display:grid; gap:9px; }
+#student-login-form label { font-weight:700; font-size:.88rem; }
+#student-login-form input { width:100%; padding:12px 14px; border:1px solid #dfe8f5; border-radius:12px; font:inherit; }
+#student-login-form .btn-primary { margin-top:8px; width:100%; }
+.login-error { color:#dc2626; margin:4px 0 0; text-align:center; font-size:.84rem; }
+.login-setup-note { color:#8a6400; background:#fff8d8; padding:8px 10px; border-radius:10px; font-size:.8rem; text-align:center; }
+.topbar-account { display:flex; align-items:center; gap:8px; margin-left:auto; }
+.student-identity { font-weight:700; font-size:.82rem; white-space:nowrap; }
+body.auth-locked .topbar-account { display:none; }
