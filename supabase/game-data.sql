@@ -16,7 +16,7 @@ create table if not exists public.matches (
     check (status in ('active','finished','abandoned')),
   started_at timestamptz not null default now(),
   finished_at timestamptz,
-  result text check (result is null or result in ('win','loss','draw')),
+  result text check (result is null or result in ('win','loss','draw','double_loss')),
   final_player_score integer,
   final_bot_score integer,
   end_reason text,
