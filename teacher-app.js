@@ -86,6 +86,10 @@
     if (error) return console.warn(error);
     liveRows = data || [];
     renderLiveList();
+    if (!selectedLiveId && liveRows.length) {
+      const first = liveRows.find(r => r.status === "playing") || liveRows[0];
+      selectLiveStudent(first.student_user_id);
+    }
     $("last-refresh").textContent = new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
   }
 
@@ -234,6 +238,7 @@
       </div>`;
 
     $("board-turn-badge").textContent = active;
+    $("pitwall-round").textContent = r.ruleset_id === "PRIMARY_70" ? "ประถม 70 เบี้ย" : r.ruleset_id === "STANDARD_100" ? "มาตรฐาน 100 เบี้ย" : "โหมดฝึกซ้อม";
     renderPitBoard(r.board_snapshot);
     renderPitRack(r.rack_snapshot);
 
