@@ -84,6 +84,26 @@ const AMATS_LOGGER = (() => {
     return entry;
   }
 
+  function logPlayerAction(eventType, turnNumber, details = {}) {
+    if (!currentMatch) return null;
+    const entry = {
+      actor: "player",
+      eventType,
+      turnNumber,
+      moveScore: details.moveScore ?? 0,
+      equation: details.equation ?? null,
+      decisionTimeMs: turnStartedAt ? Date.now() - turnStartedAt : null,
+      ts: Date.now(),
+      ...details,
+    };
+    currentMatch.turns.push(entry);
+    if (typeof AMATH_SUPABASE_TELEMETRY !== "undefined") {
+      AMATH_SUPABASE_TELEMETRY.logTurn(currentMatch, entry);
+    }
+    turnStartedAt = Date.now();
+    return entry;
+  }
+
   function logBotTurn(turnNumber, score) {
     if (!currentMatch) return;
     const botEntry = { actor: "bot", turnNumber, moveScore: score, ts: Date.now() };
@@ -144,5 +164,5 @@ const AMATS_LOGGER = (() => {
 
   function getCurrentMatch() { return currentMatch; }
 
-  return { startMatch, markTurnStart, logPlayerTurn, logBotTurn, finalizeMatch, computeSummary, loadAll, getCurrentMatch };
+  return { startMatch, markTurnStart, logPlayerTurn, logPlayerAction, logBotTurn, finalizeMatch, computeSummary, loadAll, getCurrentMatch };
 })();
