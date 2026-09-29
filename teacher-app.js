@@ -34,6 +34,46 @@
     return `${Math.round(Number(v))}%`;
   }
 
+  function setPitwallDataStatus(message, tone = "ok") {
+    const el = $("pitwall-data-status");
+    if (!el) return;
+    el.textContent = message;
+    el.className = `pitwall-data-status ${tone}`;
+  }
+
+  function fallbackRowFromMatch(m) {
+    const profile = students.find(s => s.user_id === m.student_user_id);
+    return {
+      student_user_id: m.student_user_id,
+      match_id: m.id,
+      student_code: m.student_code || profile?.student_code || "—",
+      student_name: m.student_name || profile?.full_name || "นักเรียน",
+      class_name: m.class_name || profile?.class_name || null,
+      room_no: m.room_no || profile?.room_no || null,
+      status: m.status === "active" ? "playing" : (m.status === "finished" ? "finished" : "disconnected"),
+      ruleset_id: m.ruleset_id || null,
+      difficulty: m.difficulty || null,
+      turn_number: 0,
+      active_side: null,
+      player_score: m.final_player_score ?? 0,
+      bot_score: m.final_bot_score ?? 0,
+      bag_count: null,
+      player_time_ms: null,
+      bot_time_ms: null,
+      decision_quality: m.summary?.avgDecisionQuality ?? null,
+      tactical_loss: m.summary?.avgTacticalLoss ?? null,
+      win_probability: null,
+      pressure_level: null,
+      rack_quality: null,
+      board_snapshot: null,
+      rack_snapshot: null,
+      last_equation: null,
+      last_move_score: null,
+      updated_at: m.updated_at || m.finished_at || m.started_at,
+      _source: "matches-fallback",
+    };
+  }
+
   function setView(name) {
     document.querySelectorAll(".view").forEach(v => v.hidden = true);
     $("view-" + name).hidden = false;
@@ -87,16 +127,52 @@
 
   async function refreshLive() {
     if (!teacher) return;
-    const { data, error } = await sb()
+    setPitwallDataStatus("กำลังอ่าน live_sessions...", "loading");
+
+    const liveResult = await sb()
       .from("live_sessions")
       .select("*")
       .order("updated_at", { ascending:false });
-    if (error) return console.warn(error);
-    liveRows = data || [];
+
+    if (!liveResult.error && (liveResult.data || []).length) {
+      liveRows = liveResult.data || [];
+      setPitwallDataStatus(`Realtime พร้อม · ${liveRows.length} session`, "ok");
+    } else {
+      const matchResult = await sb()
+        .from("matches")
+        .select("id,student_user_id,student_code,student_name,class_name,room_no,status,ruleset_id,ruleset_label,difficulty,started_at,finished_at,final_player_score,final_bot_score,summary,updated_at")
+        .order("started_at",{ascending:false})
+        .limit(100);
+
+      if (liveResult.error) {
+        console.warn("[Pitwall] live_sessions query failed", liveResult.error);
+      }
+
+      if (!matchResult.error && (matchResult.data || []).length) {
+        const latestByStudent = new Map();
+        for (const m of matchResult.data) {
+          if (!latestByStudent.has(m.student_user_id)) latestByStudent.set(m.student_user_id, m);
+        }
+        liveRows = [...latestByStudent.values()].map(fallbackRowFromMatch);
+        const reason = liveResult.error ? "live_sessions อ่านไม่ได้" : "live_sessions ยังว่าง";
+        setPitwallDataStatus(`${reason} · ใช้ประวัติ matches ชั่วคราว`, "warn");
+      } else {
+        liveRows = [];
+        if (matchResult.error) console.warn("[Pitwall] matches fallback failed", matchResult.error);
+        const code = liveResult.error?.code || matchResult.error?.code || "";
+        setPitwallDataStatus(
+          code ? `อ่านข้อมูลไม่ได้ (${code}) · ตรวจ RLS/SQL` : "ยังไม่พบข้อมูลการเล่นในฐานข้อมูล",
+          "error"
+        );
+      }
+    }
+
     renderLiveList();
     if (!selectedLiveId && liveRows.length) {
       const first = liveRows.find(r => r.status === "playing") || liveRows[0];
       selectLiveStudent(first.student_user_id);
+    } else if (selectedLiveId && !liveRows.some(r => r.student_user_id === selectedLiveId)) {
+      selectedLiveId = null;
     }
     $("last-refresh").textContent = new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
   }
@@ -144,7 +220,7 @@
       const statusLabel = r.status === "playing" ? "กำลังเล่น" : r.status === "finished" ? "จบแล้ว" : r.status;
       return `<button class="live-card ${isSelected ? "selected" : ""}" data-id="${r.student_user_id}">
         <span class="roster-rank">${idx + 1}</span>
-        <span class="roster-person"><strong>${r.student_code || "—"} · ${r.student_name || "นักเรียน"}</strong><small>${r.class_name || ""}${r.room_no ? "/" + r.room_no : ""}</small></span>
+        <span class="roster-person"><strong>${r.student_code || "—"} · ${r.student_name || "นักเรียน"}</strong><small>${r.class_name || ""}${r.room_no ? "/" + r.room_no : ""}${r._source === "matches-fallback" ? " · HISTORY" : ""}</small></span>
         <span class="roster-score">${r.player_score ?? 0}</span>
         <span class="roster-time">${fmtTime(r.player_time_ms)}</span>
         <span class="roster-status"><span class="status ${r.status}">${statusLabel}</span></span>
@@ -252,7 +328,7 @@
     $("pit-open-replay")?.addEventListener("click",()=>openPitwallReplay());
     $("pit-open-student")?.addEventListener("click",()=>openStudentDeepAnalysis(r.student_user_id));
 
-    $("board-turn-badge").textContent = active;
+    $("board-turn-badge").textContent = r._source === "matches-fallback" ? "ข้อมูลย้อนหลัง" : active;
     $("pitwall-round").textContent = r.ruleset_id === "PRIMARY_70" ? "ประถม 70 เบี้ย" : r.ruleset_id === "STANDARD_100" ? "มาตรฐาน 100 เบี้ย" : "โหมดฝึกซ้อม";
     renderPitBoard(r.board_snapshot);
     renderPitRack(r.rack_snapshot);

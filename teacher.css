@@ -136,3 +136,11 @@ main{padding:24px;max-width:1600px;margin:auto}.view[hidden]{display:none}.eyebr
 .pit-action-btn:hover{border-color:#70a9df;background:#f7fbff}.pit-action-btn.primary{background:#1877df;border-color:#1877df;color:#fff}.pit-action-btn.primary:hover{background:#0d68ca}
 .move-row.pit-replay-turn{width:100%;border:0;border-bottom:1px solid #e7eef6;background:transparent;text-align:left;font-family:"Sarabun";cursor:pointer}
 .move-row.pit-replay-turn:hover{background:#f3f9ff}.move-row.pit-replay-turn.critical{box-shadow:inset 3px 0 0 #ef5267;background:#fff9fa}
+
+
+/* Pitwall data reliability 0.9 */
+.pitwall-data-status{font-size:11px;font-weight:700;padding:5px 8px;border-radius:999px;background:#edf4fb;color:#56728e;border:1px solid #d8e5f1}
+.pitwall-data-status.ok{background:#e9f8f0;color:#15734f;border-color:#ccebdc}
+.pitwall-data-status.loading{background:#eef6ff;color:#276aa9;border-color:#d5e8f9}
+.pitwall-data-status.warn{background:#fff7e8;color:#9b6815;border-color:#f1dfb9}
+.pitwall-data-status.error{background:#fff0f2;color:#b83e52;border-color:#f2c7cf}
