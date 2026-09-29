@@ -58,6 +58,13 @@
       const b = $("spectator-bot-time");
       if (p) p.textContent = fmtTime(projectedRemaining(row, "player"));
       if (b) b.textContent = fmtTime(projectedRemaining(row, "bot"));
+      const duration = AMATH_RULESETS.ALL[row.ruleset_id]?.clockMinutes * 60000;
+      if (duration) {
+        const playerBar = $("pit-player-meter");
+        const botBar = $("pit-bot-meter");
+        if (playerBar) playerBar.style.width = `${Math.max(0,Math.min(100,projectedRemaining(row,"player") / duration * 100))}%`;
+        if (botBar) botBar.style.width = `${Math.max(0,Math.min(100,projectedRemaining(row,"bot") / duration * 100))}%`;
+      }
     }
   }
 
@@ -491,8 +498,28 @@
     refreshSelectedTelemetry(true);
   }
 
-  function consoleStat(label,value,sub="",tone="") {
-    return `<div class="console-stat ${tone}"><small>${label}</small><strong>${value}</strong>${sub ? `<span>${sub}</span>` : ""}</div>`;
+  function statusSparkline(actor) {
+    let score = 0;
+    const values = [0];
+    selectedTurns.filter(t => t.actor === actor && (t.event_type || "move") === "move").forEach(t => {
+      score += Number(t.move_score) || 0;
+      values.push(score);
+    });
+    if (values.length < 2) return '<span class="status-graph-empty" aria-label="ยังไม่มีข้อมูลแนวโน้ม"></span>';
+    const recent = values.slice(-12);
+    const low = Math.min(...recent);
+    const range = Math.max(1,Math.max(...recent)-low);
+    const points = recent.map((v,i)=>`${(i/(recent.length-1)*100).toFixed(1)},${(21-(v-low)/range*17).toFixed(1)}`).join(" ");
+    return `<svg class="status-sparkline" viewBox="0 0 100 24" preserveAspectRatio="none" role="img" aria-label="แนวโน้มคะแนน${actor === "player" ? "นักเรียน" : "บอท"}"><path d="M0 23H100"/><polyline points="${points}"/></svg>`;
+  }
+
+  function statusCard(label,value,icon,tone,footer="",detail="") {
+    return `<div class="console-stat status-card ${tone}"><div class="status-card-head"><small>${label}</small><i aria-hidden="true">${icon}</i></div><div class="status-card-value"><strong>${value}</strong>${detail}</div>${footer}</div>`;
+  }
+
+  function statusMeter(id,value,tone="") {
+    const width = value == null ? 0 : Math.max(0,Math.min(100,value));
+    return `<div class="status-meter ${tone}"><i id="${id}" style="width:${width}%"></i></div>`;
   }
 
   function renderLiveDetail(r) {
@@ -525,15 +552,24 @@
     $("console-turn-badge").textContent = active;
     $("pitwall-bot-level").textContent = ({ Rookie:"Beginner", Standard:"Intermediate", Master:"Advanced" })[r.difficulty] || r.difficulty || "—";
 
+    const playerLast = [...selectedTurns].reverse().find(t => t.actor === "player" && (t.event_type || "move") === "move");
+    const botLast = [...selectedTurns].reverse().find(t => t.actor === "bot" && (t.event_type || "move") === "move");
+    const clockMinutes = AMATH_RULESETS.ALL[r.ruleset_id]?.clockMinutes;
+    const clockDuration = clockMinutes ? clockMinutes * 60000 : null;
+    const playerTime = projectedRemaining(r,"player");
+    const botTime = projectedRemaining(r,"bot");
+    const ranking = [...liveRows].sort((a,b)=>(b.player_score||0)-(a.player_score||0)).findIndex(x=>x.student_user_id===r.student_user_id)+1;
+    const lastDelta = (move,sign) => move?.move_score == null ? "" : `<span class="status-delta">${sign} ${sign === "↑" ? "+" : "−"}${Number(move.move_score)}</span>`;
+
     $("match-status-grid").innerHTML =
-      consoleStat("คะแนนปัจจุบัน", r.player_score ?? 0, "", "score-blue") +
-      consoleStat("คะแนนฝ่ายตรงข้าม", r.bot_score ?? 0, "", "score-red") +
-      consoleStat("Gap", `${gap > 0 ? "+" : ""}${gap}`, "", gap < 0 ? "negative" : "positive") +
-      `<div class="console-stat"><small>เวลาเหลือ</small><strong id="spectator-player-time">${fmtTime(projectedRemaining(r,"player"))}</strong><span>${r.active_side === "player" ? "กำลังเดิน" : "หยุดเวลา"}</span></div>` +
-      `<div class="console-stat"><small>เวลาของบอท</small><strong id="spectator-bot-time">${fmtTime(projectedRemaining(r,"bot"))}</strong><span>${r.active_side === "bot" ? "กำลังเดิน" : "หยุดเวลา"}</span></div>` +
-      consoleStat("Turn ปัจจุบัน", r.turn_number ?? 0, active, "turn-purple") +
-      consoleStat("เบี้ยในถุง", r.bag_count ?? "—", "") +
-      consoleStat("สถานะ", statusLabel, r._source === "matches-fallback" ? "ข้อมูลย้อนหลัง" : "Realtime", r.status === "playing" ? "positive" : "");
+      statusCard("คะแนนปัจจุบัน",r.player_score ?? 0,"◆","score-blue",statusSparkline("player"),lastDelta(playerLast,"↑")) +
+      statusCard("คะแนนฝ่ายตรงข้าม",r.bot_score ?? 0,"♠","score-red",statusSparkline("bot"),lastDelta(botLast,"↓")) +
+      statusCard("Gap",`${gap > 0 ? "+" : ""}${gap}`,"▥",gap < 0 ? "negative" : "positive",'<span class="gap-marker" aria-hidden="true">▂▅▇</span>') +
+      statusCard("เวลาเหลือ",`<span id="spectator-player-time">${fmtTime(playerTime)}</span>`,"◷","time-blue",statusMeter("pit-player-meter",clockDuration && playerTime != null ? playerTime/clockDuration*100 : null)) +
+      statusCard("เวลาของบอท",`<span id="spectator-bot-time">${fmtTime(botTime)}</span>`,"♙","time-bot",statusMeter("pit-bot-meter",clockDuration && botTime != null ? botTime/clockDuration*100 : null)) +
+      statusCard("Turn ปัจจุบัน",r.turn_number ?? 0,"◉","turn-purple",statusMeter("pit-turn-meter",Math.min(100,(r.turn_number || 0)/20*100))) +
+      statusCard("เป็นอันดับ",ranking ? `${ranking}<span class="status-rank-total"> / ${liveRows.length}</span>` : "—","♟","rank-yellow") +
+      statusCard("สถานะ",statusLabel,"●",r.status === "playing" ? "status-green" : "status-idle");
 
     renderPitRack(r.rack_snapshot);
     const rackQuality = Number(r.rack_quality);
