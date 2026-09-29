@@ -502,10 +502,11 @@
     refreshSelectedTelemetry(true);
   }
 
-  function statusSparkline(actor) {
+  function statusSparkline(actor, currentTurn) {
     let score = 0;
     const values = [0];
-    selectedTurns.filter(t => (actor === "gap" || t.actor === actor) && (t.event_type || "move") === "move").forEach(t => {
+    if (Number(currentTurn) <= 0) return '<span class="status-graph-empty" aria-label="ยังไม่มีข้อมูลแนวโน้ม"></span>';
+    selectedTurns.filter(t => Number(t.turn_number) > 0 && (actor === "gap" || t.actor === actor) && (t.event_type || "move") === "move").forEach(t => {
       score += (actor === "gap" && t.actor === "bot" ? -1 : 1) * (Number(t.move_score) || 0);
       values.push(score);
     });
@@ -565,9 +566,9 @@
     const lastDelta = (move,sign) => move?.move_score == null ? "" : `<span class="status-delta">${sign} ${sign === "▲" ? "+" : "−"}${Number(move.move_score)}</span>`;
 
     $("match-status-grid").innerHTML =
-      statusCard("SCORE",r.player_score ?? 0,"◆","score-blue",statusSparkline("player"),lastDelta(playerLast,"▲")) +
-      statusCard("BOT",r.bot_score ?? 0,"●","score-red",statusSparkline("bot"),lastDelta(botLast,"▼")) +
-      statusCard("GAP",`${gap > 0 ? "+" : ""}${gap}`,"▥",gap < 0 ? "negative" : "positive",statusSparkline("gap")) +
+      statusCard("SCORE",r.player_score ?? 0,"◆","score-blue",statusSparkline("player",r.turn_number),lastDelta(playerLast,"▲")) +
+      statusCard("BOT",r.bot_score ?? 0,"●","score-red",statusSparkline("bot",r.turn_number),lastDelta(botLast,"▼")) +
+      statusCard("GAP",`${gap > 0 ? "+" : ""}${gap}`,"▥",gap < 0 ? "negative" : "positive",statusSparkline("gap",r.turn_number)) +
       statusCard("TIME",`<span id="spectator-player-time">${fmtTime(playerTime)}</span>`,"◷","time-blue",statusMeter("pit-player-meter",clockDuration && playerTime != null ? playerTime/clockDuration*100 : null)) +
       statusCard("BOT TIME",`<span id="spectator-bot-time">${fmtTime(botTime)}</span>`,"♙","time-bot",statusMeter("pit-bot-meter",clockDuration && botTime != null ? botTime/clockDuration*100 : null)) +
       statusCard("TURN",r.turn_number ?? 0,"◉","turn-purple",statusMeter("pit-turn-meter",Math.min(100,(r.turn_number || 0)/20*100))) +

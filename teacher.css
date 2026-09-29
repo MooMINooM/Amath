@@ -839,3 +839,13 @@ body.pitwall-mode #view-pitwall{margin:0}
   .ref-pitwall .ref-rack-card{height:auto;min-height:65px}
   .ref-pitwall .ref-recent-head,.ref-pitwall .ref-recent-moves .spectator-move-row{grid-template-columns:25px 42px 56px minmax(0,1fr) 53px}
 }
+
+/* Keep both dashboard columns aligned; nested main must not inherit page padding. */
+.ref-pitwall .ref-main{padding:0;margin:0;max-width:none;width:100%}
+.ref-pitwall .ref-body{align-items:stretch}
+.ref-pitwall .ref-sidebar{height:auto;min-height:0;position:relative;top:auto}
+.ref-pitwall .status-card.time-blue .status-card-value strong > span,
+.ref-pitwall .status-card.time-bot .status-card-value strong > span{font:inherit;color:inherit}
+@media(max-width:1180px){
+  .ref-pitwall .ref-sidebar{align-self:start}
+}
