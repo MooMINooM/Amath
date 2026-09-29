@@ -735,3 +735,107 @@ body.pitwall-mode #view-pitwall{margin:0}
 .ref-pitwall .status-card.time-bot .status-meter i{background:#6489ae}.ref-pitwall .status-card.turn-purple .status-meter i{background:#b755ec}
 .ref-pitwall .status-card.positive .gap-marker,.ref-pitwall .status-card.negative .gap-marker{align-self:flex-end;font:800 18px/12px "IBM Plex Mono"}
 @media(max-width:760px){.ref-pitwall .ref-status-grid .status-card{min-height:88px}.ref-pitwall .status-card-value strong{font-size:23px}}
+
+/* Desktop proportions and detail from the supplied Pitwall reference. */
+.ref-pitwall{padding:0 6px 18px}
+.ref-pitwall .ref-topbar{height:80px;min-height:80px;margin:0 -6px 7px;padding:7px 14px}
+.ref-pitwall .ref-brand{min-width:460px}
+.ref-pitwall .ref-brand-text h2{font-size:32px;letter-spacing:.055em}
+.ref-pitwall .ref-brand-text p{font-size:11px;margin-top:7px}
+.ref-pitwall .ref-live-unit{min-width:125px}
+.ref-pitwall .pitwall-data-status{max-width:50px;white-space:nowrap;display:block}
+.ref-pitwall .ref-body{grid-template-columns:minmax(335px,22.2%) minmax(0,1fr);gap:8px}
+.ref-pitwall .ref-sidebar{height:calc(100vh - 88px);min-height:600px}
+.ref-pitwall .ref-side-head{padding:12px 12px 8px}
+.ref-pitwall .ref-side-head strong{font-size:18px;letter-spacing:.03em}
+.ref-pitwall .ref-filters{grid-template-columns:minmax(0,1.55fr) minmax(0,1.05fr) 45px;gap:5px;padding:3px 7px 8px}
+.ref-pitwall .ref-filters select{width:100%;height:29px;min-width:0;padding:3px 6px;font-size:10px}
+.ref-pitwall .ref-filters #live-sort{padding:3px 2px}
+.ref-pitwall .ref-roster-head,.ref-pitwall .ref-roster-list .live-card{grid-template-columns:24px 46px minmax(80px,1fr) 39px 42px 42px;gap:3px}
+.ref-pitwall .ref-roster-head{padding:5px 6px;font-size:9px}
+.ref-pitwall .ref-roster-list .live-card{min-height:25px;padding:3px 4px}
+.ref-pitwall .ref-roster-list .roster-status .status{display:inline-block;width:8px;height:8px;padding:0;margin:0;border-radius:50%;font-size:0;vertical-align:middle}
+.ref-pitwall .ref-roster-list .roster-status .status:before{display:none}
+.ref-pitwall .ref-roster-list .roster-status .status.playing{background:#25e985;box-shadow:0 0 5px #25e985}
+.ref-pitwall .ref-roster-list .roster-status .status.finished{background:#5689aa}
+.ref-pitwall .ref-main{gap:8px}
+.ref-pitwall .ref-player-card{height:84px;min-height:84px;padding:7px 13px}
+.ref-pitwall .ref-player-summary{gap:15px}
+.ref-pitwall .ref-player-summary .selected-avatar{width:68px;height:68px;object-fit:cover}
+.ref-pitwall .ref-player-summary .selected-person h3{font-size:23px}
+.ref-pitwall .ref-profile-meta{grid-template-columns:minmax(165px,1fr) minmax(160px,.95fr) minmax(170px,1.12fr);gap:9px}
+.ref-pitwall .ref-profile-meta>div{min-height:54px;padding:7px 11px;display:flex;align-items:center;gap:9px}
+.ref-pitwall .ref-profile-meta strong{font-size:14px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ref-pitwall .ref-meta-icon{width:25px;flex:none;color:#47c5ff;font-size:22px;text-align:center}
+.ref-pitwall .ref-analysis-btn{min-height:54px;font:800 15px "Sarabun"}
+.ref-pitwall .ref-match-section{min-height:115px;height:115px;padding:6px 9px}
+.ref-pitwall .ref-match-section .ref-section-head{margin-bottom:5px}
+.ref-pitwall .ref-status-grid .status-card{height:81px;min-height:81px;padding:5px 8px}
+.ref-pitwall .ref-middle-grid{grid-template-columns:minmax(320px,30%) minmax(0,1fr);height:252px;min-height:252px;gap:8px}
+.ref-pitwall .ref-amats-card{height:252px;min-height:252px;padding:8px;overflow:hidden}
+.ref-pitwall .ref-amats-card .ref-section-head{margin-bottom:4px}
+.ref-pitwall .ref-amats-card .amats-live{display:flex;flex-direction:column;flex-wrap:nowrap;gap:7px;height:211px;min-height:0;margin:0;padding:8px;background:#071b2b}
+.ref-pitwall .ref-amats-card .amats-overview{display:flex;align-items:center;gap:8px;flex:none;width:100%;min-width:0}
+.ref-pitwall .ref-amats-card .amats-live>div:nth-child(2){flex:none;min-width:0}
+.ref-pitwall .ref-amats-card .amats-symbol{width:29px;height:29px;flex:none;border-radius:6px;font-size:20px;background:#173d4d;color:#40dafa}
+.ref-pitwall .ref-amats-card .amats-overview strong{font-size:13px;line-height:1.15}
+.ref-pitwall .ref-amats-card .amats-overview p{font-size:9px;margin:1px 0 0}
+.ref-pitwall .ref-amats-card .amats-live-chips{width:100%;gap:6px;margin:0;flex-wrap:nowrap}
+.ref-pitwall .ref-amats-card .amats-chip{flex:1;padding:3px 4px;font-size:10px;text-align:center;white-space:nowrap}
+.ref-pitwall .amats-metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;width:100%;flex:1;min-height:0}
+.ref-pitwall .amats-metric{min-width:0;padding:5px 8px;background:#092339;border:1px solid #174969;border-radius:5px;display:flex;flex-direction:column;justify-content:center}
+.ref-pitwall .amats-metric small{font:700 9px "IBM Plex Mono";color:#53b9e9;letter-spacing:.05em}
+.ref-pitwall .amats-metric strong{font:800 11px/1.2 "IBM Plex Mono";color:#28e2a6;margin:4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ref-pitwall .amats-metric span{font:9px "Sarabun";color:#7199b4}
+.ref-pitwall .amats-recommendation{display:flex;align-items:center;gap:7px;flex:none;width:100%;min-height:24px;padding:4px 7px;background:#0d3143;border-left:2px solid #26bbfa;border-radius:3px}
+.ref-pitwall .amats-recommendation>span{color:#55d1fa}
+.ref-pitwall .amats-recommendation p{font-size:9px;line-height:1.15;margin:0;color:#b1d0e4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ref-pitwall .ref-right-stack{grid-template-rows:51px 193px;gap:8px}
+.ref-pitwall .ref-rack-card{height:51px;padding:4px 9px;display:flex;align-items:center;gap:12px}
+.ref-pitwall .ref-rack-card .ref-section-head{margin:0;flex:none}
+.ref-pitwall .ref-rack-card .ref-section-head strong{font-size:12px;white-space:nowrap}
+.ref-pitwall .ref-rack-content{flex:1;min-width:0;gap:10px}
+.ref-pitwall .ref-rack{min-height:38px;gap:5px}
+.ref-pitwall .ref-rack .pit-rack-tile{width:36px;height:36px;flex:0 1 36px;font-size:19px;border-radius:4px}
+.ref-pitwall .ref-rack .pit-rack-tile.high-value{background:linear-gradient(#ffe4bb,#f3b49e);color:#9b2e35}
+.ref-pitwall .ref-rack-quality{width:130px;padding:4px 8px}
+.ref-pitwall .ref-rack-quality small{font-size:8px}
+.ref-pitwall .ref-rack-quality strong{font-size:14px}
+.ref-pitwall .ref-meter{height:4px;margin-top:2px}
+.ref-pitwall .ref-recent-card{height:193px;min-height:193px;padding:7px 9px;overflow:hidden}
+.ref-pitwall .ref-recent-card .ref-section-head{margin-bottom:5px}
+.ref-pitwall .ref-recent-head,.ref-pitwall .ref-recent-moves .spectator-move-row{grid-template-columns:25px 42px 56px minmax(100px,1fr) 53px 37px 45px 52px;gap:4px}
+.ref-pitwall .ref-recent-head{min-height:23px}
+.ref-pitwall .ref-recent-moves{max-height:129px}
+.ref-pitwall .ref-recent-moves .spectator-move-row{min-height:24px}
+.ref-pitwall .ref-chart-grid{grid-template-columns:repeat(3,minmax(0,1fr)) minmax(260px,1fr);grid-template-rows:repeat(2,175px);gap:8px}
+.ref-pitwall .ref-chart-grid .chart-card{height:175px;padding:8px 10px}
+.ref-pitwall .ref-chart-grid .pit-chart-wrap{height:129px}
+.ref-pitwall .ref-chart-grid .ref-heatmap-card{height:auto}
+.ref-pitwall .pit-heatmap{gap:2px}
+@media(max-width:1450px){
+  .ref-pitwall .ref-brand{min-width:320px}
+  .ref-pitwall .ref-body{grid-template-columns:320px minmax(0,1fr)}
+  .ref-pitwall .ref-player-card{height:auto;min-height:84px}
+  .ref-pitwall .ref-profile-meta{grid-template-columns:repeat(2,minmax(135px,1fr))}
+  .ref-pitwall .ref-analysis-btn{grid-column:1/-1;min-height:36px}
+  .ref-pitwall .ref-middle-grid{grid-template-columns:minmax(300px,35%) minmax(0,1fr)}
+  .ref-pitwall .ref-chart-grid{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:none;grid-auto-rows:175px}
+  .ref-pitwall .ref-chart-grid .ref-heatmap-card{grid-column:auto;grid-row:auto;height:350px}
+}
+@media(max-width:1180px){
+  .ref-pitwall .ref-body{grid-template-columns:1fr}
+  .ref-pitwall .ref-sidebar{position:static;height:auto;min-height:0}
+  .ref-pitwall .ref-middle-grid{grid-template-columns:1fr 1.4fr;height:auto;min-height:0}
+  .ref-pitwall .ref-amats-card{height:auto;min-height:252px}
+  .ref-pitwall .ref-right-stack{grid-template-rows:51px 193px}
+}
+@media(max-width:760px){
+  .ref-pitwall .ref-topbar{height:auto;min-height:80px}
+  .ref-pitwall .ref-player-summary{flex-direction:column}
+  .ref-pitwall .ref-middle-grid{grid-template-columns:1fr}
+  .ref-pitwall .ref-chart-grid{grid-template-columns:1fr 1fr}
+  .ref-pitwall .ref-chart-grid .ref-heatmap-card{grid-column:1/-1}
+  .ref-pitwall .ref-rack-card{height:auto;min-height:65px}
+  .ref-pitwall .ref-recent-head,.ref-pitwall .ref-recent-moves .spectator-move-row{grid-template-columns:25px 42px 56px minmax(0,1fr) 53px}
+}
