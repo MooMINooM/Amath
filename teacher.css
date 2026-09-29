@@ -378,3 +378,231 @@ main{padding:24px;max-width:1600px;margin:auto}.view[hidden]{display:none}.eyebr
   .ref-roster-head{display:none}.ref-roster-list .live-card{grid-template-columns:30px 50px 1fr 55px}.ref-roster-list .live-card>*:nth-child(n+5){display:none}
   .ref-recent-head{display:none}.ref-recent-moves .spectator-move-row{grid-template-columns:42px 60px 1fr 48px}.ref-recent-moves .spectator-move-row>*:nth-child(n+5){display:none}
 }
+
+
+/* =====================================================================
+   Pitwall Dark Telemetry 1.5 — F1 control-room inspired professional UI
+   ===================================================================== */
+body.pitwall-mode{background:#020a12}
+body.pitwall-mode>.teacher-header{display:none}
+body.pitwall-mode>main{max-width:none;padding:0;margin:0}
+body.pitwall-mode #view-pitwall{margin:0}
+
+.ref-pitwall{
+  --pit-bg:#030b13;
+  --pit-panel:#07121d;
+  --pit-panel-2:#091927;
+  --pit-line:#123652;
+  --pit-line-strong:#1a5f8e;
+  --pit-cyan:#11b8ff;
+  --pit-blue:#237cff;
+  --pit-green:#23e284;
+  --pit-yellow:#f7c84b;
+  --pit-red:#ff4d72;
+  --pit-magenta:#ff3d89;
+  --pit-purple:#a955ff;
+  --pit-text:#e9f5ff;
+  --pit-muted:#78a1c0;
+  width:100%;
+  max-width:none;
+  margin:0;
+  padding:0 10px 10px;
+  border-radius:0;
+  color:var(--pit-text);
+  background:
+    radial-gradient(circle at 20% 0%,rgba(19,103,162,.14),transparent 25%),
+    radial-gradient(circle at 83% 10%,rgba(29,92,157,.10),transparent 20%),
+    linear-gradient(180deg,#020914 0%,#040d16 52%,#020810 100%);
+}
+.ref-pitwall .ref-shell{width:100%;max-width:none}
+.ref-pitwall .ref-topbar{
+  min-height:76px;
+  padding:9px 14px;
+  margin:0 -10px 10px;
+  background:
+    linear-gradient(180deg,rgba(8,37,66,.98),rgba(3,24,44,.98)),
+    radial-gradient(circle at 18% 0%,rgba(22,138,216,.18),transparent 28%);
+  border-bottom:1px solid #17608e;
+  box-shadow:0 6px 22px rgba(0,0,0,.38);
+}
+.ref-pitwall .ref-logo{
+  width:48px;height:48px;border-radius:10px;
+  background:linear-gradient(145deg,#22c3ff,#225cff);
+  box-shadow:0 0 0 1px #4acaff55,0 0 24px #0f9cff33;
+}
+.ref-pitwall .ref-brand-text h2{font-size:27px;letter-spacing:.01em;text-shadow:0 1px 0 #000}
+.ref-pitwall .ref-brand-text p{color:#83b8dc;font-size:10px;letter-spacing:.03em}
+.ref-pitwall .ref-chip.live{
+  background:#08263a;border:1px solid #135273;box-shadow:inset 0 1px #ffffff0d
+}
+.ref-pitwall .ref-chip.live i{background:var(--pit-green);box-shadow:0 0 12px var(--pit-green)}
+.ref-pitwall .ref-chip span,.ref-pitwall .ref-topitem small,.ref-pitwall .ref-topitem>span{color:#75a4c5}
+.ref-pitwall .ref-chip b,.ref-pitwall .ref-topitem strong{color:#f0f8ff}
+.ref-pitwall .ref-topitem{border-left-color:#194461}
+
+.ref-pitwall .ref-body{grid-template-columns:395px minmax(0,1fr);gap:9px;padding:0}
+.ref-pitwall .pit-card{
+  background:linear-gradient(180deg,#081521 0%,#06111b 100%);
+  border:1px solid var(--pit-line);
+  border-radius:8px;
+  box-shadow:inset 0 1px #ffffff06,0 6px 18px rgba(0,0,0,.18);
+}
+.ref-pitwall .ref-sidebar{min-height:calc(100vh - 96px);top:0}
+.ref-pitwall .ref-side-head{
+  padding:11px 12px 8px;
+  background:linear-gradient(180deg,#0b1e2d,#081622);
+  border-bottom:1px solid var(--pit-line)
+}
+.ref-pitwall .ref-side-head strong,.ref-pitwall .ref-section-head strong{color:#dff3ff}
+.ref-pitwall .ref-side-head small{color:#6f9ab9}
+.ref-pitwall .ref-search{padding:7px 9px 4px}
+.ref-pitwall .ref-search input,.ref-pitwall .ref-filters select,.ref-pitwall .ref-compare-box select{
+  background:#06111c;color:#b7d5ea;border:1px solid #16415f;border-radius:6px
+}
+.ref-pitwall .ref-search input::placeholder{color:#527995}
+.ref-pitwall .ref-search input:focus,.ref-pitwall .ref-filters select:focus{border-color:#1ca7f0;box-shadow:0 0 0 2px #13aef21f}
+.ref-pitwall .ref-roster-head{
+  background:#0a2031;color:#76a9cb;border-top:1px solid #123652;border-bottom:1px solid #123652
+}
+.ref-pitwall .ref-roster-list{padding:0 5px 4px;max-height:calc(100vh - 230px)}
+.ref-pitwall .ref-roster-list .live-card{
+  background:#06111b;border-bottom:1px solid #0f2b40;color:#bdd8eb
+}
+.ref-pitwall .ref-roster-list .live-card:hover{background:#092238}
+.ref-pitwall .ref-roster-list .live-card.selected{
+  background:linear-gradient(90deg,#0c3a62,#092237);
+  box-shadow:inset 3px 0 0 var(--pit-cyan),0 0 14px #0fa9ff14
+}
+.ref-pitwall .ref-roster-list .roster-rank{color:#f4ca4e}
+.ref-pitwall .ref-roster-list .roster-code{color:#7fcfff}
+.ref-pitwall .ref-roster-list .roster-person strong{color:#e1f2ff}
+.ref-pitwall .ref-roster-list .roster-person small{color:#587f9a}
+.ref-pitwall .ref-roster-list .roster-score{color:#e8f4ff}
+.ref-pitwall .ref-roster-list .roster-time{color:#9fd9ff}
+.ref-pitwall .status.playing{background:#07361f;color:#26ed88;border:1px solid #14663c}
+.ref-pitwall .status.finished{background:#0b2233;color:#65a4cb;border:1px solid #1a4059}
+
+.ref-pitwall .ref-main{gap:9px}
+.ref-pitwall .ref-player-card{min-height:96px;padding:11px 14px}
+.ref-pitwall .ref-player-summary .selected-avatar{
+  width:61px;height:61px;border-radius:10px;background:#0d2b42;color:#30baff;
+  border:1px solid #19557b;box-shadow:inset 0 0 22px #118aca1f
+}
+.ref-pitwall .ref-player-summary .spectator-code{color:#73ceff}
+.ref-pitwall .ref-player-summary .selected-person h3{color:#f2f8ff;font-size:22px}
+.ref-pitwall .ref-player-summary .selected-person p{color:#7299b5}
+.ref-pitwall .ref-profile-meta>div{
+  background:#071724;border-color:#153d59;border-radius:7px
+}
+.ref-pitwall .ref-profile-meta small{color:#6088a5}
+.ref-pitwall .ref-profile-meta strong{color:#d9edff}
+.ref-pitwall .ref-analysis-btn{
+  border:1px solid #1686d1;background:#08233a;color:#4bc1ff;border-radius:7px
+}
+.ref-pitwall .ref-analysis-btn:hover{background:#0b3253}
+
+.ref-pitwall .ref-section,.ref-pitwall .ref-amats-card,.ref-pitwall .ref-rack-card,.ref-pitwall .ref-recent-card,.ref-pitwall .ref-chart-section{padding:9px}
+.ref-pitwall .ref-section-head{margin-bottom:7px}
+.ref-pitwall .ref-section-head strong{font-size:15px}
+.ref-pitwall .ref-section-head .left>span{filter:saturate(.85)}
+.ref-pitwall .ref-compare-box span{color:#6c95b2}
+.ref-pitwall .ref-status-grid{gap:6px}
+.ref-pitwall .ref-status-grid .console-stat{
+  min-height:72px;background:linear-gradient(180deg,#091a28,#07131e);
+  border:1px solid #153d58;border-radius:6px;padding:7px 9px
+}
+.ref-pitwall .ref-status-grid .console-stat small{color:#698fa9}
+.ref-pitwall .ref-status-grid .console-stat strong{color:#eef7ff;text-shadow:0 0 14px #ffffff08}
+.ref-pitwall .ref-status-grid .score-blue strong{color:#11b8ff}
+.ref-pitwall .ref-status-grid .score-red strong{color:#ff4d72}
+.ref-pitwall .ref-status-grid .positive strong{color:#20df7c}
+.ref-pitwall .ref-status-grid .negative strong{color:#ff4d72}
+.ref-pitwall .ref-status-grid .turn-purple strong{color:#b05cff}
+.ref-pitwall .ref-status-grid .console-stat span{color:#557d98}
+
+.ref-pitwall .ref-kpi-grid{gap:6px}
+.ref-pitwall .ref-kpi-grid .pit-kpi{
+  min-height:88px;background:linear-gradient(180deg,#091a28,#07131e);
+  border:1px solid #153d58;border-radius:6px
+}
+.ref-pitwall .ref-kpi-grid .pit-kpi small{color:#7296af}
+.ref-pitwall .ref-kpi-grid .pit-kpi strong{color:#e7f5ff}
+.ref-pitwall .ref-kpi-grid .mini-ring{
+  background:conic-gradient(var(--pit-cyan) calc(var(--v)*1%),#102c40 0);
+  box-shadow:0 0 12px #12b7ff16
+}
+.ref-pitwall .ref-kpi-grid .mini-ring::after{background:#07131e;color:#eaf7ff}
+.ref-pitwall .ref-kpi-subgrid{gap:5px;margin-top:6px}
+.ref-pitwall .ref-kpi-subgrid .secondary-kpi{
+  min-height:42px;background:#07131e;border:1px solid #12364f;color:#95bad3
+}
+.ref-pitwall .ref-kpi-subgrid .secondary-kpi small{color:#6388a3}
+.ref-pitwall .ref-kpi-subgrid .secondary-kpi strong{color:#d6ebfb}
+
+.ref-pitwall .ref-middle-grid{grid-template-columns:minmax(320px,.78fr) minmax(600px,1.55fr);gap:8px}
+.ref-pitwall .ref-amats-card{
+  min-height:236px;background:linear-gradient(180deg,#071825,#06111b)!important
+}
+.ref-pitwall .ref-ai-badge{background:#082941;color:#29b8ff;border:1px solid #155074}
+.ref-pitwall .amats-live .amats-symbol{
+  background:#0c3026;border:1px solid #176547;color:#32e885
+}
+.ref-pitwall .amats-live strong{color:#dff4ff}
+.ref-pitwall .amats-live p{color:#7199b4}
+.ref-pitwall .amats-live-chips{gap:6px}
+.ref-pitwall .amats-chip{
+  background:#08271e;color:#43e895;border-color:#14523c;border-radius:999px
+}
+.ref-pitwall .amats-live-empty{color:#5f86a1}
+
+.ref-pitwall .ref-right-stack{gap:8px}
+.ref-pitwall .board-turn-badge{background:#092a42;color:#3cc0ff;border-color:#18577e}
+.ref-pitwall .ref-rack{min-height:62px;gap:8px}
+.ref-pitwall .ref-rack .pit-rack-tile{
+  width:52px;height:52px;border-radius:5px;
+  background:linear-gradient(180deg,#fff2c5,#eacb87);
+  border:1px solid #ffd776;color:#111c28;
+  box-shadow:0 0 0 1px #3d2a0d,0 4px 10px #0006
+}
+.ref-pitwall .ref-auto-update{background:#062d1f;color:#32e88a;border:1px solid #12583c}
+.ref-pitwall .ref-recent-head{
+  background:#0a2132;color:#6fa3c3;border:1px solid #11364f;border-radius:4px
+}
+.ref-pitwall .ref-recent-moves{max-height:145px}
+.ref-pitwall .ref-recent-moves .spectator-move-row{
+  border-bottom:1px solid #102c40;color:#729ab5;background:#06111b
+}
+.ref-pitwall .ref-recent-moves .spectator-move-row:nth-child(even){background:#071722}
+.ref-pitwall .ref-recent-moves .spectator-move-row strong{color:#e5f3ff}
+.ref-pitwall .ref-recent-moves .actor-player{color:#22b7ff}
+.ref-pitwall .ref-recent-moves .actor-bot{color:#ff4f80}
+.ref-pitwall .ref-recent-moves .move-score{color:#2be784}
+.ref-pitwall .ref-recent-moves .critical{background:#24101a;box-shadow:inset 2px 0 #ff4d72}
+
+.ref-pitwall .ref-chart-section{
+  background:#050f18!important;border-color:#12354d
+}
+.ref-pitwall .ref-chart-grid{gap:7px}
+.ref-pitwall .ref-chart-grid .chart-card{
+  min-height:208px;background:linear-gradient(180deg,#071521,#050e17);
+  border:1px solid #133b56;border-radius:6px;padding:8px
+}
+.ref-pitwall .ref-chart-grid .pit-card-head strong{color:#dff3ff}
+.ref-pitwall .ref-chart-grid .pit-kicker{color:#54a8d8}
+.ref-pitwall .ref-chart-grid .pit-chart-wrap{height:143px}
+
+.ref-pitwall .empty{color:#5f86a1}
+.ref-pitwall ::-webkit-scrollbar{width:8px;height:8px}
+.ref-pitwall ::-webkit-scrollbar-track{background:#06111b}
+.ref-pitwall ::-webkit-scrollbar-thumb{background:#164868;border-radius:8px}
+.ref-pitwall ::-webkit-scrollbar-thumb:hover{background:#1f6188}
+
+@media(max-width:1650px){
+  .ref-pitwall .ref-body{grid-template-columns:340px minmax(0,1fr)}
+  .ref-pitwall .ref-middle-grid{grid-template-columns:1fr 1.35fr}
+}
+@media(max-width:1180px){
+  .ref-pitwall .ref-body{grid-template-columns:1fr}
+  .ref-pitwall .ref-sidebar{position:static;min-height:auto}
+  .ref-pitwall .ref-middle-grid{grid-template-columns:1fr}
+}
