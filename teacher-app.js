@@ -4,6 +4,8 @@
   let students = [];
   let matches = [];
   let liveChannel = null;
+  let turnChannel = null;
+  let pitwallSafetyInterval = null;
   let selectedLiveId = null;
   let selectedTurns = [];
   let pitCharts = {};
@@ -114,6 +116,8 @@
     setView("home");
     await Promise.all([refreshLive(), refreshStudents()]);
     subscribeLive();
+    subscribeTurnEvents();
+    startPitwallSafetySync();
   }
 
   async function initAuth() {
@@ -140,6 +144,9 @@
 
     $("teacher-logout").addEventListener("click", async () => {
       if (liveChannel) await sb().removeChannel(liveChannel);
+      if (turnChannel) await sb().removeChannel(turnChannel);
+      clearInterval(pitwallSafetyInterval);
+      pitwallSafetyInterval = null;
       await AMATH_TEACHER_AUTH.signOut();
       teacher = null;
       document.body.classList.add("teacher-locked");
@@ -221,6 +228,71 @@
         if (status === "SUBSCRIBED") setPitwallDataStatus("Realtime เชื่อมต่อแล้ว", "ok");
         else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setPitwallDataStatus("Realtime ขัดข้อง · กำลังใช้ข้อมูลล่าสุด", "warn");
       });
+  }
+
+  function subscribeTurnEvents() {
+    if (turnChannel) sb().removeChannel(turnChannel);
+    turnChannel = sb()
+      .channel("teacher-pitwall-turn-events")
+      .on("postgres_changes", { event:"INSERT", schema:"public", table:"turn_events" }, payload => {
+        const turn = payload.new;
+        const row = selectedRow();
+        if (!turn?.match_id || !row?.match_id || turn.match_id !== row.match_id) return;
+        const exists = selectedTurns.some(t => Number(t.id) === Number(turn.id));
+        if (!exists) selectedTurns.push(turn);
+        selectedTurns.sort((a,b)=>Number(a.id)-Number(b.id));
+        applyTurnDerivedState(row, selectedTurns);
+        renderLiveDetail(row);
+        renderTelemetryPanels();
+        if ($("last-refresh")) $("last-refresh").textContent = new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+      })
+      .subscribe(status => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn("[Pitwall] turn_events realtime unavailable; safety sync will continue");
+        }
+      });
+  }
+
+  function startPitwallSafetySync() {
+    clearInterval(pitwallSafetyInterval);
+    pitwallSafetyInterval = setInterval(async () => {
+      const view = $("view-pitwall");
+      if (!teacher || !view || view.hidden) return;
+      await refreshLive();
+      if (selectedLiveId) await refreshSelectedTelemetry(false);
+    }, 2000);
+  }
+
+  function applyTurnDerivedState(row, turns) {
+    if (!row || !Array.isArray(turns) || !turns.length) return row;
+    let playerScore = 0;
+    let botScore = 0;
+    for (const t of turns) {
+      const score = Number(t.move_score) || 0;
+      if (t.actor === "player") playerScore += score;
+      else if (t.actor === "bot") botScore += score;
+    }
+    const last = turns[turns.length - 1] || null;
+    const lastPlayer = [...turns].reverse().find(t => t.actor === "player") || null;
+
+    // Turn telemetry is newer/more granular than match-history fallback.
+    if (row._source === "matches-fallback" || row.player_score == null || row.turn_number == null) {
+      row.player_score = playerScore;
+      row.bot_score = botScore;
+      row.turn_number = Math.max(...turns.map(t => Number(t.turn_number)||0), 0);
+    }
+    if (last) {
+      row.last_equation = last.equation || last.event_type || row.last_equation;
+      row.last_move_score = last.move_score ?? row.last_move_score;
+    }
+    if (lastPlayer) {
+      row.decision_quality = lastPlayer.decision_quality ?? row.decision_quality;
+      row.tactical_loss = lastPlayer.tactical_loss ?? row.tactical_loss;
+      if ((!row.rack_snapshot || row._source === "matches-fallback") && Array.isArray(lastPlayer.rack_after)) {
+        row.rack_snapshot = lastPlayer.rack_after.map(x => typeof x === "string" ? { face:x, resolvedChar:x, points:null } : x);
+      }
+    }
+    return row;
   }
 
   function liveFiltered() {
@@ -457,13 +529,15 @@
     const requestId = ++selectedTelemetryRequest;
     const { data,error } = await sb()
       .from("turn_events")
-      .select("id,match_id,actor,turn_number,event_type,occurred_at,move_score,equation,decision_time_ms,decision_quality,tactical_loss,move_value,best_move_value,gap_before,gap_after,rack_before,rack_after,board_state,threat_before,suggested_mode")
+      .select("id,match_id,actor,turn_number,event_type,occurred_at,move_score,equation,decision_time_ms,decision_quality,tactical_loss,move_value,best_move_value,gap_before,gap_after,rack_before,rack_after,board_state,threat_before,suggested_mode,raw")
       .eq("match_id",row.match_id)
       .order("id",{ascending:true})
       .limit(500);
     if (requestId !== selectedTelemetryRequest) return;
     if (error) { console.warn(error); return; }
     selectedTurns = data || [];
+    applyTurnDerivedState(row, selectedTurns);
+    renderLiveList();
     renderLiveDetail(row);
     renderTelemetryPanels();
   }
