@@ -119,16 +119,24 @@ to authenticated
 using (auth.uid() = student_user_id)
 with check (auth.uid() = student_user_id);
 
--- Enable realtime for the compact pitwall state.
-do $$
+-- Enable realtime for compact Pitwall state and turn telemetry.
+do $
 begin
   if not exists (
-    select 1
-    from pg_publication_tables
+    select 1 from pg_publication_tables
     where pubname = 'supabase_realtime'
       and schemaname = 'public'
       and tablename = 'live_sessions'
   ) then
     alter publication supabase_realtime add table public.live_sessions;
   end if;
-end $$;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'turn_events'
+  ) then
+    alter publication supabase_realtime add table public.turn_events;
+  end if;
+end $;
