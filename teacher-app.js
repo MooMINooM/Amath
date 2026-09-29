@@ -8,6 +8,11 @@
   let selectedTurns = [];
   let pitCharts = {};
   let selectedTelemetryRequest = 0;
+  let replayMatch = null;
+  let replayStudent = null;
+  let replayTurns = [];
+  let replayIndex = 0;
+  let replayCriticalOnly = false;
   let deepCharts = {};
 
   const $ = id => document.getElementById(id);
@@ -598,12 +603,12 @@
       const cls = m.result === "win" ? "win" : m.result === "draw" ? "draw" : "loss";
       const mt = matchTurnMap.get(m.id) || [];
       const dq = avg(mt.map(t=>t.decision_quality));
-      return `<div class="match-row">
+      return `<button class="match-row replay-open-match" data-match-id="${m.id}" data-student-id="${student.user_id}" type="button">
         <span><strong>${dateLabel(m.started_at)}</strong><small>${m.ruleset_label || m.ruleset_id || "A-Math"} · ${m.difficulty || "—"}</small></span>
         <span class="match-result ${cls}">${resultText}</span>
         <span><strong>${m.final_player_score ?? 0}–${m.final_bot_score ?? 0}</strong><small>คะแนน</small></span>
-        <span><strong>${dq == null ? "—" : Math.round(dq)+"%"}</strong><small>DQ</small></span>
-      </div>`;
+        <span><strong>${dq == null ? "—" : Math.round(dq)+"%"}</strong><small>DQ · เปิด Replay →</small></span>
+      </button>`;
     }).join("") : '<p class="empty">ยังไม่มีเกมที่จบแล้ว</p>';
 
     const worst = [...playerTurns]
@@ -616,6 +621,196 @@
       <span><strong>${t.equation || t.event_type}</strong><small>${dateLabel(t.occurred_at)} · ${t.suggested_mode || "—"}</small></span>
       <span><strong>DQ ${t.decision_quality == null ? "—" : Math.round(t.decision_quality)+"%"}</strong><small>Loss ${t.tactical_loss == null ? "—" : Number(t.tactical_loss).toFixed(1)}</small></span>
     </div>`).join("") : '<p class="empty">ยังไม่มีข้อมูลตาที่วิเคราะห์ได้</p>';
+    document.querySelectorAll(".replay-open-match").forEach(btn => {
+      btn.addEventListener("click",()=>openMatchReplay(btn.dataset.matchId,btn.dataset.studentId));
+    });
+
+  }
+
+  function isCriticalTurn(t) {
+    if (!t || t.actor !== "player") return false;
+    const dq = Number(t.decision_quality);
+    const loss = Number(t.tactical_loss);
+    const time = Number(t.decision_time_ms);
+    return (Number.isFinite(loss) && loss >= 5) ||
+      (Number.isFinite(dq) && dq < 60) ||
+      (Number.isFinite(time) && time >= 45000);
+  }
+
+  function replayIndices() {
+    const all = replayTurns.map((_,i)=>i);
+    return replayCriticalOnly ? all.filter(i=>isCriticalTurn(replayTurns[i])) : all;
+  }
+
+  function replayBonusClass(r,c) {
+    if (typeof AMATH_DATA === "undefined") return "";
+    const bonus = AMATH_DATA.bonusAt?.(r,c);
+    return bonus ? ` bonus-${bonus.toLowerCase()}` : "";
+  }
+
+  function renderReplayBoard(turn) {
+    const el = $("replay-board");
+    const raw = turn?.raw || {};
+    const board = raw.boardSnapshotAfter || raw.boardSnapshotBefore || null;
+    const placements = Array.isArray(raw.placements) ? raw.placements : [];
+    const placementSet = new Set(placements.map(p=>`${p.r}:${p.c}`));
+
+    if (!Array.isArray(board)) {
+      el.className = "replay-board board-unavailable";
+      el.innerHTML = '<div><strong>ไม่มี Board Snapshot</strong><small>เกมนี้ถูกบันทึกก่อนระบบ Replay 0.7 จึงไม่สร้างกระดานย้อนหลังขึ้นมาเอง</small></div>';
+      return false;
+    }
+
+    el.className = "replay-board";
+    let html = "";
+    for (let r=0;r<15;r++) {
+      for (let col=0;col<15;col++) {
+        const cell = board?.[r]?.[col] || null;
+        const center = r===7 && col===7;
+        const fresh = placementSet.has(`${r}:${col}`);
+        const cls = `replay-cell${replayBonusClass(r,col)}${center?" center":""}${cell?" has-tile":""}${fresh?" replay-new-tile":""}`;
+        html += `<div class="${cls}" title="${r+1},${col+1}">${cell ? `<span>${cell.c ?? cell.resolvedChar ?? cell.f ?? cell.face ?? ""}</span><small>${cell.p ?? cell.points ?? ""}</small>` : ""}</div>`;
+      }
+    }
+    el.innerHTML = html;
+    return true;
+  }
+
+  function renderReplayRack(turn) {
+    const rack = turn?.rack_before || turn?.raw?.rackBefore || [];
+    $("replay-rack-before").innerHTML = Array.isArray(rack) && rack.length
+      ? rack.map(x=>`<span class="pit-rack-tile">${typeof x === "string" ? x : (x?.face || x?.c || "?")}</span>`).join("")
+      : '<span class="replay-muted">—</span>';
+  }
+
+  function renderReplayTimeline() {
+    const indices = replayIndices();
+    const el = $("replay-timeline");
+    el.innerHTML = indices.length ? indices.map(i=>{
+      const t=replayTurns[i];
+      const active=i===replayIndex;
+      const critical=isCriticalTurn(t);
+      return `<button class="replay-turn-row ${active?"active":""} ${critical?"critical":""}" data-index="${i}">
+        <span class="replay-turn-no">T${t.turn_number ?? i+1}</span>
+        <span><strong>${t.actor==="player"?"นักเรียน":"บอท"}</strong><small>${t.equation || t.event_type || "move"}</small></span>
+        <span class="replay-turn-score">${Number(t.move_score)>0?"+":""}${t.move_score ?? 0}</span>
+        ${critical?'<i title="Critical Turn">!</i>':""}
+      </button>`;
+    }).join("") : '<p class="empty">ไม่พบ Critical Turn ตามเกณฑ์ปัจจุบัน</p>';
+
+    el.querySelectorAll(".replay-turn-row").forEach(btn=>{
+      btn.addEventListener("click",()=>{ replayIndex=Number(btn.dataset.index); renderReplay(); });
+    });
+  }
+
+  function replayMetric(label,value,sub="") {
+    return `<div class="replay-metric"><small>${label}</small><strong>${value}</strong>${sub?`<span>${sub}</span>`:""}</div>`;
+  }
+
+  function renderReplayInspector(turn,hasBoard) {
+    if (!turn) return;
+    const raw=turn.raw || {};
+    const decisionSec=turn.decision_time_ms == null ? "—" : (Number(turn.decision_time_ms)/1000).toFixed(1)+"s";
+    const dq=turn.decision_quality == null ? "—" : Math.round(Number(turn.decision_quality))+"%";
+    const loss=turn.tactical_loss == null ? "—" : Number(turn.tactical_loss).toFixed(1);
+    const chosen=turn.move_value == null ? "—" : Number(turn.move_value).toFixed(1);
+    const best=turn.best_move_value == null ? "—" : Number(turn.best_move_value).toFixed(1);
+
+    $("replay-metrics").innerHTML =
+      replayMetric("คะแนนตานี้",turn.move_score ?? 0) +
+      replayMetric("Decision Quality",dq) +
+      replayMetric("Tactical Loss",loss) +
+      replayMetric("Decision Time",decisionSec) +
+      replayMetric("Move Value",chosen) +
+      replayMetric("Best Value",best);
+
+    const delta = turn.move_value != null && turn.best_move_value != null
+      ? Math.max(0,Number(turn.best_move_value)-Number(turn.move_value))
+      : null;
+
+    $("replay-move-box").innerHTML = `
+      <small>MOVE / EVENT</small>
+      <strong>${turn.equation || turn.event_type || "—"}</strong>
+      <div class="replay-tags">
+        <span>${turn.actor === "player" ? "นักเรียน" : "บอท"}</span>
+        ${turn.suggested_mode ? `<span>AMATS ${turn.suggested_mode}</span>` : ""}
+        ${isCriticalTurn(turn) ? '<span class="critical-tag">Critical</span>' : ""}
+      </div>
+      ${delta != null && delta > 0 ? `<p>มูลค่าการเดินต่ำกว่าค่าทางเลือกที่ดีที่สุดที่ engine ประเมินไว้ <b>${delta.toFixed(1)}</b> หน่วย โดยข้อมูลปัจจุบันยังไม่ได้เก็บสมการของทางเลือกนั้น จึงไม่แสดงคำตอบที่ไม่ได้บันทึกไว้</p>` : ""}
+    `;
+
+    $("replay-data-note").innerHTML = hasBoard
+      ? '<span class="data-ok">● Board snapshot จากเกมจริง</span>'
+      : '<span class="data-limited">● Replay จำกัด: ไม่มี board snapshot สำหรับ Turn นี้</span>';
+  }
+
+  function renderReplay() {
+    if (!replayTurns.length) return;
+    replayIndex=Math.max(0,Math.min(replayTurns.length-1,replayIndex));
+    const turn=replayTurns[replayIndex];
+    const visible=replayIndices();
+    const visiblePos=Math.max(0,visible.indexOf(replayIndex));
+    $("replay-position").textContent = visible.length ? `${visiblePos+1} / ${visible.length}` : "0 / 0";
+    $("replay-turn-title").textContent = `Turn ${turn.turn_number ?? replayIndex+1} · ${turn.equation || turn.event_type || "move"}`;
+    $("replay-actor").className = `status ${turn.actor==="player"?"playing":""}`;
+    $("replay-actor").textContent = turn.actor==="player" ? "นักเรียน" : "บอท";
+    const hasBoard=renderReplayBoard(turn);
+    renderReplayRack(turn);
+    renderReplayInspector(turn,hasBoard);
+    renderReplayTimeline();
+
+    const indices=replayIndices();
+    const pos=indices.indexOf(replayIndex);
+    $("replay-prev").disabled = pos <= 0;
+    $("replay-next").disabled = pos < 0 || pos >= indices.length-1;
+  }
+
+  function moveReplay(step) {
+    const indices=replayIndices();
+    if (!indices.length) return;
+    let pos=indices.indexOf(replayIndex);
+    if (pos<0) pos=0;
+    pos=Math.max(0,Math.min(indices.length-1,pos+step));
+    replayIndex=indices[pos];
+    renderReplay();
+  }
+
+  async function openMatchReplay(matchId,studentId) {
+    const match=matches.find(m=>m.id===matchId);
+    const student=students.find(s=>s.user_id===studentId);
+    if (!match || !student) return;
+
+    replayMatch=match;
+    replayStudent=student;
+    replayTurns=[];
+    replayIndex=0;
+    replayCriticalOnly=false;
+    $("replay-critical").classList.remove("active");
+    $("replay-title").textContent = `${student.full_name} · Match Replay`;
+    $("replay-meta").textContent = `${dateLabel(match.started_at)} · ${match.ruleset_label || match.ruleset_id || "A-Math"} · ${match.difficulty || "—"} · ${match.final_player_score ?? 0}–${match.final_bot_score ?? 0}`;
+    $("replay-timeline").innerHTML='<p class="empty">กำลังโหลด Replay...</p>';
+    setView("replay");
+
+    const {data,error}=await sb()
+      .from("turn_events")
+      .select("id,match_id,actor,turn_number,event_type,occurred_at,move_score,equation,decision_time_ms,decision_quality,tactical_loss,move_value,best_move_value,gap_before,gap_after,rack_before,rack_after,suggested_mode,raw")
+      .eq("match_id",matchId)
+      .order("id",{ascending:true});
+
+    if(error){
+      console.warn(error);
+      $("replay-timeline").innerHTML='<p class="empty">โหลด Replay ไม่สำเร็จ</p>';
+      return;
+    }
+
+    replayTurns=data || [];
+    if(!replayTurns.length){
+      $("replay-timeline").innerHTML='<p class="empty">แมตช์นี้ยังไม่มี Turn Telemetry</p>';
+      $("replay-board").className="replay-board board-unavailable";
+      $("replay-board").textContent="ไม่มีข้อมูล Replay";
+      return;
+    }
+    renderReplay();
   }
 
   function renderStudents() {
@@ -653,5 +848,15 @@
     tickPitClock();
     setInterval(tickPitClock,1000);
     $("student-detail-back").addEventListener("click",()=>setView("students"));
+    $("replay-back").addEventListener("click",()=>setView("student-detail"));
+    $("replay-prev").addEventListener("click",()=>moveReplay(-1));
+    $("replay-next").addEventListener("click",()=>moveReplay(1));
+    $("replay-critical").addEventListener("click",()=>{
+      replayCriticalOnly=!replayCriticalOnly;
+      $("replay-critical").classList.toggle("active",replayCriticalOnly);
+      const indices=replayIndices();
+      if(indices.length && !indices.includes(replayIndex)) replayIndex=indices[0];
+      renderReplay();
+    });
   });
 })();
