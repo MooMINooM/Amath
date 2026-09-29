@@ -31,6 +31,31 @@ const AMATS_LOGGER = (() => {
 
   function markTurnStart() { turnStartedAt = Date.now(); }
 
+  function compactBoard(board) {
+    if (!Array.isArray(board)) return null;
+    return board.map(row => row.map(cell => cell ? {
+      c: cell.resolvedChar ?? cell.face ?? null,
+      p: cell.points ?? 0,
+      k: cell.kind ?? null,
+      f: cell.face ?? null,
+    } : null));
+  }
+
+  function boardAfterCandidate(board, candidate) {
+    const snap = compactBoard(board);
+    if (!snap || !candidate?.coords) return snap;
+    candidate.coords.forEach(({ r, c }, i) => {
+      const tile = candidate.tiles?.[i];
+      snap[r][c] = tile ? {
+        c: tile.resolvedChar ?? tile.face ?? null,
+        p: tile.points ?? 0,
+        k: tile.kind ?? null,
+        f: tile.face ?? null,
+      } : snap[r][c];
+    });
+    return snap;
+  }
+
   /**
    * บันทึกตาของผู้เล่น (ไม่ใช่ของบอท) — เก็บครบตามข้อ 7 ของแผนโครงการ
    * ctx: { board, rack (ก่อนเดิน), playerScore (ก่อนเดิน), botScore, turnNumber, isFirstMove, candidate, moveResult }
@@ -74,6 +99,13 @@ const AMATS_LOGGER = (() => {
       bestMoveValue: Math.round(bestValue * 10) / 10,
       decisionQuality: Math.round(decisionQuality * 10) / 10,
       tacticalLoss: Math.round(tacticalLoss * 10) / 10,
+      boardSnapshotBefore: compactBoard(board),
+      boardSnapshotAfter: boardAfterCandidate(board, candidate),
+      placements: candidate.coords.map(({ r, c }, i) => ({
+        r, c,
+        char: candidate.tiles?.[i]?.resolvedChar ?? candidate.tiles?.[i]?.face ?? null,
+        points: candidate.tiles?.[i]?.points ?? 0,
+      })),
       ts: Date.now(),
     };
     currentMatch.turns.push(entry);
@@ -95,7 +127,10 @@ const AMATS_LOGGER = (() => {
       decisionTimeMs: turnStartedAt ? Date.now() - turnStartedAt : null,
       ts: Date.now(),
       ...details,
+      boardSnapshotBefore: details.board ? compactBoard(details.board) : (details.boardSnapshotBefore ?? null),
+      boardSnapshotAfter: details.board ? compactBoard(details.board) : (details.boardSnapshotAfter ?? null),
     };
+    delete entry.board;
     currentMatch.turns.push(entry);
     if (typeof AMATH_SUPABASE_TELEMETRY !== "undefined") {
       AMATH_SUPABASE_TELEMETRY.logTurn(currentMatch, entry);
@@ -104,9 +139,19 @@ const AMATS_LOGGER = (() => {
     return entry;
   }
 
-  function logBotTurn(turnNumber, score) {
+  function logBotTurn(turnNumber, score, details = {}) {
     if (!currentMatch) return;
-    const botEntry = { actor: "bot", turnNumber, moveScore: score, ts: Date.now() };
+    const botEntry = {
+      actor: "bot",
+      turnNumber,
+      moveScore: score,
+      eventType: details.eventType || "move",
+      equation: details.equation || null,
+      rackAfter: details.rackAfter || null,
+      boardSnapshotAfter: details.board ? compactBoard(details.board) : (details.boardSnapshotAfter ?? null),
+      placements: details.placements || null,
+      ts: Date.now()
+    };
     currentMatch.turns.push(botEntry);
     if (typeof AMATH_SUPABASE_TELEMETRY !== "undefined") {
       AMATH_SUPABASE_TELEMETRY.logTurn(currentMatch, botEntry);

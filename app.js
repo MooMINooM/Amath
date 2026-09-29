@@ -478,7 +478,11 @@
     }
     drawFromBag(playerRack, returned.length);
     log(`คุณแลกเบี้ย ${returned.length} ใบ`);
-    AMATS_LOGGER.logPlayerAction("exchange", turnNumber + 1, { exchangedTiles: returned.length });
+    AMATS_LOGGER.logPlayerAction("exchange", turnNumber + 1, {
+      exchangedTiles: returned.length,
+      board,
+      rackAfter: playerRack.map(t => t.kind === "blank" ? "?" : t.face),
+    });
     recordNonScoringTurn("player");
     endTurn();
   }
@@ -524,7 +528,10 @@
     if (!acceptAction("player")) return;
     recallAll();
     log("คุณผ่านตา");
-    AMATS_LOGGER.logPlayerAction("pass", turnNumber + 1);
+    AMATS_LOGGER.logPlayerAction("pass", turnNumber + 1, {
+      board,
+      rackAfter: playerRack.map(t => t.kind === "blank" ? "?" : t.face),
+    });
     recordNonScoringTurn("player");
     endTurn();
   }
@@ -566,7 +573,16 @@
       if (move.coords.length === D.RACK_SIZE) log("บอททำ BINGO! +40 คะแนน");
       pushHistory({ turnNumber, actor: "bot", score: move.score, equation: move.equations.map(e => e.string).join(" & ") });
       drawFromBag(botRack, move.coords.length);
-      AMATS_LOGGER.logBotTurn(turnNumber, move.score);
+      AMATS_LOGGER.logBotTurn(turnNumber, move.score, {
+        equation: move.equations.map(e => e.string).join(" & "),
+        board,
+        rackAfter: botRack.map(t => t.kind === "blank" ? "?" : t.face),
+        placements: move.coords.map(({ r, c }, i) => ({
+          r, c,
+          char: move.tiles[i]?.resolvedChar ?? move.tiles[i]?.face ?? null,
+          points: move.tiles[i]?.points ?? 0,
+        })),
+      });
       if (checkImmediateEndgame("bot")) return;
     } else {
       if (bag.length >= 5 && botRack.length > 0) {
@@ -581,7 +597,11 @@
         log("บอทผ่านตา (ไม่พบทางเดินที่ถูกกติกา และแลกเบี้ยไม่ได้)");
         recordNonScoringTurn("bot");
       }
-      AMATS_LOGGER.logBotTurn(turnNumber, 0);
+      AMATS_LOGGER.logBotTurn(turnNumber, 0, {
+        eventType: bag.length >= 5 ? "exchange" : "pass",
+        board,
+        rackAfter: botRack.map(t => t.kind === "blank" ? "?" : t.face),
+      });
     }
     endTurn();
   }

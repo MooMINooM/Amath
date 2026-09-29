@@ -226,6 +226,51 @@
         </section>
       </div>
     </section>
+
+    <section id="view-replay" class="view" hidden>
+      <div class="page-head replay-head">
+        <div>
+          <button id="replay-back" class="back-btn" type="button">← กลับไป Deep Analysis</button>
+          <p class="eyebrow">MATCH REPLAY</p>
+          <h2 id="replay-title">Match Replay</h2>
+          <p id="replay-meta" class="detail-meta"></p>
+        </div>
+        <div class="replay-head-actions">
+          <button id="replay-critical" class="replay-filter-btn" type="button">Critical Turns</button>
+          <span id="replay-position" class="replay-position">0 / 0</span>
+        </div>
+      </div>
+
+      <div class="replay-layout">
+        <aside class="analysis-card replay-timeline-card">
+          <div class="analysis-card-head"><div><small>TIMELINE</small><h3>ลำดับการเล่น</h3></div></div>
+          <div id="replay-timeline" class="replay-timeline"></div>
+        </aside>
+
+        <section class="analysis-card replay-board-card">
+          <div class="analysis-card-head">
+            <div><small>TURN STATE</small><h3 id="replay-turn-title">เลือก Turn</h3></div>
+            <span id="replay-actor" class="status">—</span>
+          </div>
+          <div id="replay-board" class="replay-board board-unavailable">ยังไม่มีข้อมูลกระดาน</div>
+          <div class="replay-rack-block">
+            <small>Rack ก่อนเดิน</small>
+            <div id="replay-rack-before" class="pit-rack"></div>
+          </div>
+          <div class="replay-controls">
+            <button id="replay-prev" type="button">← Previous</button>
+            <button id="replay-next" type="button">Next →</button>
+          </div>
+        </section>
+
+        <aside class="analysis-card replay-inspector">
+          <div class="analysis-card-head"><div><small>TURN INSPECTOR</small><h3>รายละเอียดการตัดสินใจ</h3></div></div>
+          <div id="replay-metrics" class="replay-metrics"></div>
+          <div id="replay-move-box" class="replay-move-box"></div>
+          <div id="replay-data-note" class="replay-data-note"></div>
+        </aside>
+      </div>
+    </section>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
