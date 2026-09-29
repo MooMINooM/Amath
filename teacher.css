@@ -606,3 +606,109 @@ body.pitwall-mode #view-pitwall{margin:0}
   .ref-pitwall .ref-sidebar{position:static;min-height:auto}
   .ref-pitwall .ref-middle-grid{grid-template-columns:1fr}
 }
+
+/* Pitwall reference composition — dense, legible, single-screen telemetry. */
+.ref-pitwall{padding:0 13px 12px;background:#020b14;color:#e8f3ff}
+.ref-pitwall .ref-topbar{height:72px;min-height:72px;margin:0 -13px 10px;padding:7px 18px;gap:12px;background:linear-gradient(110deg,#061a2c,#03101e 64%,#06192b);border-bottom:1px solid #185478;box-shadow:none}
+.ref-pitwall .ref-brand{min-width:470px;gap:17px}
+.ref-pitwall .ref-logo{width:58px;height:54px;border-radius:0;background:linear-gradient(140deg,#52d4ff 12%,#118df0 49%,#0a53c7 55%,#198aff 86%);background-clip:text;color:transparent;font:900 64px/52px "IBM Plex Mono",monospace;filter:drop-shadow(0 1px 1px #000)}
+.ref-pitwall .ref-brand-text h2{font:800 24px/1.05 "Sarabun",sans-serif;letter-spacing:.035em;white-space:nowrap}
+.ref-pitwall .ref-brand-text p{margin:5px 0 0;color:#b6c7d8;font-size:10px;letter-spacing:0;white-space:nowrap}
+.ref-pitwall .ref-brand-text p b{color:#3ed2ff;font-weight:800}
+.ref-pitwall .ref-brand-text p span{color:#51758f;opacity:1}
+.ref-pitwall .ref-topstats{flex:1;justify-content:flex-end;align-items:center;min-width:0;height:100%}
+.ref-pitwall .ref-live-unit{height:51px;display:flex;align-items:center;gap:8px;padding:0 10px;border-left:1px solid #164663;min-width:170px}
+.ref-pitwall .ref-live-pill{display:inline-flex;align-items:center;gap:6px;border-radius:6px;padding:7px 9px;background:#062e25;color:#30ed91;font:800 15px "Sarabun";white-space:nowrap}
+.ref-pitwall .ref-live-pill i{width:12px;height:12px;border-radius:50%;background:#27e985;box-shadow:0 0 9px #27e985}
+.ref-pitwall .pitwall-data-status{max-width:115px;padding:0;background:none;border:0;border-radius:0;color:#9fb9cc;font-size:10px;font-weight:500;line-height:1.15;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.ref-pitwall .pitwall-data-status.warn{color:#e6b956}.ref-pitwall .pitwall-data-status.error{color:#ff7690}
+.ref-pitwall .ref-topitem{min-height:51px;padding:0 12px;border-left:1px solid #164663;gap:2px;min-width:0}
+.ref-pitwall .ref-topitem small{font-size:10px;color:#a8bdd0;white-space:nowrap}
+.ref-pitwall .ref-topitem strong{font:800 13px/1.15 "Sarabun";white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:165px}
+.ref-pitwall .ref-topitem strong em{font:800 19px "IBM Plex Mono"}
+.ref-pitwall .ref-clock{min-width:150px}.ref-pitwall .ref-clock strong{font:800 21px "IBM Plex Mono"}.ref-pitwall .ref-clock>span{font-size:10px;color:#9ab6ce}
+.ref-pitwall .ref-topitem.with-icon,.ref-pitwall .ref-refresh{flex-direction:row;align-items:center;gap:10px}
+.ref-pitwall .ref-topitem.with-icon>div,.ref-pitwall .ref-refresh>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.ref-pitwall .ref-top-icon,.ref-pitwall .ref-refresh-button{width:44px;height:44px;flex:none;display:grid;place-items:center;background:#071c2e;border:1px solid #164d70;border-radius:8px;color:#63caff;font:800 24px "Sarabun"}
+.ref-pitwall .ref-top-icon:first-letter{color:#4bbfff}
+.ref-pitwall .ref-refresh-button{cursor:pointer;font-size:32px;line-height:1}.ref-pitwall .ref-refresh-button:hover{background:#12334c}
+.ref-pitwall .ref-body{grid-template-columns:minmax(360px,26.5%) minmax(0,1fr);gap:13px}
+.ref-pitwall .pit-card{border:1px solid #135075;border-radius:10px;background:linear-gradient(180deg,#061824,#04111d);box-shadow:inset 0 1px #18435a55}
+.ref-pitwall .ref-sidebar{height:calc(100vh - 82px);min-height:560px;display:flex;flex-direction:column;position:sticky;top:0}
+.ref-pitwall .ref-side-head{padding:9px 11px 5px;background:transparent;border:0}
+.ref-pitwall .ref-side-head strong{font-size:15px}.ref-pitwall .ref-side-head small{color:#3cbbf2;font-size:11px}
+.ref-pitwall .ref-side-head>div>span,.ref-pitwall .ref-section-head .left>span{font-size:20px;color:#32b8ff;filter:none;line-height:1}
+.ref-pitwall .ref-search{padding:5px 7px 4px}.ref-pitwall .ref-search input{height:30px;padding:0 9px;font-size:11px;border-radius:5px;background:#0a2031}
+.ref-pitwall .ref-filters{padding:0 7px 6px;gap:6px}.ref-pitwall .ref-filters select{height:29px;padding:3px 8px;font-size:10px}
+.ref-pitwall .ref-roster-head,.ref-pitwall .ref-roster-list .live-card{grid-template-columns:25px 46px minmax(100px,1fr) 43px 43px 64px;gap:3px}
+.ref-pitwall .ref-roster-head{padding:6px 5px;font-size:9px}.ref-pitwall .ref-roster-list{flex:1;min-height:0;max-height:none;padding:0 4px 4px}
+.ref-pitwall .ref-roster-list .live-card{min-height:26px;padding:3px 2px;border-radius:0}
+.ref-pitwall .ref-roster-list .live-card.selected{border-radius:3px;box-shadow:inset 3px 0 #1ba9f8,0 0 0 1px #176a9a}
+.ref-pitwall .ref-roster-list .roster-person strong{font-size:11px}.ref-pitwall .ref-roster-list .roster-person small{display:none}
+.ref-pitwall .ref-roster-list .roster-rank,.ref-pitwall .ref-roster-list .roster-code,.ref-pitwall .ref-roster-list .roster-score,.ref-pitwall .ref-roster-list .roster-time{font-size:10px}
+.ref-pitwall .ref-roster-list .roster-status .status{padding:1px 3px;font-size:9px;background:none;border:0;white-space:nowrap}
+.ref-pitwall .ref-roster-list .roster-status .status:before{content:"";width:7px;height:7px;margin-right:5px;border-radius:50%;background:#318fba}
+.ref-pitwall .ref-roster-list .roster-status .status.playing:before{background:#1ee783}
+.ref-pitwall .ref-main{gap:8px;align-content:start}
+.ref-pitwall .ref-player-card{height:94px;min-height:94px;padding:10px 14px;display:flex;align-items:center}
+.ref-pitwall .ref-player-summary{width:100%}.ref-pitwall .ref-player-summary .selected-avatar{width:68px;height:68px;border-radius:9px;background:#0e3b5a;font-size:36px}
+.ref-pitwall .ref-player-summary .spectator-code{font-size:15px;margin:0}.ref-pitwall .ref-player-summary .selected-person h3{font-size:23px;line-height:1.15}.ref-pitwall .ref-player-summary .selected-person p{font-size:12px;margin:3px 0 0}
+.ref-pitwall .ref-profile-meta{grid-template-columns:minmax(150px,1fr) minmax(140px,.85fr) 165px;gap:10px}
+.ref-pitwall .ref-profile-meta>div{min-height:58px;padding:7px 12px}.ref-pitwall .ref-profile-meta small{font-size:11px}.ref-pitwall .ref-profile-meta strong{font-size:15px;margin:2px 0 0}
+.ref-pitwall .ref-analysis-btn{font-size:13px;color:#e6ecff;background:#08234a;box-shadow:inset 0 0 0 2px #0c4a9a}.ref-pitwall .ref-analysis-btn:hover{background:#123a68}
+.ref-pitwall .ref-section-head{margin-bottom:7px}.ref-pitwall .ref-section-head strong{font-size:16px}
+.ref-pitwall .ref-match-section{padding:8px 10px;min-height:125px}
+.ref-pitwall .ref-status-grid{grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.ref-pitwall .ref-status-grid .console-stat{height:84px;min-height:84px;justify-content:flex-start;padding:8px 9px;overflow:hidden}
+.ref-pitwall .ref-status-grid .console-stat small{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ref-pitwall .ref-status-grid .console-stat strong{font-size:23px;margin:6px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ref-pitwall .ref-status-grid .console-stat:last-child strong{font:800 clamp(13px,1.1vw,18px) "Sarabun";white-space:normal}
+.ref-pitwall .ref-status-grid .console-stat span{font-size:9px}
+.ref-pitwall .ref-middle-grid{grid-template-columns:minmax(285px,.49fr) minmax(0,1fr);gap:8px;min-height:300px}
+.ref-pitwall .ref-amats-card{min-height:300px;padding:10px}
+.ref-pitwall .ref-amats-card .amats-live{display:flex;flex-wrap:wrap;align-items:flex-start;gap:9px;padding:15px 10px;background:#071b2b;border:1px solid #125078;border-radius:7px;margin-top:8px}
+.ref-pitwall .ref-amats-card .amats-symbol{width:47px;height:48px;border-radius:7px;background:#2b2c23;color:#ffd457;font-size:28px}
+.ref-pitwall .ref-amats-card .amats-live>div:nth-child(2){flex:1;min-width:170px}.ref-pitwall .ref-amats-card .amats-live strong{font-size:17px}.ref-pitwall .ref-amats-card .amats-live p{font-size:11px;line-height:1.4;margin:4px 0 0}
+.ref-pitwall .ref-amats-card .amats-live-chips{display:flex;width:100%;gap:9px;margin-top:8px}.ref-pitwall .ref-amats-card .amats-chip{font:700 12px "IBM Plex Mono";padding:5px 12px}
+.ref-pitwall .ref-amats-card .amats-chip:nth-child(2){background:#082842;border-color:#1168a4;color:#39bcff}.ref-pitwall .ref-amats-card .amats-chip:nth-child(3){background:#2b1523;border-color:#9b3152;color:#ff6a8a}
+.ref-pitwall .ref-right-stack{grid-template-rows:108px minmax(0,1fr);gap:8px;min-width:0}
+.ref-pitwall .ref-rack-card,.ref-pitwall .ref-recent-card{padding:8px 10px;min-width:0}.ref-pitwall .ref-rack-card .ref-section-head{margin-bottom:4px}.ref-pitwall #rack-count{font-size:11px;color:#72a9ca;font-weight:500}
+.ref-pitwall .ref-rack-content{display:flex;align-items:center;gap:12px}.ref-pitwall .ref-rack{flex:1;min-width:0;min-height:53px;justify-content:center;flex-wrap:nowrap;gap:7px}
+.ref-pitwall .ref-rack .pit-rack-tile{width:clamp(35px,3.6vw,60px);height:clamp(42px,3.5vw,56px);flex:0 1 60px;min-width:0;font-size:22px;color:#123e76;background:linear-gradient(180deg,#fff7da,#ffdf9d);box-shadow:0 0 0 2px #543716,0 3px 8px #0009}
+.ref-pitwall .ref-rack-quality{width:150px;flex:none;padding:8px 10px;border:1px solid #16405b;border-radius:7px;background:#071b2b}.ref-pitwall .ref-rack-quality small{font-size:10px;color:#abd2ed}.ref-pitwall .ref-rack-quality strong{display:block;font:800 20px/1.15 "IBM Plex Mono";color:#3cbcff}.ref-pitwall .ref-meter{height:6px;border-radius:8px;background:#1a3347;overflow:hidden;margin-top:4px}.ref-pitwall .ref-meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,#148bf2,#3ccaff)}
+.ref-pitwall .ref-recent-card{min-height:184px}.ref-pitwall .ref-moves-button{background:#082b47;border:0;border-radius:5px;padding:4px 9px;color:#75c9ff;font:700 10px "Sarabun";cursor:pointer}
+.ref-pitwall .ref-recent-head,.ref-pitwall .ref-recent-moves .spectator-move-row{grid-template-columns:37px 49px 53px minmax(90px,1fr) 49px 35px 40px 43px;gap:3px}
+.ref-pitwall .ref-recent-head{font-size:9px;padding:4px 5px}.ref-pitwall .ref-recent-moves{max-height:141px;overflow:auto}.ref-pitwall .ref-recent-moves.all-moves{max-height:270px}
+.ref-pitwall .ref-recent-moves .spectator-move-row{font-size:10px;padding:4px 5px;min-height:23px}.ref-pitwall .ref-recent-moves .spectator-move-row strong{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ref-pitwall .ref-chart-section{background:transparent!important;border:0;padding:0;box-shadow:none}
+.ref-pitwall .ref-chart-grid{grid-template-columns:repeat(3,minmax(0,1fr)) minmax(235px,1.12fr);grid-template-rows:repeat(2,145px);gap:7px}
+.ref-pitwall .ref-chart-grid .chart-card{min-height:0;height:145px;padding:6px 9px;border-radius:8px}
+.ref-pitwall .ref-chart-grid .pit-card-head{margin-bottom:2px}.ref-pitwall .ref-chart-grid .pit-kicker{font-size:11px;color:#48c3fa}.ref-pitwall .ref-chart-grid .pit-card-head strong{font-size:12px}
+.ref-pitwall .ref-chart-grid .pit-chart-wrap{height:99px}
+.ref-pitwall .ref-chart-grid .ref-heatmap-card{grid-column:4;grid-row:1 / span 2;height:auto;min-height:0;display:flex;flex-direction:column}
+.ref-pitwall .ref-heatmap-card .pit-kicker{font:700 12px "Sarabun";color:#e4f5ff}.ref-pitwall .ref-heatmap-card .pit-card-head strong{display:none}
+.ref-pitwall .ref-heatmap-axes{display:grid;grid-template-columns:14px 1fr;gap:4px;margin-top:2px}.ref-pitwall #heatmap-cols{display:grid;grid-template-columns:repeat(15,1fr);font:8px "IBM Plex Mono";text-align:center;color:#a4c9de}
+.ref-pitwall .ref-heatmap-area{display:grid;grid-template-columns:14px 1fr;gap:4px;flex:1;min-height:0}.ref-pitwall #heatmap-rows{display:grid;grid-template-rows:repeat(15,1fr);font:8px "IBM Plex Mono";color:#a4c9de;text-align:center;align-items:center}
+.ref-pitwall .pit-heatmap{width:100%;height:100%;aspect-ratio:auto;grid-template-columns:repeat(15,minmax(0,1fr));grid-template-rows:repeat(15,minmax(0,1fr));gap:2px}
+.ref-pitwall .heat-cell{border:1px solid #154b53;border-radius:2px;background:#125c3c}.ref-pitwall .heat-cell.occupied-0{background:#0e5740}.ref-pitwall .heat-cell.occupied-1{background:#399852}.ref-pitwall .heat-cell.occupied-2{background:#d0b82b}.ref-pitwall .heat-cell.occupied-3{background:#fbb72d}.ref-pitwall .heat-cell.occupied-4{background:#f34739}
+.ref-pitwall .heatmap-empty{grid-column:1/-1;grid-row:1/-1;display:grid;place-items:center;color:#6389a3;font-size:11px}
+@media(max-width:1450px){
+  .ref-pitwall .ref-brand{min-width:340px}.ref-pitwall .ref-brand-text p{display:none}.ref-pitwall .ref-live-unit{min-width:105px}.ref-pitwall .pitwall-data-status{display:none}
+  .ref-pitwall .ref-topitem{padding:0 8px}.ref-pitwall .ref-top-icon{width:35px;height:35px;font-size:18px}
+  .ref-pitwall .ref-body{grid-template-columns:350px minmax(0,1fr)}.ref-pitwall .ref-profile-meta{grid-template-columns:repeat(2,minmax(120px,1fr))}.ref-pitwall .ref-analysis-btn{grid-column:1/-1;min-height:35px}
+  .ref-pitwall .ref-player-card{height:auto;min-height:94px}.ref-pitwall .ref-status-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.ref-pitwall .ref-middle-grid{grid-template-columns:minmax(0,1fr) minmax(0,1.35fr)}
+  .ref-pitwall .ref-chart-grid{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:none;grid-auto-rows:auto}.ref-pitwall .ref-chart-grid .ref-heatmap-card{grid-column:auto;grid-row:auto;height:295px}
+}
+@media(max-width:1180px){
+  .ref-pitwall .ref-topbar{height:auto;min-height:72px;flex-wrap:wrap}.ref-pitwall .ref-topstats{width:100%;justify-content:space-between;overflow:auto}
+  .ref-pitwall .ref-body{grid-template-columns:1fr}.ref-pitwall .ref-sidebar{position:static;height:auto;min-height:0}.ref-pitwall .ref-roster-list{max-height:300px}
+  .ref-pitwall .ref-middle-grid{grid-template-columns:1fr 1.4fr}
+}
+@media(max-width:760px){
+  .ref-pitwall{padding:0 7px 10px}.ref-pitwall .ref-topbar{margin:0 -7px 8px;padding:10px}.ref-pitwall .ref-brand{min-width:0}.ref-pitwall .ref-logo{width:45px;font-size:52px}.ref-pitwall .ref-brand-text h2{font-size:19px}
+  .ref-pitwall .ref-topstats{gap:0}.ref-pitwall .ref-topitem{min-width:max-content}.ref-pitwall .ref-top-icon{display:none}
+  .ref-pitwall .ref-player-summary{flex-direction:column;align-items:stretch}.ref-pitwall .ref-profile-meta{width:100%;grid-template-columns:1fr 1fr}.ref-pitwall .ref-player-card{padding:10px}
+  .ref-pitwall .ref-middle-grid{grid-template-columns:1fr}.ref-pitwall .ref-amats-card{min-height:160px}.ref-pitwall .ref-status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ref-pitwall .ref-chart-grid{grid-template-columns:1fr 1fr}.ref-pitwall .ref-chart-grid .ref-heatmap-card{grid-column:1/-1}
+  .ref-pitwall .ref-recent-head,.ref-pitwall .ref-recent-moves .spectator-move-row{grid-template-columns:40px 44px 52px minmax(0,1fr) 40px}.ref-pitwall .ref-recent-head>*:nth-child(n+6),.ref-pitwall .ref-recent-moves .spectator-move-row>*:nth-child(n+6){display:none}
+}

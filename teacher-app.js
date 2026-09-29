@@ -19,6 +19,7 @@
   let replayReturnView = "student-detail";
   let replayRequestedTurnId = null;
   let deepCharts = {};
+  let showAllPitMoves = false;
 
   const $ = id => document.getElementById(id);
   const sb = () => AMATH_TEACHER_AUTH.getClient();
@@ -398,6 +399,7 @@
   function renderLiveList() {
     const rows = liveFiltered();
     $("live-count").textContent = liveRows.filter(r => r.status === "playing").length;
+    $("total-count").textContent = liveRows.length;
     if ($("roster-total")) $("roster-total").textContent = `ทั้งหมด ${rows.length} คน`;
     $("live-list").innerHTML = rows.length ? rows.map((r,idx) => {
       const isSelected = selectedLiveId === r.student_user_id;
@@ -520,10 +522,8 @@
     $("pit-open-student")?.addEventListener("click",()=>openStudentDeepAnalysis(r.student_user_id));
 
     $("pitwall-round").textContent = rulesetLabel;
-    $("performance-title").textContent = "ภาพรวมประสิทธิภาพ";
-    $("performance-live").className = `status ${r.status}`;
-    $("performance-live").textContent = statusLabel;
     $("console-turn-badge").textContent = active;
+    $("pitwall-bot-level").textContent = ({ Rookie:"Beginner", Standard:"Intermediate", Master:"Advanced" })[r.difficulty] || r.difficulty || "—";
 
     $("match-status-grid").innerHTML =
       consoleStat("คะแนนปัจจุบัน", r.player_score ?? 0, "", "score-blue") +
@@ -536,28 +536,14 @@
       consoleStat("สถานะ", statusLabel, r._source === "matches-fallback" ? "ข้อมูลย้อนหลัง" : "Realtime", r.status === "playing" ? "positive" : "");
 
     renderPitRack(r.rack_snapshot);
+    const rackQuality = Number(r.rack_quality);
+    const hasRackQuality = r.rack_quality != null && Number.isFinite(rackQuality);
+    $("pit-rack-quality").textContent = hasRackQuality ? `${Math.round(rackQuality)}/100` : "—";
+    $("pit-rack-quality-bar").style.width = hasRackQuality ? `${Math.max(0,Math.min(100,rackQuality))}%` : "0%";
+    $("rack-count").textContent = Array.isArray(r.rack_snapshot) ? `(${r.rack_snapshot.length} เบี้ย)` : "(— เบี้ย)";
+    renderHeatmap(r.board_snapshot);
 
     const playerMoves = selectedTurns.filter(t => t.actor === "player" && (t.event_type || "move") === "move");
-    const avgTime = average(playerMoves.map(t=>t.decision_time_ms));
-    const avgDQ = average(playerMoves.map(t=>t.decision_quality));
-    const avgLoss = average(playerMoves.map(t=>t.tactical_loss));
-    const rack = r.rack_quality;
-
-    $("pit-kpis").innerHTML =
-      ringKpi("Win %", r.win_probability) +
-      ringKpi("Decision Quality", avgDQ ?? r.decision_quality) +
-      `<div class="pit-kpi"><small>เวลาเฉลี่ย/ตา</small><strong>${avgTime == null ? "—" : (avgTime/1000).toFixed(1)+"s"}</strong></div>` +
-      `<div class="pit-kpi"><small>Tactical Loss</small><strong>${avgLoss == null ? "—" : avgLoss.toFixed(1)}</strong></div>` +
-      `<div class="pit-kpi"><small>Rack Quality</small><strong>${rack == null ? "—" : Number(rack).toFixed(0)+"/100"}</strong></div>` +
-      `<div class="pit-kpi"><small>Last Move Score</small><strong>${r.last_move_score == null ? "—" : Number(r.last_move_score)}</strong></div>`;
-
-    $("pit-secondary-kpis").innerHTML =
-      secondaryKpi("🔥","Pressure",r.pressure_level) +
-      secondaryKpi("🧠","Focus",null) +
-      secondaryKpi("⚠","Risk",null) +
-      secondaryKpi("🔋","Fatigue",null) +
-      secondaryKpi("⚙","CL",null);
-
     renderAmatsLive(r, playerMoves);
     tickSpectatorClocks();
   }
@@ -591,7 +577,9 @@
 
   function renderHeatmap(snapshot) {
     const el = $("pit-heatmap");
-    if (!Array.isArray(snapshot)) { el.innerHTML = ""; return; }
+    $("heatmap-cols").innerHTML = Array.from({length:15},(_,i)=>`<span>${i+1}</span>`).join("");
+    $("heatmap-rows").innerHTML = Array.from({length:15},(_,i)=>`<span>${String.fromCharCode(65+i)}</span>`).join("");
+    if (!Array.isArray(snapshot)) { el.innerHTML = '<span class="heatmap-empty">ยังไม่มีข้อมูลกระดาน</span>'; return; }
     let html = "";
     for (let r=0;r<15;r++) {
       for (let c=0;c<15;c++) {
@@ -600,7 +588,7 @@
           if (snapshot?.[r+dr]?.[c+dc]) density++;
         }
         const lvl = density === 0 ? 0 : density <=2 ? 1 : density <=4 ? 2 : density <=6 ? 3 : 4;
-        html += `<span class="heat-cell ${lvl ? "occupied-"+lvl : ""}" title="density ${density}"></span>`;
+        html += `<span class="heat-cell occupied-${lvl}" title="${String.fromCharCode(65+r)}${c+1}: ความหนาแน่น ${density}"></span>`;
       }
     }
     el.innerHTML = html;
@@ -632,17 +620,19 @@
   }
 
   function renderRecentMoves() {
-    const moves = selectedTurns.slice(-8).reverse();
+    const moves = selectedTurns.slice(showAllPitMoves ? 0 : -5).reverse();
     $("pit-recent-moves").innerHTML = moves.length ? moves.map(t => {
       const dq = t.decision_quality == null ? "—" : Math.round(Number(t.decision_quality));
       const loss = t.tactical_loss == null ? "—" : Number(t.tactical_loss).toFixed(1);
-      const dt = t.decision_time_ms == null ? "—" : (Number(t.decision_time_ms)/1000).toFixed(1)+"s";
+      const time = t.occurred_at ? new Date(t.occurred_at).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"}) : "—";
+      const rack = Array.isArray(t.rack_after) ? `${t.rack_after.length} ใบ` : "—";
       return `<div class="spectator-move-row ${isCriticalTurn(t) ? "critical" : ""}">
-        <span>T${t.turn_number ?? "—"}</span>
+        <span>${t.turn_number ?? "—"}</span>
+        <span>${time}</span>
         <span class="${t.actor === "player" ? "actor-player" : "actor-bot"}">${t.actor === "player" ? "นักเรียน" : "บอท"}</span>
         <strong>${t.equation || t.event_type || "move"}</strong>
         <span class="move-score">${Number(t.move_score)>0?"+":""}${t.move_score ?? 0}</span>
-        <span>${dq}</span><span>${loss}</span><span>${dt}</span>
+        <span>${dq}</span><span>${loss}</span><span>${rack}</span>
       </div>`;
     }).join("") : '<p class="empty">ยังไม่มีการเดิน</p>';
   }
@@ -702,12 +692,12 @@
       {data:player.map(t=>t.decision_quality),backgroundColor:player.map(t => Number(t.decision_quality)>=70 ? "#12b7ff" : Number(t.decision_quality)>=50 ? "#f5c84c" : "#ff4f78"),borderRadius:4}
     ]));
 
-    pitCharts.time = new Chart($("pit-time-chart"),chartBase("line",player.map(t=>t.turn_number),[
-      {data:player.map(t=>t.decision_time_ms == null ? null : Number((t.decision_time_ms/1000).toFixed(1))),borderColor:"#b45cff",tension:.3,pointRadius:2,borderWidth:2}
+    pitCharts.time = new Chart($("pit-time-chart"),chartBase("bar",player.map(t=>t.turn_number),[
+      {data:player.map(t=>t.decision_time_ms == null ? null : Number((t.decision_time_ms/1000).toFixed(1))),backgroundColor:"#ad5bdf",borderRadius:2}
     ]));
 
-    pitCharts.loss = new Chart($("pit-loss-chart"),chartBase("line",player.map(t=>t.turn_number),[
-      {data:player.map(t=>t.tactical_loss),borderColor:"#ff3d83",backgroundColor:"#ff3d8326",tension:.3,pointRadius:2,borderWidth:2,fill:true}
+    pitCharts.loss = new Chart($("pit-loss-chart"),chartBase("bar",player.map(t=>t.turn_number),[
+      {data:player.map(t=>t.tactical_loss),backgroundColor:"#ff4e78",borderRadius:2}
     ]));
 
     const avgDQ = average(player.map(t=>t.decision_quality)) ?? 0;
@@ -1232,6 +1222,17 @@
     $("live-search").addEventListener("input",renderLiveList);
     $("live-status-filter").addEventListener("change",renderLiveList);
     $("live-sort").addEventListener("change",renderLiveList);
+    $("pitwall-refresh").addEventListener("click",async()=>{
+      await refreshLive();
+      if (selectedLiveId) await refreshSelectedTelemetry(false);
+    });
+    $("pit-show-all-moves").addEventListener("click",()=>{
+      showAllPitMoves = !showAllPitMoves;
+      $("pit-show-all-moves").textContent = showAllPitMoves ? "ย่อลง ↑" : "ดูทั้งหมด →";
+      $("pit-show-all-moves").setAttribute("aria-pressed",String(showAllPitMoves));
+      $("pit-recent-moves").classList.toggle("all-moves",showAllPitMoves);
+      renderRecentMoves();
+    });
     $("student-search").addEventListener("input",renderStudents);
     const tickPitClock = () => {
       const now = new Date();
