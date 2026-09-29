@@ -100,3 +100,31 @@ main{padding:24px;max-width:1600px;margin:auto}.view[hidden]{display:none}.eyebr
 @media(max-width:1500px){.pitwall-main-grid{grid-template-columns:300px minmax(440px,1.45fr) minmax(380px,1.25fr)}.pitwall-chart-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:1180px){.pitwall-main-grid{grid-template-columns:290px 1fr}.pit-right{grid-column:1/-1;grid-template-columns:1fr 1fr}.right-mini-grid{grid-column:1/-1}.pitwall-chart-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:820px){.pitwall-topline{align-items:flex-start;flex-direction:column}.pitwall-main-grid{grid-template-columns:1fr}.pit-roster{min-height:auto}.pit-roster-list{max-height:330px}.pit-right{grid-template-columns:1fr}.pit-kpi-grid{grid-template-columns:repeat(2,1fr)}.secondary-kpi-grid{grid-template-columns:repeat(3,1fr)}.right-mini-grid{grid-template-columns:1fr}.pitwall-chart-grid{grid-template-columns:1fr}.selected-player-summary{grid-template-columns:1fr 1fr}.selected-person{grid-column:1/-1}.selected-stat{border-left:0;border-top:1px solid #dbe8f5;padding-top:8px}}
+
+
+/* =====================================================================
+   Match Replay 0.7
+   ===================================================================== */
+.replay-head{align-items:flex-start}.replay-head-actions{display:flex;align-items:center;gap:10px;padding-top:25px}
+.replay-filter-btn,.replay-controls button{border:1px solid #cfe0f2;background:#fff;color:#315f91;border-radius:9px;padding:8px 12px;font:700 12px "Sarabun";cursor:pointer}
+.replay-filter-btn.active{background:#fff0f2;border-color:#f4a8b3;color:#c82f48}
+.replay-position{font:700 12px "IBM Plex Mono";color:#617e9c;background:#eef5fb;padding:7px 10px;border-radius:8px}
+.replay-layout{display:grid;grid-template-columns:300px minmax(480px,1fr) 330px;gap:14px;align-items:start}
+.replay-timeline-card,.replay-board-card,.replay-inspector{min-height:650px}.replay-timeline{max-height:590px;overflow:auto;padding-right:3px}
+.replay-turn-row{width:100%;display:grid;grid-template-columns:44px 1fr 42px 20px;gap:8px;align-items:center;text-align:left;border:1px solid transparent;border-bottom-color:#e7eef6;background:#fff;padding:9px 6px;font:inherit;cursor:pointer}
+.replay-turn-row:hover{background:#f7fbff}.replay-turn-row.active{background:#eaf5ff;border-color:#79b5ee;border-radius:9px}.replay-turn-row.critical{box-shadow:inset 3px 0 0 #ef5267}
+.replay-turn-row strong,.replay-turn-row small{display:block}.replay-turn-row strong{font-size:12px}.replay-turn-row small{font-size:10px;color:#748ba3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.replay-turn-row i{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:#ffe7eb;color:#d9344f;font:800 10px "IBM Plex Mono";font-style:normal}
+.replay-turn-no,.replay-turn-score{font:700 11px "IBM Plex Mono";color:#416b96}.replay-turn-score{text-align:right;color:#158c5c}
+.replay-board{display:grid;grid-template-columns:repeat(15,1fr);gap:2px;aspect-ratio:1;width:min(100%,650px);margin:0 auto;background:#dceaf7;border:1px solid #c5dcee;padding:5px;border-radius:9px}
+.replay-board.board-unavailable{display:grid;place-items:center;text-align:center;background:#f6f9fc;color:#6f879f;padding:30px}.replay-board.board-unavailable strong,.replay-board.board-unavailable small{display:block}.replay-board.board-unavailable small{margin-top:6px;max-width:360px}
+.replay-cell{position:relative;display:grid;place-items:center;background:#eef6fc;border-radius:2px;font:700 11px "IBM Plex Mono";color:#31597d}.replay-cell.bonus-dp{background:#bde1ff;color:#1766ad}.replay-cell.bonus-tp{background:#ffb9c6;color:#b6384e}.replay-cell.bonus-de{background:#ffd8a5;color:#9b5b0e}.replay-cell.bonus-te{background:#ff9da8;color:#a62938}.replay-cell.center{outline:2px solid #f13c5a;outline-offset:-2px}.replay-cell.center::after{content:"★";font-size:9px;color:#f13c5a}
+.replay-cell.has-tile{background:#ffe7bb;border:1px solid #e3bc7a;color:#3f321f;box-shadow:0 1px 2px #886b3b22}.replay-cell.has-tile.center::after{display:none}.replay-cell small{position:absolute;right:2px;bottom:0;font-size:6px;color:#866b3b}.replay-cell.replay-new-tile{outline:2px solid #1f8bea;outline-offset:-2px;box-shadow:0 0 0 2px #1f8bea20}
+.replay-rack-block{margin-top:12px}.replay-rack-block>small{display:block;color:#6d859d;margin-bottom:6px}.replay-controls{display:flex;justify-content:space-between;margin-top:14px}.replay-controls button:disabled{opacity:.4;cursor:not-allowed}
+.replay-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px}.replay-metric{background:#f5f9fd;border:1px solid #e1ebf4;border-radius:10px;padding:10px}.replay-metric small{display:block;color:#7188a0;font-size:9px}.replay-metric strong{display:block;font:800 19px "IBM Plex Mono";color:#173e73;margin-top:2px}.replay-metric span{display:block;color:#7d91a6;font-size:9px}
+.replay-move-box{margin-top:12px;padding:12px;border-radius:11px;background:#eef6ff;border:1px solid #d8e9f9}.replay-move-box>small{color:#6b86a2;font-size:9px}.replay-move-box>strong{display:block;font:800 16px "IBM Plex Mono";color:#174877;margin:4px 0 8px}.replay-move-box p{font-size:11px;line-height:1.55;color:#54728f;margin:9px 0 0}
+.replay-tags{display:flex;gap:5px;flex-wrap:wrap}.replay-tags span{background:#fff;border:1px solid #d5e4f3;border-radius:999px;padding:3px 7px;font-size:9px;font-weight:700;color:#4c7195}.replay-tags .critical-tag{background:#fff0f2;border-color:#ffc8d0;color:#c9334a}
+.replay-data-note{margin-top:12px;font-size:10px}.data-ok{color:#168355}.data-limited{color:#b47412}.replay-muted{color:#8ca0b3}
+.match-row.replay-open-match{font-family:"Sarabun";cursor:pointer}.match-row.replay-open-match:hover{background:#f4f9ff}
+@media(max-width:1200px){.replay-layout{grid-template-columns:260px 1fr}.replay-inspector{grid-column:1/-1;min-height:auto}.replay-metrics{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:780px){.replay-layout{grid-template-columns:1fr}.replay-timeline-card,.replay-board-card{min-height:auto}.replay-timeline{max-height:300px}.replay-metrics{grid-template-columns:1fr 1fr}.replay-head-actions{padding-top:0}}
