@@ -403,14 +403,15 @@
       const statusLabel = r.status === "playing" ? "กำลังเล่น" : r.status === "finished" ? "จบแล้ว" : r.status;
       return `<button class="live-card ${isSelected ? "selected" : ""}" data-id="${r.student_user_id}">
         <span class="roster-rank">${idx + 1}</span>
-        <span class="roster-person"><strong>${r.student_code || "—"} · ${r.student_name || "นักเรียน"}</strong><small>${r.class_name || ""}${r.room_no ? "/" + r.room_no : ""}${r._source === "matches-fallback" ? " · HISTORY" : ""}</small></span>
+        <span class="roster-code">${r.student_code || "—"}</span>
+        <span class="roster-person"><strong>${r.student_name || "นักเรียน"}</strong><small>${r.class_name || ""}${r.room_no ? " · ห้อง " + r.room_no : ""}${r._source === "matches-fallback" ? " · HISTORY" : ""}</small></span>
         <span class="roster-score">${r.player_score ?? 0}</span>
         <span class="roster-time" data-student-id="${r.student_user_id}">${fmtTime(projectedRemaining(r,"player"))}</span>
         <span class="roster-status"><span class="status ${r.status}">${statusLabel}</span></span>
       </button>`;
     }).join("") : '<p class="empty">ยังไม่มี Live Session</p>';
 
-    document.querySelectorAll(".spectator-roster .live-card").forEach(btn => btn.addEventListener("click", () => {
+    document.querySelectorAll(".ref-sidebar .live-card").forEach(btn => btn.addEventListener("click", () => {
       selectLiveStudent(btn.dataset.id);
     }));
   }
@@ -498,9 +499,9 @@
     const rulesetLabel = r.ruleset_id === "PRIMARY_70" ? "ประถม 70 เบี้ย" : r.ruleset_id === "STANDARD_100" ? "มาตรฐาน 100 เบี้ย" : (r.ruleset_id || "—");
     const statusLabel = r.status === "playing" ? "กำลังเล่นอยู่" : r.status === "finished" ? "จบแล้ว" : (r.status || "—");
 
-    $("selected-player-card").className = "pit-card spectator-player-card";
+    $("selected-player-card").className = "pit-card ref-player-card";
     $("selected-player-card").innerHTML = `
-      <div class="spectator-player-summary">
+      <div class="ref-player-summary">
         <div class="selected-person">
           <div class="selected-avatar">🧑‍🎓</div>
           <div>
@@ -509,10 +510,10 @@
             <p>${cls || "—"} · ${rulesetLabel} · ระดับบอท ${r.difficulty || "—"}</p>
           </div>
         </div>
-        <div class="spectator-profile-meta">
+        <div class="ref-profile-meta">
           <div><small>กติกาที่ใช้</small><strong>${rulesetLabel}</strong></div>
           <div><small>ระดับบอท</small><strong>${r.difficulty || "—"}</strong></div>
-          <button id="pit-open-student" class="spectator-analysis-btn" type="button">▥ Deep Analysis</button>
+          <button id="pit-open-student" class="ref-analysis-btn" type="button">▥ Deep Analysis</button>
         </div>
       </div>`;
     $("pit-open-student")?.addEventListener("click",()=>openStudentDeepAnalysis(r.student_user_id));
@@ -1217,8 +1218,11 @@
     $("live-sort").addEventListener("change",renderLiveList);
     $("student-search").addEventListener("input",renderStudents);
     const tickPitClock = () => {
+      const now = new Date();
       const el = $("pitwall-clock");
-      if (el) el.textContent = new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+      if (el) el.textContent = now.toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+      const dateEl = $("pitwall-date-label");
+      if (dateEl) dateEl.textContent = now.toLocaleDateString("th-TH",{day:"numeric",month:"short",year:"numeric"});
     };
     tickPitClock();
     setInterval(tickPitClock,1000);
