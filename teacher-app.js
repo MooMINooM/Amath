@@ -34,6 +34,29 @@
     return `${Math.round(Number(v))}%`;
   }
 
+  function projectedRemaining(row, side) {
+    const base = side === "player" ? row?.player_time_ms : row?.bot_time_ms;
+    if (base == null) return null;
+    if (row?.status !== "playing" || row?.active_side !== side || row?._source === "matches-fallback") return Number(base);
+    const receivedAt = Number(row._received_at) || Date.now();
+    return Number(base) - Math.max(0, Date.now() - receivedAt);
+  }
+
+  function tickSpectatorClocks() {
+    if (!$("view-pitwall") || $("view-pitwall").hidden) return;
+    document.querySelectorAll(".roster-time[data-student-id]").forEach(el => {
+      const row = liveRows.find(r => r.student_user_id === el.dataset.studentId);
+      if (row) el.textContent = fmtTime(projectedRemaining(row, "player"));
+    });
+    const row = selectedRow();
+    if (row) {
+      const p = $("spectator-player-time");
+      const b = $("spectator-bot-time");
+      if (p) p.textContent = fmtTime(projectedRemaining(row, "player"));
+      if (b) b.textContent = fmtTime(projectedRemaining(row, "bot"));
+    }
+  }
+
   function setPitwallDataStatus(message, tone = "ok") {
     const el = $("pitwall-data-status");
     if (!el) return;
@@ -135,7 +158,7 @@
       .order("updated_at", { ascending:false });
 
     if (!liveResult.error && (liveResult.data || []).length) {
-      liveRows = liveResult.data || [];
+      liveRows = (liveResult.data || []).map(r => ({ ...r, _received_at: Date.now() }));
       setPitwallDataStatus(`Realtime พร้อม · ${liveRows.length} session`, "ok");
     } else {
       const matchResult = await sb()
@@ -153,7 +176,7 @@
         for (const m of matchResult.data) {
           if (!latestByStudent.has(m.student_user_id)) latestByStudent.set(m.student_user_id, m);
         }
-        liveRows = [...latestByStudent.values()].map(fallbackRowFromMatch);
+        liveRows = [...latestByStudent.values()].map(m => ({ ...fallbackRowFromMatch(m), _received_at: Date.now() }));
         const reason = liveResult.error ? "live_sessions อ่านไม่ได้" : "live_sessions ยังว่าง";
         setPitwallDataStatus(`${reason} · ใช้ประวัติ matches ชั่วคราว`, "warn");
       } else {
@@ -182,7 +205,7 @@
     liveChannel = sb()
       .channel("teacher-pitwall-live")
       .on("postgres_changes", { event:"*", schema:"public", table:"live_sessions" }, payload => {
-        const row = payload.new;
+        const row = payload.new ? { ...payload.new, _received_at: Date.now() } : null;
         if (!row?.student_user_id) return;
         const idx = liveRows.findIndex(x => x.student_user_id === row.student_user_id);
         if (idx >= 0) liveRows[idx] = row; else liveRows.unshift(row);
@@ -193,7 +216,10 @@
           refreshSelectedTelemetry(false);
         }
       })
-      .subscribe();
+      .subscribe(status => {
+        if (status === "SUBSCRIBED") setPitwallDataStatus("Realtime เชื่อมต่อแล้ว", "ok");
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setPitwallDataStatus("Realtime ขัดข้อง · กำลังใช้ข้อมูลล่าสุด", "warn");
+      });
   }
 
   function liveFiltered() {
@@ -215,6 +241,7 @@
   function renderLiveList() {
     const rows = liveFiltered();
     $("live-count").textContent = liveRows.filter(r => r.status === "playing").length;
+    if ($("roster-total")) $("roster-total").textContent = `ทั้งหมด ${rows.length} คน`;
     $("live-list").innerHTML = rows.length ? rows.map((r,idx) => {
       const isSelected = selectedLiveId === r.student_user_id;
       const statusLabel = r.status === "playing" ? "กำลังเล่น" : r.status === "finished" ? "จบแล้ว" : r.status;
@@ -222,12 +249,12 @@
         <span class="roster-rank">${idx + 1}</span>
         <span class="roster-person"><strong>${r.student_code || "—"} · ${r.student_name || "นักเรียน"}</strong><small>${r.class_name || ""}${r.room_no ? "/" + r.room_no : ""}${r._source === "matches-fallback" ? " · HISTORY" : ""}</small></span>
         <span class="roster-score">${r.player_score ?? 0}</span>
-        <span class="roster-time">${fmtTime(r.player_time_ms)}</span>
+        <span class="roster-time" data-student-id="${r.student_user_id}">${fmtTime(projectedRemaining(r,"player"))}</span>
         <span class="roster-status"><span class="status ${r.status}">${statusLabel}</span></span>
       </button>`;
     }).join("") : '<p class="empty">ยังไม่มี Live Session</p>';
 
-    document.querySelectorAll(".pit-roster .live-card").forEach(btn => btn.addEventListener("click", () => {
+    document.querySelectorAll(".spectator-roster .live-card").forEach(btn => btn.addEventListener("click", () => {
       selectLiveStudent(btn.dataset.id);
     }));
   }
@@ -308,48 +335,45 @@
 
   function renderLiveDetail(r) {
     const gap = (r.player_score || 0) - (r.bot_score || 0);
-    const totalClock = r.ruleset_id === "PRIMARY_70" ? 20*60*1000 : 22*60*1000;
-    const timePct = r.player_time_ms == null ? null : Math.max(0,Math.min(100,r.player_time_ms / totalClock * 100));
     const cls = [r.class_name,r.room_no].filter(Boolean).join("/");
     const active = r.active_side === "player" ? "ตาของนักเรียน" : r.active_side === "bot" ? "ตาของบอท" : (r._source === "matches-fallback" ? "ข้อมูลย้อนหลัง" : "—");
     const rulesetLabel = r.ruleset_id === "PRIMARY_70" ? "ประถม 70 เบี้ย" : r.ruleset_id === "STANDARD_100" ? "มาตรฐาน 100 เบี้ย" : (r.ruleset_id || "—");
-    const statusLabel = r.status === "playing" ? "กำลังเล่น" : r.status === "finished" ? "จบแล้ว" : (r.status || "—");
+    const statusLabel = r.status === "playing" ? "กำลังเล่นอยู่" : r.status === "finished" ? "จบแล้ว" : (r.status || "—");
 
-    $("selected-player-card").className = "pit-card selected-player-card console-player-card";
+    $("selected-player-card").className = "pit-card spectator-player-card";
     $("selected-player-card").innerHTML = `
-      <div class="console-player-summary">
+      <div class="spectator-player-summary">
         <div class="selected-person">
           <div class="selected-avatar">🧑‍🎓</div>
           <div>
-            <h3>${r.student_code || ""} · ${r.student_name || "นักเรียน"}</h3>
-            <p>${cls || "—"} · ${rulesetLabel} · Bot ${r.difficulty || "—"}</p>
+            <small class="spectator-code">${r.student_code || "—"}</small>
+            <h3>${r.student_name || "นักเรียน"}</h3>
+            <p>${cls || "—"} · ${rulesetLabel} · ระดับบอท ${r.difficulty || "—"}</p>
           </div>
         </div>
-        <div class="console-player-actions">
-          <button id="pit-open-replay" class="pit-action-btn primary" type="button" ${r.match_id ? "" : "disabled"}>▶ Replay แมตช์นี้</button>
-          <button id="pit-open-student" class="pit-action-btn" type="button">Deep Analysis</button>
+        <div class="spectator-profile-meta">
+          <div><small>กติกาที่ใช้</small><strong>${rulesetLabel}</strong></div>
+          <div><small>ระดับบอท</small><strong>${r.difficulty || "—"}</strong></div>
+          <button id="pit-open-student" class="spectator-analysis-btn" type="button">▥ Deep Analysis</button>
         </div>
       </div>`;
-
-    $("pit-open-replay")?.addEventListener("click",()=>openPitwallReplay());
     $("pit-open-student")?.addEventListener("click",()=>openStudentDeepAnalysis(r.student_user_id));
 
     $("pitwall-round").textContent = rulesetLabel;
-    $("performance-title").textContent = `ประสิทธิภาพการเล่น · ${r.student_code || ""}`;
+    $("performance-title").textContent = "ภาพรวมประสิทธิภาพ";
     $("performance-live").className = `status ${r.status}`;
     $("performance-live").textContent = statusLabel;
     $("console-turn-badge").textContent = active;
 
-    const clockNote = timePct == null ? "ไม่มีข้อมูลนาฬิกา" : `เหลือ ${Math.round(timePct)}%`;
     $("match-status-grid").innerHTML =
-      consoleStat("คะแนนนักเรียน", r.player_score ?? 0) +
-      consoleStat("คะแนนบอท", r.bot_score ?? 0) +
-      consoleStat("Gap", `${gap > 0 ? "+" : ""}${gap}`, "", gap < 0 ? "negative" : gap > 0 ? "positive" : "") +
-      consoleStat("เวลาเหลือ", fmtTime(r.player_time_ms), clockNote) +
-      consoleStat("เวลาบอท", fmtTime(r.bot_time_ms)) +
-      consoleStat("Turn", r.turn_number ?? 0, active) +
-      consoleStat("เบี้ยในถุง", r.bag_count ?? "—") +
-      consoleStat("สถานะ", statusLabel, r._source === "matches-fallback" ? "จากประวัติ matches" : "Realtime");
+      consoleStat("คะแนนปัจจุบัน", r.player_score ?? 0, "", "score-blue") +
+      consoleStat("คะแนนฝ่ายตรงข้าม", r.bot_score ?? 0, "", "score-red") +
+      consoleStat("Gap", `${gap > 0 ? "+" : ""}${gap}`, "", gap < 0 ? "negative" : "positive") +
+      `<div class="console-stat"><small>เวลาเหลือ</small><strong id="spectator-player-time">${fmtTime(projectedRemaining(r,"player"))}</strong><span>${r.active_side === "player" ? "กำลังเดิน" : "หยุดเวลา"}</span></div>` +
+      `<div class="console-stat"><small>เวลาของบอท</small><strong id="spectator-bot-time">${fmtTime(projectedRemaining(r,"bot"))}</strong><span>${r.active_side === "bot" ? "กำลังเดิน" : "หยุดเวลา"}</span></div>` +
+      consoleStat("Turn ปัจจุบัน", r.turn_number ?? 0, active, "turn-purple") +
+      consoleStat("เบี้ยในถุง", r.bag_count ?? "—", "") +
+      consoleStat("สถานะ", statusLabel, r._source === "matches-fallback" ? "ข้อมูลย้อนหลัง" : "Realtime", r.status === "playing" ? "positive" : "");
 
     renderPitRack(r.rack_snapshot);
 
@@ -361,11 +385,11 @@
 
     $("pit-kpis").innerHTML =
       ringKpi("Win %", r.win_probability) +
-      ringKpi("DQ %", avgDQ ?? r.decision_quality) +
-      `<div class="pit-kpi"><small>เวลาเฉลี่ย/ตา</small><strong>${avgTime == null ? "—" : Math.round(avgTime/1000)+"s"}</strong></div>` +
+      ringKpi("Decision Quality", avgDQ ?? r.decision_quality) +
+      `<div class="pit-kpi"><small>เวลาเฉลี่ย/ตา</small><strong>${avgTime == null ? "—" : (avgTime/1000).toFixed(1)+"s"}</strong></div>` +
       `<div class="pit-kpi"><small>Tactical Loss</small><strong>${avgLoss == null ? "—" : avgLoss.toFixed(1)}</strong></div>` +
-      `<div class="pit-kpi"><small>Rack Quality</small><strong>${rack == null ? "—" : Number(rack).toFixed(0)+"%"}</strong></div>` +
-      `<div class="pit-kpi"><small>Last Score</small><strong>${r.last_move_score == null ? "—" : Number(r.last_move_score)}</strong></div>`;
+      `<div class="pit-kpi"><small>Rack Quality</small><strong>${rack == null ? "—" : Number(rack).toFixed(0)+"/100"}</strong></div>` +
+      `<div class="pit-kpi"><small>Last Move Score</small><strong>${r.last_move_score == null ? "—" : Number(r.last_move_score)}</strong></div>`;
 
     $("pit-secondary-kpis").innerHTML =
       secondaryKpi("🔥","Pressure",r.pressure_level) +
@@ -375,6 +399,7 @@
       secondaryKpi("⚙","CL",null);
 
     renderAmatsLive(r, playerMoves);
+    tickSpectatorClocks();
   }
 
   function renderAmatsLive(r,playerMoves) {
@@ -443,25 +468,19 @@
   }
 
   function renderRecentMoves() {
-    const moves = selectedTurns.slice(-12).reverse();
+    const moves = selectedTurns.slice(-8).reverse();
     $("pit-recent-moves").innerHTML = moves.length ? moves.map(t => {
-      const dq = t.decision_quality == null ? "—" : Math.round(Number(t.decision_quality)) + "%";
+      const dq = t.decision_quality == null ? "—" : Math.round(Number(t.decision_quality));
       const loss = t.tactical_loss == null ? "—" : Number(t.tactical_loss).toFixed(1);
-      const dt = t.decision_time_ms == null ? "—" : (Number(t.decision_time_ms)/1000).toFixed(1) + "s";
-      return `<button class="move-row pit-replay-turn ${isCriticalTurn(t) ? "critical" : ""}" data-turn-id="${t.id}" type="button" title="เปิด Turn นี้ใน Replay">
-        <span class="turn">T${t.turn_number ?? "—"}</span>
-        <small>${t.actor === "player" ? "นักเรียน" : "บอท"}</small>
-        <span class="eq">${t.equation || t.event_type || "move"}</span>
-        <span class="score">${t.move_score > 0 ? "+" : ""}${t.move_score ?? 0}</span>
-        <span>${dq}</span>
-        <span>${loss}</span>
-        <span>${dt}</span>
-      </button>`;
+      const dt = t.decision_time_ms == null ? "—" : (Number(t.decision_time_ms)/1000).toFixed(1)+"s";
+      return `<div class="spectator-move-row ${isCriticalTurn(t) ? "critical" : ""}">
+        <span>T${t.turn_number ?? "—"}</span>
+        <span class="${t.actor === "player" ? "actor-player" : "actor-bot"}">${t.actor === "player" ? "นักเรียน" : "บอท"}</span>
+        <strong>${t.equation || t.event_type || "move"}</strong>
+        <span class="move-score">${Number(t.move_score)>0?"+":""}${t.move_score ?? 0}</span>
+        <span>${dq}</span><span>${loss}</span><span>${dt}</span>
+      </div>`;
     }).join("") : '<p class="empty">ยังไม่มีการเดิน</p>';
-
-    document.querySelectorAll(".pit-replay-turn").forEach(btn => {
-      btn.addEventListener("click",()=>openPitwallReplay(Number(btn.dataset.turnId)));
-    });
   }
 
   function chartBase(type,labels,datasets,opts={}) {
@@ -1035,16 +1054,13 @@
     $("live-status-filter").addEventListener("change",renderLiveList);
     $("live-sort").addEventListener("change",renderLiveList);
     $("student-search").addEventListener("input",renderStudents);
-    $("btn-refresh-selected").addEventListener("click",async()=>{
-      await refreshLive();
-      if (selectedLiveId) await refreshSelectedTelemetry(true);
-    });
     const tickPitClock = () => {
       const el = $("pitwall-clock");
       if (el) el.textContent = new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
     };
     tickPitClock();
     setInterval(tickPitClock,1000);
+    setInterval(tickSpectatorClocks,500);
     $("student-detail-back").addEventListener("click",()=>setView("students"));
     $("replay-back").addEventListener("click",()=>{
       const target = replayReturnView || "student-detail";
