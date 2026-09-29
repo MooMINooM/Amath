@@ -29,6 +29,7 @@ const AMATH_AUTH = (() => {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: false,
+        storageKey: "amath-student-auth-v1",
       },
     });
     return client;
