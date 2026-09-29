@@ -13,6 +13,8 @@
   let replayTurns = [];
   let replayIndex = 0;
   let replayCriticalOnly = false;
+  let replayReturnView = "student-detail";
+  let replayRequestedTurnId = null;
   let deepCharts = {};
 
   const $ = id => document.getElementById(id);
@@ -241,7 +243,14 @@
         <div class="selected-stat"><small>คะแนน</small><strong>${r.player_score ?? 0}</strong><span class="sub">Gap ${gap > 0 ? "+" : ""}${gap}</span></div>
         <div class="selected-stat time"><small>เวลาเหลือ</small><strong>${fmtTime(r.player_time_ms)}</strong><div class="time-bar"><i style="width:${timePct}%"></i></div></div>
         <div class="selected-stat"><small>เบี้ยในถุง</small><strong>${r.bag_count ?? "—"}</strong><span class="sub">Turn ${r.turn_number ?? 0}</span></div>
+      </div>
+      <div class="pit-selected-actions">
+        <button id="pit-open-replay" class="pit-action-btn primary" type="button">▶ Replay แมตช์นี้</button>
+        <button id="pit-open-student" class="pit-action-btn" type="button">ดู Deep Analysis</button>
       </div>`;
+
+    $("pit-open-replay")?.addEventListener("click",()=>openPitwallReplay());
+    $("pit-open-student")?.addEventListener("click",()=>openStudentDeepAnalysis(r.student_user_id));
 
     $("board-turn-badge").textContent = active;
     $("pitwall-round").textContent = r.ruleset_id === "PRIMARY_70" ? "ประถม 70 เบี้ย" : r.ruleset_id === "STANDARD_100" ? "มาตรฐาน 100 เบี้ย" : "โหมดฝึกซ้อม";
@@ -340,12 +349,16 @@
 
   function renderRecentMoves() {
     const moves = selectedTurns.slice(-8).reverse();
-    $("pit-recent-moves").innerHTML = moves.length ? moves.map(t => `<div class="move-row">
+    $("pit-recent-moves").innerHTML = moves.length ? moves.map(t => `<button class="move-row pit-replay-turn ${isCriticalTurn(t) ? "critical" : ""}" data-turn-id="${t.id}" type="button" title="เปิด Turn นี้ใน Replay">
       <span class="turn">T${t.turn_number ?? "—"}</span>
       <small>${t.actor === "player" ? "นักเรียน" : "บอท"}</small>
       <span class="eq">${t.equation || t.event_type || "move"}</span>
       <span class="score">${t.move_score > 0 ? "+" : ""}${t.move_score ?? 0}</span>
-    </div>`).join("") : '<p class="empty">ยังไม่มีการเดิน</p>';
+    </button>`).join("") : '<p class="empty">ยังไม่มีการเดิน</p>';
+
+    document.querySelectorAll(".pit-replay-turn").forEach(btn => {
+      btn.addEventListener("click",()=>openPitwallReplay(Number(btn.dataset.turnId)));
+    });
   }
 
   function chartBase(type,labels,datasets,opts={}) {
@@ -627,6 +640,72 @@
 
   }
 
+  async function openPitwallReplay(turnId = null) {
+    const row = selectedRow();
+    if (!row?.match_id || !row?.student_user_id) return;
+    await openMatchReplay(row.match_id, row.student_user_id, {
+      returnView: "pitwall",
+      turnId,
+      liveRow: row,
+    });
+  }
+
+  async function resolveReplayContext(matchId, studentId, liveRow = null) {
+    let match = matches.find(m => m.id === matchId) || null;
+    let student = students.find(s => s.user_id === studentId) || null;
+
+    if (!match) {
+      const { data, error } = await sb()
+        .from("matches")
+        .select("id,student_user_id,result,final_player_score,final_bot_score,started_at,finished_at,status,difficulty,ruleset_id,ruleset_label,summary,end_reason")
+        .eq("id", matchId)
+        .maybeSingle();
+      if (!error && data) {
+        match = data;
+        if (!matches.some(m => m.id === data.id)) matches.unshift(data);
+      }
+    }
+
+    if (!student) {
+      const { data, error } = await sb()
+        .from("student_profiles")
+        .select("user_id,student_code,full_name,class_name,room_no,active")
+        .eq("user_id", studentId)
+        .maybeSingle();
+      if (!error && data) {
+        student = data;
+        if (!students.some(s => s.user_id === data.user_id)) students.push(data);
+      }
+    }
+
+    if (!match && liveRow) {
+      match = {
+        id: liveRow.match_id,
+        student_user_id: liveRow.student_user_id,
+        started_at: liveRow.updated_at,
+        status: liveRow.status === "playing" ? "active" : "finished",
+        difficulty: liveRow.difficulty,
+        ruleset_id: liveRow.ruleset_id,
+        ruleset_label: liveRow.ruleset_id === "PRIMARY_70" ? "ประถม 70 เบี้ย" : "มาตรฐาน 100 เบี้ย",
+        final_player_score: liveRow.player_score,
+        final_bot_score: liveRow.bot_score,
+      };
+    }
+
+    if (!student && liveRow) {
+      student = {
+        user_id: liveRow.student_user_id,
+        student_code: liveRow.student_code,
+        full_name: liveRow.student_name || liveRow.student_code || "นักเรียน",
+        class_name: liveRow.class_name,
+        room_no: liveRow.room_no,
+        active: true,
+      };
+    }
+
+    return { match, student };
+  }
+
   function isCriticalTurn(t) {
     if (!t || t.actor !== "player") return false;
     const dq = Number(t.decision_quality);
@@ -775,9 +854,8 @@
     renderReplay();
   }
 
-  async function openMatchReplay(matchId,studentId) {
-    const match=matches.find(m=>m.id===matchId);
-    const student=students.find(s=>s.user_id===studentId);
+  async function openMatchReplay(matchId,studentId,options = {}) {
+    const { match, student } = await resolveReplayContext(matchId, studentId, options.liveRow || null);
     if (!match || !student) return;
 
     replayMatch=match;
@@ -785,9 +863,16 @@
     replayTurns=[];
     replayIndex=0;
     replayCriticalOnly=false;
+    replayReturnView=options.returnView || "student-detail";
+    replayRequestedTurnId=options.turnId ?? null;
     $("replay-critical").classList.remove("active");
     $("replay-title").textContent = `${student.full_name} · Match Replay`;
-    $("replay-meta").textContent = `${dateLabel(match.started_at)} · ${match.ruleset_label || match.ruleset_id || "A-Math"} · ${match.difficulty || "—"} · ${match.final_player_score ?? 0}–${match.final_bot_score ?? 0}`;
+
+    const currentRow = options.liveRow || null;
+    const playerScore = match.final_player_score ?? currentRow?.player_score ?? 0;
+    const botScore = match.final_bot_score ?? currentRow?.bot_score ?? 0;
+    const matchStatus = match.status === "active" || currentRow?.status === "playing" ? "กำลังเล่นสด" : "จบแล้ว";
+    $("replay-meta").textContent = `${dateLabel(match.started_at)} · ${match.ruleset_label || match.ruleset_id || "A-Math"} · ${match.difficulty || "—"} · ${playerScore}–${botScore} · ${matchStatus}`;
     $("replay-timeline").innerHTML='<p class="empty">กำลังโหลด Replay...</p>';
     setView("replay");
 
@@ -810,6 +895,15 @@
       $("replay-board").textContent="ไม่มีข้อมูล Replay";
       return;
     }
+
+    if (replayRequestedTurnId != null) {
+      const target = replayTurns.findIndex(t => Number(t.id) === Number(replayRequestedTurnId));
+      if (target >= 0) replayIndex = target;
+    } else if (options.returnView === "pitwall") {
+      replayIndex = replayTurns.length - 1;
+    }
+
+    replayRequestedTurnId = null;
     renderReplay();
   }
 
@@ -848,7 +942,17 @@
     tickPitClock();
     setInterval(tickPitClock,1000);
     $("student-detail-back").addEventListener("click",()=>setView("students"));
-    $("replay-back").addEventListener("click",()=>setView("student-detail"));
+    $("replay-back").addEventListener("click",()=>{
+      const target = replayReturnView || "student-detail";
+      setView(target);
+      if (target === "pitwall") {
+        const row = selectedRow();
+        if (row) {
+          renderLiveDetail(row);
+          renderTelemetryPanels();
+        }
+      }
+    });
     $("replay-prev").addEventListener("click",()=>moveReplay(-1));
     $("replay-next").addEventListener("click",()=>moveReplay(1));
     $("replay-critical").addEventListener("click",()=>{
