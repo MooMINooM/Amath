@@ -144,3 +144,28 @@ main{padding:24px;max-width:1600px;margin:auto}.view[hidden]{display:none}.eyebr
 .pitwall-data-status.loading{background:#eef6ff;color:#276aa9;border-color:#d5e8f9}
 .pitwall-data-status.warn{background:#fff7e8;color:#9b6815;border-color:#f1dfb9}
 .pitwall-data-status.error{background:#fff0f2;color:#b83e52;border-color:#f2c7cf}
+
+
+/* =====================================================================
+   Pitwall Single-page Data Console 1.0
+   ===================================================================== */
+.pitwall-console{max-width:none}
+.console-roster-section{padding:0;overflow:hidden;margin-bottom:12px}
+.console-roster-controls{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.console-roster-controls input,.console-roster-controls select{border:1px solid #cfe0f3;border-radius:8px;background:#fff;padding:7px 9px;font:600 12px "Sarabun";color:#315d8c}
+.console-roster-controls input{min-width:210px}
+.console-roster-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:6px;padding:7px;max-height:260px;overflow:auto}
+.console-roster-section .roster-head{grid-template-columns:30px minmax(180px,1fr) 70px 80px 90px}
+.console-roster-section .live-card{display:grid;grid-template-columns:30px minmax(120px,1fr) 58px 64px 76px;gap:4px;align-items:center;margin:0;padding:9px 7px;border-radius:10px}
+.console-player-card{min-height:auto;margin-bottom:14px;padding:14px 16px}
+.console-player-summary{display:flex;justify-content:space-between;align-items:center;gap:14px}.console-player-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.console-section-title{display:flex;align-items:end;justify-content:space-between;margin:18px 2px 7px}.console-section-title h3{margin:2px 0 0;font-size:18px;color:#153e70}
+.console-match-section,.console-performance-section{padding:12px;margin-bottom:10px}
+.console-stat-grid{display:grid;grid-template-columns:repeat(8,minmax(105px,1fr));gap:8px}.console-stat{background:#f7fbff;border:1px solid #deebf7;border-radius:11px;padding:10px;text-align:center}.console-stat small{display:block;color:#71879d;font-size:9px}.console-stat strong{display:block;font:800 20px "IBM Plex Mono";color:#183f73;margin:3px 0}.console-stat span{display:block;color:#8095aa;font-size:9px}.console-stat.positive strong{color:#13855a}.console-stat.negative strong{color:#d04758}
+.console-kpi-grid{grid-template-columns:repeat(6,1fr)}.console-secondary-grid{grid-template-columns:repeat(5,1fr)}
+.console-two-column{display:grid;grid-template-columns:1.3fr .7fr;gap:10px;margin-top:10px}.console-amats-card,.console-rack-card{padding:12px;min-height:145px}.console-rack{min-height:44px;align-items:center}.console-help{margin:9px 0 0;color:#7b91a7;font-size:10px}
+.console-recent-section{padding:12px;margin-top:10px}.recent-table-head{display:grid;grid-template-columns:55px 75px minmax(180px,1fr) 70px 70px 70px 70px;gap:7px;padding:8px 7px;background:#eef6ff;border-radius:8px;color:#5b7895;font-size:9px;font-weight:800}.console-recent-moves{max-height:340px;overflow:auto}.console-recent-moves .move-row{display:grid;grid-template-columns:55px 75px minmax(180px,1fr) 70px 70px 70px 70px;gap:7px;align-items:center;padding:8px 7px;font-size:10px}.console-recent-moves .move-row>span:not(.eq):not(.turn):not(.score){font:700 10px "IBM Plex Mono";color:#496c8d}
+.console-chart-grid{grid-template-columns:repeat(3,minmax(240px,1fr));margin-top:0}.console-chart-grid .chart-card{min-height:240px}.console-chart-grid .pit-chart-wrap{height:175px}
+.pit-action-btn:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:1300px){.console-stat-grid{grid-template-columns:repeat(4,1fr)}.console-kpi-grid{grid-template-columns:repeat(3,1fr)}.console-chart-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:850px){.console-roster-list{grid-template-columns:1fr}.console-roster-section .roster-head{display:none}.console-two-column{grid-template-columns:1fr}.console-stat-grid{grid-template-columns:repeat(2,1fr)}.console-kpi-grid{grid-template-columns:repeat(2,1fr)}.console-secondary-grid{grid-template-columns:repeat(2,1fr)}.console-chart-grid{grid-template-columns:1fr}.recent-table-head{display:none}.console-recent-moves .move-row{grid-template-columns:45px 65px 1fr 50px}.console-recent-moves .move-row>span:nth-child(n+5){display:none}.console-player-summary{align-items:flex-start;flex-direction:column}.console-player-actions{justify-content:flex-start}}
