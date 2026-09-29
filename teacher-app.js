@@ -168,7 +168,15 @@
       .order("updated_at", { ascending:false });
 
     if (!liveResult.error && (liveResult.data || []).length) {
-      liveRows = (liveResult.data || []).map(r => ({ ...r, _received_at: Date.now() }));
+      const now = Date.now();
+      const previous = new Map(liveRows.map(r => [r.student_user_id, r]));
+      liveRows = (liveResult.data || []).map(dbRow => {
+        const current = previous.get(dbRow.student_user_id);
+        const dbTs = new Date(dbRow.updated_at || 0).getTime();
+        const currentTs = new Date(current?.updated_at || 0).getTime();
+        if (current?._source === "broadcast" && currentTs > dbTs) return current;
+        return { ...dbRow, _received_at: now };
+      });
       setPitwallDataStatus(`Realtime พร้อม · ${liveRows.length} session`, "ok");
     } else {
       const matchResult = await sb()
@@ -469,9 +477,11 @@
   }
 
   function selectLiveStudent(studentId) {
+    const previousMatchId = selectedRow()?.match_id || null;
     selectedLiveId = studentId;
-    renderLiveList();
     const row = selectedRow();
+    if (row?.match_id !== previousMatchId) selectedTurns = [];
+    renderLiveList();
     if (!row) return;
     renderLiveDetail(row);
     refreshSelectedTelemetry(true);
@@ -610,7 +620,9 @@
       .limit(500);
     if (requestId !== selectedTelemetryRequest) return;
     if (error) { console.warn(error); return; }
-    selectedTurns = data || [];
+    const sameMatch = selectedTurns.filter(t => t.match_id === row.match_id);
+    selectedTurns = sameMatch;
+    (data || []).forEach(mergeSelectedTurn);
     applyTurnDerivedState(row, selectedTurns);
     renderLiveList();
     renderLiveDetail(row);
