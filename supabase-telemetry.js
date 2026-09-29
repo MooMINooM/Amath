@@ -103,7 +103,8 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     const sb = client();
     if (!sb || !state?.studentUserId) return false;
     if (state.matchId) await waitForMatch(state.matchId);
-    const { error } = await sb.from("live_sessions").upsert({
+
+    const payload = {
       student_user_id: state.studentUserId,
       match_id: state.matchId || null,
       student_code: state.studentCode,
@@ -130,9 +131,17 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
       last_equation: state.lastEquation ?? null,
       last_move_score: state.lastMoveScore ?? null,
       updated_at: new Date().toISOString(),
-    }, { onConflict: "student_user_id" });
-    report("syncLive", error);
-    return !error;
+    };
+
+    let result = await sb.from("live_sessions").upsert(payload, { onConflict: "student_user_id" });
+    if (result.error) {
+      report("syncLive:first-attempt", result.error);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      payload.updated_at = new Date().toISOString();
+      result = await sb.from("live_sessions").upsert(payload, { onConflict: "student_user_id" });
+    }
+    report("syncLive", result.error);
+    return !result.error;
   }
 
   return { startMatch, logTurn, finishMatch, syncLive };
