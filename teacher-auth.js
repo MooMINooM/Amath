@@ -7,7 +7,12 @@ const AMATH_TEACHER_AUTH = (() => {
     const cfg = window.AMATH_SUPABASE_CONFIG || {};
     if (!cfg.url || !cfg.anonKey || !window.supabase) return null;
     client = window.supabase.createClient(cfg.url, cfg.anonKey, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+        storageKey: "amath-teacher-auth-v1",
+      },
     });
     return client;
   }
