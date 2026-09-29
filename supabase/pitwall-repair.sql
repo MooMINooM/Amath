@@ -82,7 +82,7 @@ to authenticated
 using (public.is_teacher());
 
 -- 5) Ensure live_sessions and turn_events participate in Supabase Realtime.
-do $
+do $pitwall$
 begin
   if not exists (
     select 1 from pg_publication_tables
@@ -101,7 +101,7 @@ begin
   ) then
     alter publication supabase_realtime add table public.turn_events;
   end if;
-end $;
+end $pitwall$;
 
 -- 6) Helpful indexes (safe if already present).
 create index if not exists live_sessions_status_idx
