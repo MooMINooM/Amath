@@ -18,6 +18,7 @@
   let replayCriticalOnly = false;
   let replayReturnView = "student-detail";
   let replayRequestedTurnId = null;
+  let rosterClassSignature = "";
   let deepCharts = {};
   let showAllPitMoves = false;
 
@@ -347,7 +348,6 @@
     if (idx >= 0) liveRows[idx] = { ...liveRows[idx], ...row };
     else liveRows.unshift(row);
 
-    liveRows.sort((a,b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0));
     renderLiveList();
 
     if (!selectedLiveId) selectedLiveId = row.student_user_id;
@@ -387,6 +387,16 @@
       });
   }
 
+  function stableStudentCompare(a,b) {
+    const codeA = String(a?.student_code || "");
+    const codeB = String(b?.student_code || "");
+    const codeCmp = codeA.localeCompare(codeB, "th", { numeric:true, sensitivity:"base" });
+    if (codeCmp !== 0) return codeCmp;
+    const nameCmp = String(a?.student_name || "").localeCompare(String(b?.student_name || ""), "th", { sensitivity:"base" });
+    if (nameCmp !== 0) return nameCmp;
+    return String(a?.student_user_id || "").localeCompare(String(b?.student_user_id || ""));
+  }
+
   function liveFiltered() {
     const classroom = $("live-class-filter").value;
     const status = $("live-status-filter").value;
@@ -396,38 +406,93 @@
       return (classroom === "all" || classKey === classroom) && (status === "all" || r.status === status);
     });
     rows.sort((a,b) => {
-      if (sort === "time") return (a.player_time_ms ?? Infinity) - (b.player_time_ms ?? Infinity);
-      if (sort === "recent") return new Date(b.updated_at) - new Date(a.updated_at);
-      return (b.player_score || 0) - (a.player_score || 0);
+      if (sort === "time") {
+        const diff = (projectedRemaining(a,"player") ?? Infinity) - (projectedRemaining(b,"player") ?? Infinity);
+        return diff || stableStudentCompare(a,b);
+      }
+      if (sort === "recent") {
+        const diff = new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
+        return diff || stableStudentCompare(a,b);
+      }
+      const scoreDiff = (Number(b.player_score) || 0) - (Number(a.player_score) || 0);
+      return scoreDiff || stableStudentCompare(a,b);
     });
     return rows;
+  }
+
+  function rosterRowHtml(r,idx) {
+    const isSelected = selectedLiveId === r.student_user_id;
+    const classText = `${r.class_name || ""}${r.room_no ? " · ห้อง " + r.room_no : ""}${r._source === "matches-fallback" ? " · HISTORY" : ""}`;
+    return `<button class="live-card ${isSelected ? "selected" : ""}" data-id="${r.student_user_id}">
+      <span class="roster-rank">${idx + 1}</span>
+      <span class="roster-code">${r.student_code || "—"}</span>
+      <span class="roster-person"><strong>${r.student_name || "นักเรียน"}</strong><small>${classText}</small></span>
+      <span class="roster-score">${r.player_score ?? 0}</span>
+      <span class="roster-time" data-student-id="${r.student_user_id}">${fmtTime(projectedRemaining(r,"player"))}</span>
+      <span class="roster-status"><span class="status ${r.status}" aria-label="${r.status === "playing" ? "กำลังเล่น" : r.status === "finished" ? "จบแล้ว" : "ขาดการเชื่อมต่อ"}"></span></span>
+    </button>`;
+  }
+
+  function patchRosterRow(btn,r,idx) {
+    btn.classList.toggle("selected", selectedLiveId === r.student_user_id);
+    btn.dataset.id = r.student_user_id;
+    const rank = btn.querySelector(".roster-rank");
+    const code = btn.querySelector(".roster-code");
+    const personName = btn.querySelector(".roster-person strong");
+    const personMeta = btn.querySelector(".roster-person small");
+    const score = btn.querySelector(".roster-score");
+    const time = btn.querySelector(".roster-time");
+    const status = btn.querySelector(".roster-status .status");
+    if (rank) rank.textContent = idx + 1;
+    if (code) code.textContent = r.student_code || "—";
+    if (personName) personName.textContent = r.student_name || "นักเรียน";
+    if (personMeta) personMeta.textContent = `${r.class_name || ""}${r.room_no ? " · ห้อง " + r.room_no : ""}${r._source === "matches-fallback" ? " · HISTORY" : ""}`;
+    if (score) score.textContent = r.player_score ?? 0;
+    if (time) {
+      time.dataset.studentId = r.student_user_id;
+      time.textContent = fmtTime(projectedRemaining(r,"player"));
+    }
+    if (status) {
+      status.className = `status ${r.status || ""}`;
+      status.setAttribute("aria-label", r.status === "playing" ? "กำลังเล่น" : r.status === "finished" ? "จบแล้ว" : "ขาดการเชื่อมต่อ");
+    }
   }
 
   function renderLiveList() {
     const classFilter = $("live-class-filter");
     const selectedClass = classFilter.value;
     const classes = [...new Set(liveRows.map(r=>[r.class_name,r.room_no].filter(Boolean).join("/")).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"th"));
-    classFilter.replaceChildren(new Option("ทุกชั้นเรียน","all"),...classes.map(name=>new Option(name,name)));
+    const classSignature = classes.join("|");
+    if (classSignature !== rosterClassSignature) {
+      classFilter.replaceChildren(new Option("ทุกชั้นเรียน","all"),...classes.map(name=>new Option(name,name)));
+      rosterClassSignature = classSignature;
+    }
     classFilter.value = classes.includes(selectedClass) ? selectedClass : "all";
+
     const rows = liveFiltered();
     $("live-count").textContent = liveRows.filter(r => r.status === "playing").length;
     $("total-count").textContent = liveRows.length;
     if ($("roster-total")) $("roster-total").textContent = `ทั้งหมด ${rows.length} คน`;
-    $("live-list").innerHTML = rows.length ? rows.map((r,idx) => {
-      const isSelected = selectedLiveId === r.student_user_id;
-      return `<button class="live-card ${isSelected ? "selected" : ""}" data-id="${r.student_user_id}">
-        <span class="roster-rank">${idx + 1}</span>
-        <span class="roster-code">${r.student_code || "—"}</span>
-        <span class="roster-person"><strong>${r.student_name || "นักเรียน"}</strong><small>${r.class_name || ""}${r.room_no ? " · ห้อง " + r.room_no : ""}${r._source === "matches-fallback" ? " · HISTORY" : ""}</small></span>
-        <span class="roster-score">${r.player_score ?? 0}</span>
-        <span class="roster-time" data-student-id="${r.student_user_id}">${fmtTime(projectedRemaining(r,"player"))}</span>
-        <span class="roster-status"><span class="status ${r.status}" aria-label="${r.status === "playing" ? "กำลังเล่น" : r.status === "finished" ? "จบแล้ว" : "ขาดการเชื่อมต่อ"}"></span></span>
-      </button>`;
-    }).join("") : '<p class="empty">ยังไม่มี Live Session</p>';
 
-    document.querySelectorAll(".ref-sidebar .live-card").forEach(btn => btn.addEventListener("click", () => {
-      selectLiveStudent(btn.dataset.id);
-    }));
+    const list = $("live-list");
+    if (!rows.length) {
+      if (!list.querySelector(".empty")) list.innerHTML = '<p class="empty">ยังไม่มี Live Session</p>';
+      return;
+    }
+
+    const existing = [...list.querySelectorAll(".live-card")];
+    const sameOrder = existing.length === rows.length &&
+      existing.every((btn,idx) => btn.dataset.id === rows[idx].student_user_id);
+
+    if (!sameOrder) {
+      list.innerHTML = rows.map(rosterRowHtml).join("");
+      list.querySelectorAll(".live-card").forEach(btn => btn.addEventListener("click", () => {
+        selectLiveStudent(btn.dataset.id);
+      }));
+      return;
+    }
+
+    existing.forEach((btn,idx) => patchRosterRow(btn,rows[idx],idx));
   }
 
   function destroyPitCharts() {
