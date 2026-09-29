@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>A-Math Teacher</title>
+  <title>A-Math Pitwall | Teacher Data Console</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
@@ -53,25 +53,26 @@
       <div class="ref-shell">
         <header class="ref-topbar">
           <div class="ref-brand">
-            <div class="ref-logo">A</div>
+            <div class="ref-logo" aria-hidden="true">A</div>
             <div class="ref-brand-text">
-              <h2>A-Math Pitwall</h2>
-              <p>REAL-TIME CLASSROOM INTELLIGENCE <span>|</span> วิเคราะห์ · วางแผน · พัฒนาศักยภาพ</p>
+              <h2>A-MATH PITWALL</h2>
+              <p><b>TEACHER DATA CONSOLE</b><span>|</span>วิเคราะห์ทักษะ พัฒนาการ และกลยุทธ์ของผู้เรียน</p>
             </div>
           </div>
           <div class="ref-topstats">
-            <div class="ref-chip live"><i></i><span id="pitwall-data-status">กำลังเชื่อม...</span><b>Online</b></div>
-            <div class="ref-topitem"><small>เวลาปัจจุบัน</small><strong id="pitwall-clock">--:--:--</strong><span id="pitwall-date-label">—</span></div>
-            <div class="ref-topitem"><small>จำนวนนักเรียนที่กำลังเล่น</small><strong><em id="live-count">0</em> คน</strong></div>
-            <div class="ref-topitem"><small>โหมด / กติกา</small><strong id="pitwall-round">—</strong></div>
-            <div class="ref-topitem"><small>อัปเดตล่าสุด</small><strong id="last-refresh">—</strong></div>
+            <div class="ref-live-unit"><span class="ref-live-pill"><i></i> LIVE</span><span id="pitwall-data-status" class="pitwall-data-status">กำลังเชื่อม...</span></div>
+            <div class="ref-topitem ref-clock"><strong id="pitwall-clock">--:--:--</strong><span id="pitwall-date-label">—</span></div>
+            <div class="ref-topitem with-icon"><span class="ref-top-icon" aria-hidden="true">●●</span><div><small>จำนวนนักเรียนที่กำลังเล่น</small><strong><em id="live-count">0</em> / <em id="total-count">0</em></strong></div></div>
+            <div class="ref-topitem with-icon"><span class="ref-top-icon" aria-hidden="true">⚙</span><div><small>Ruleset</small><strong id="pitwall-round">—</strong></div></div>
+            <div class="ref-topitem with-icon"><span class="ref-top-icon" aria-hidden="true">▣</span><div><small>Bot level</small><strong id="pitwall-bot-level">—</strong></div></div>
+            <div class="ref-topitem ref-refresh"><button id="pitwall-refresh" class="ref-refresh-button" type="button" aria-label="รีเฟรชข้อมูล">⟳</button><div><small>อัปเดตล่าสุด</small><strong id="last-refresh">—</strong></div></div>
           </div>
         </header>
 
         <div class="ref-body">
           <aside class="pit-card ref-sidebar spectator-roster">
             <div class="ref-side-head"><div><span>👥</span><strong>รายชื่อนักเรียน</strong></div><small id="roster-total">ทั้งหมด 0 คน</small></div>
-            <div class="ref-search"><input id="live-search" placeholder="ค้นหารหัสนักเรียน หรือ ชื่อ..."></div>
+            <div class="ref-search"><input id="live-search" type="search" aria-label="ค้นหานักเรียน" placeholder="⌕  ค้นหารหัสนักเรียน หรือ ชื่อ..."></div>
             <div class="ref-filters">
               <select id="live-status-filter"><option value="all">สถานะ: ทั้งหมด</option><option value="playing">กำลังเล่น</option><option value="finished">จบแล้ว</option></select>
               <select id="live-sort"><option value="score">จัด: คะแนนสูงสุด</option><option value="time">จัด: เวลาเหลือน้อย</option><option value="recent">จัด: อัปเดตล่าสุด</option></select>
@@ -83,18 +84,9 @@
           <main class="ref-main">
             <section id="selected-player-card" class="pit-card ref-player-card empty-state"><p>เลือกนักเรียนจากรายชื่อด้านซ้าย</p></section>
 
-            <section class="pit-card ref-section">
-              <div class="ref-section-head"><div class="left"><span>🎮</span><strong>สถานะการแข่งขันปัจจุบัน</strong></div><span id="performance-live" class="status">—</span></div>
+            <section class="pit-card ref-section ref-match-section">
+              <div class="ref-section-head"><div class="left"><span>♟</span><strong>สถานการณ์แข่งขันปัจจุบัน</strong></div></div>
               <div id="match-status-grid" class="ref-status-grid"></div>
-            </section>
-
-            <section class="pit-card ref-section">
-              <div class="ref-section-head between">
-                <div class="left"><span>🏆</span><strong id="performance-title">ภาพรวมประสิทธิภาพ</strong></div>
-                <div class="ref-compare-box"><span>เทียบกับ</span><select id="compare-mode"><option>ค่าเฉลี่ยห้องเรียน</option></select></div>
-              </div>
-              <div id="pit-kpis" class="ref-kpi-grid"></div>
-              <div id="pit-secondary-kpis" class="ref-kpi-subgrid"></div>
             </section>
 
             <div class="ref-middle-grid">
@@ -105,20 +97,19 @@
 
               <div class="ref-right-stack">
                 <section class="pit-card ref-rack-card">
-                  <div class="ref-section-head"><div class="left"><span>♟</span><strong>เบี้ยบนแร็คปัจจุบัน</strong></div><span id="console-turn-badge" class="board-turn-badge">—</span></div>
-                  <div id="pit-rack" class="pit-rack ref-rack"></div>
+                  <div class="ref-section-head"><div class="left"><span>♟</span><strong>เบี้ยบนแร็คปัจจุบัน <small id="rack-count">(— เบี้ย)</small></strong></div><span id="console-turn-badge" class="board-turn-badge">—</span></div>
+                  <div class="ref-rack-content"><div id="pit-rack" class="pit-rack ref-rack"></div><div class="ref-rack-quality"><small>Rack Quality</small><strong id="pit-rack-quality">—</strong><div class="ref-meter"><i id="pit-rack-quality-bar"></i></div></div></div>
                 </section>
 
                 <section class="pit-card ref-recent-card">
-                  <div class="ref-section-head"><div class="left"><span>☷</span><strong>รายการเดินล่าสุด</strong></div><span class="ref-auto-update">อัปเดตอัตโนมัติ</span></div>
-                  <div class="ref-recent-head"><span>Turn</span><span>เล่นฝั่ง</span><span>สมการ / การกระทำ</span><span>คะแนน</span><span>DQ</span><span>Loss</span><span>เวลา</span></div>
+                  <div class="ref-section-head"><div class="left"><span>☷</span><strong>รายการเดินล่าสุด</strong></div><button id="pit-show-all-moves" class="ref-moves-button" type="button" aria-pressed="false">ดูทั้งหมด →</button></div>
+                  <div class="ref-recent-head"><span># Turn</span><span>เวลา</span><span>ผู้เล่น</span><span>สมการ / การกระทำ</span><span>คะแนน</span><span>DQ</span><span>Loss</span><span>Rack Q</span></div>
                   <div id="pit-recent-moves" class="ref-recent-moves"></div>
                 </section>
               </div>
             </div>
 
-            <section class="pit-card ref-chart-section">
-              <div class="ref-section-head"><div class="left"><span>📊</span><strong>กราฟและข้อมูลเชิงลึก</strong></div></div>
+            <section class="ref-chart-section">
               <div class="ref-chart-grid">
                 <section class="pit-card chart-card"><div class="pit-card-head"><div><span class="pit-kicker">1. SCORE TREND</span><strong>แนวโน้มคะแนน</strong></div></div><div class="pit-chart-wrap"><canvas id="pit-score-chart"></canvas></div></section>
                 <section class="pit-card chart-card"><div class="pit-card-head"><div><span class="pit-kicker">2. DECISION QUALITY</span><strong>คุณภาพการตัดสินใจ</strong></div></div><div class="pit-chart-wrap"><canvas id="pit-dq-chart"></canvas></div></section>
@@ -126,6 +117,7 @@
                 <section class="pit-card chart-card"><div class="pit-card-head"><div><span class="pit-kicker">4. TACTICAL LOSS</span><strong>ความสูญเสียเชิงกลยุทธ์</strong></div></div><div class="pit-chart-wrap"><canvas id="pit-loss-chart"></canvas></div></section>
                 <section class="pit-card chart-card"><div class="pit-card-head"><div><span class="pit-kicker">5. LIVE PROFILE</span><strong>โปรไฟล์การเล่น</strong></div></div><div class="pit-chart-wrap"><canvas id="pit-profile-chart"></canvas></div></section>
                 <section class="pit-card chart-card"><div class="pit-card-head"><div><span class="pit-kicker">6. BENCHMARK</span><strong>เปรียบเทียบกับค่าเฉลี่ย</strong></div></div><div class="pit-chart-wrap"><canvas id="pit-benchmark-chart"></canvas></div></section>
+                <section class="pit-card chart-card ref-heatmap-card"><div class="pit-card-head"><div><span class="pit-kicker">◉ การกระจายตัวบนกระดาน</span><strong>Board Heatmap</strong></div></div><div class="ref-heatmap-axes"><span></span><div id="heatmap-cols"></div></div><div class="ref-heatmap-area"><div id="heatmap-rows"></div><div id="pit-heatmap" class="pit-heatmap" aria-label="แผนที่ความหนาแน่นของเบี้ยบนกระดาน"></div></div></section>
               </div>
             </section>
           </main>
