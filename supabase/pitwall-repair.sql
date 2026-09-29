@@ -81,19 +81,27 @@ for select
 to authenticated
 using (public.is_teacher());
 
--- 5) Ensure live_sessions participates in Supabase Realtime.
-do $$
+-- 5) Ensure live_sessions and turn_events participate in Supabase Realtime.
+do $
 begin
   if not exists (
-    select 1
-    from pg_publication_tables
+    select 1 from pg_publication_tables
     where pubname = 'supabase_realtime'
       and schemaname = 'public'
       and tablename = 'live_sessions'
   ) then
     alter publication supabase_realtime add table public.live_sessions;
   end if;
-end $$;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'turn_events'
+  ) then
+    alter publication supabase_realtime add table public.turn_events;
+  end if;
+end $;
 
 -- 6) Helpful indexes (safe if already present).
 create index if not exists live_sessions_status_idx
