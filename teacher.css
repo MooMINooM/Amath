@@ -712,3 +712,26 @@ body.pitwall-mode #view-pitwall{margin:0}
   .ref-pitwall .ref-chart-grid{grid-template-columns:1fr 1fr}.ref-pitwall .ref-chart-grid .ref-heatmap-card{grid-column:1/-1}
   .ref-pitwall .ref-recent-head,.ref-pitwall .ref-recent-moves .spectator-move-row{grid-template-columns:40px 44px 52px minmax(0,1fr) 40px}.ref-pitwall .ref-recent-head>*:nth-child(n+6),.ref-pitwall .ref-recent-moves .spectator-move-row>*:nth-child(n+6){display:none}
 }
+
+/* Live match strip: micro charts and progress meters from session telemetry. */
+.ref-pitwall .ref-status-grid .status-card{height:88px;min-height:88px;padding:6px 9px;display:flex;flex-direction:column;justify-content:space-between;position:relative;background:linear-gradient(180deg,#071b2a,#05131e);border-color:#17435f}
+.ref-pitwall .status-card-head,.ref-pitwall .status-card-value{display:flex;align-items:center;justify-content:space-between;gap:4px;min-width:0}
+.ref-pitwall .status-card-head small{font-size:10px;color:#c4d5e3;line-height:1.1}
+.ref-pitwall .status-card-head i{display:grid;place-items:center;flex:none;width:23px;height:23px;font:800 17px/1 "Sarabun";font-style:normal;color:#33baff;background:#0a2d49;border-radius:5px}
+.ref-pitwall .status-card-value{min-height:32px;align-items:baseline}.ref-pitwall .ref-status-grid .status-card .status-card-value strong{font:800 clamp(18px,1.55vw,27px)/1 "IBM Plex Mono";margin:0;overflow:visible}
+.ref-pitwall .status-card .status-delta{font:800 12px "IBM Plex Mono";white-space:nowrap}
+.ref-pitwall .status-card.score-blue strong,.ref-pitwall .status-card.time-blue strong{color:#25bfff}
+.ref-pitwall .status-card.score-blue .status-delta{color:#22ea83}.ref-pitwall .status-card.score-red strong,.ref-pitwall .status-card.score-red .status-delta{color:#ff4f78}
+.ref-pitwall .status-card.positive strong,.ref-pitwall .status-card.positive .gap-marker{color:#2be580}.ref-pitwall .status-card.negative strong{color:#ff4f78}
+.ref-pitwall .status-card.time-bot strong{color:#a4bbd9}.ref-pitwall .status-card.turn-purple strong,.ref-pitwall .status-card.turn-purple .status-card-head i{color:#c85cff}
+.ref-pitwall .status-card.rank-yellow strong,.ref-pitwall .status-card.rank-yellow .status-card-head i{color:#ffc82e}
+.ref-pitwall .status-card .status-rank-total{font-size:.7em;color:#9fbbd4;font-weight:500}
+.ref-pitwall .ref-status-grid .status-card.status-green strong{font:800 clamp(12px,1.15vw,20px)/1.2 "Sarabun";color:#30ed82;white-space:normal}
+.ref-pitwall .ref-status-grid .status-card.status-idle strong{font:800 clamp(12px,1.15vw,20px)/1.2 "Sarabun";color:#81aac5}
+.ref-pitwall .status-card.status-green .status-card-head i{color:#28ed89;background:#063322;font-size:18px}
+.ref-pitwall .status-sparkline{display:block;width:100%;height:16px;overflow:visible}.ref-pitwall .status-sparkline path{stroke:#234562;stroke-width:1;fill:none}.ref-pitwall .status-sparkline polyline{stroke:#23b8ff;stroke-width:2;fill:none;vector-effect:non-scaling-stroke}
+.ref-pitwall .status-card.score-red .status-sparkline polyline{stroke:#ff4571}.ref-pitwall .status-graph-empty{display:block;height:16px;border-bottom:1px dashed #31516b}
+.ref-pitwall .status-meter{height:6px;width:100%;margin-bottom:2px;border-radius:999px;background:#193244;overflow:hidden}.ref-pitwall .status-meter i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#22c879,#3ae69a)}
+.ref-pitwall .status-card.time-bot .status-meter i{background:#6489ae}.ref-pitwall .status-card.turn-purple .status-meter i{background:#b755ec}
+.ref-pitwall .status-card.positive .gap-marker,.ref-pitwall .status-card.negative .gap-marker{align-self:flex-end;font:800 18px/12px "IBM Plex Mono"}
+@media(max-width:760px){.ref-pitwall .ref-status-grid .status-card{min-height:88px}.ref-pitwall .status-card-value strong{font-size:23px}}
