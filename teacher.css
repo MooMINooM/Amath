@@ -128,3 +128,11 @@ main{padding:24px;max-width:1600px;margin:auto}.view[hidden]{display:none}.eyebr
 .match-row.replay-open-match{font-family:"Sarabun";cursor:pointer}.match-row.replay-open-match:hover{background:#f4f9ff}
 @media(max-width:1200px){.replay-layout{grid-template-columns:260px 1fr}.replay-inspector{grid-column:1/-1;min-height:auto}.replay-metrics{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:780px){.replay-layout{grid-template-columns:1fr}.replay-timeline-card,.replay-board-card{min-height:auto}.replay-timeline{max-height:300px}.replay-metrics{grid-template-columns:1fr 1fr}.replay-head-actions{padding-top:0}}
+
+
+/* Pitwall → Replay integration 0.8 */
+.pit-selected-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;padding-top:9px;border-top:1px solid #e1ebf5}
+.pit-action-btn{border:1px solid #cbdced;background:#fff;color:#315f91;border-radius:9px;padding:7px 10px;font:700 11px "Sarabun";cursor:pointer}
+.pit-action-btn:hover{border-color:#70a9df;background:#f7fbff}.pit-action-btn.primary{background:#1877df;border-color:#1877df;color:#fff}.pit-action-btn.primary:hover{background:#0d68ca}
+.move-row.pit-replay-turn{width:100%;border:0;border-bottom:1px solid #e7eef6;background:transparent;text-align:left;font-family:"Sarabun";cursor:pointer}
+.move-row.pit-replay-turn:hover{background:#f3f9ff}.move-row.pit-replay-turn.critical{box-shadow:inset 3px 0 0 #ef5267;background:#fff9fa}
