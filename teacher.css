@@ -169,3 +169,109 @@ main{padding:24px;max-width:1600px;margin:auto}.view[hidden]{display:none}.eyebr
 .pit-action-btn:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:1300px){.console-stat-grid{grid-template-columns:repeat(4,1fr)}.console-kpi-grid{grid-template-columns:repeat(3,1fr)}.console-chart-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:850px){.console-roster-list{grid-template-columns:1fr}.console-roster-section .roster-head{display:none}.console-two-column{grid-template-columns:1fr}.console-stat-grid{grid-template-columns:repeat(2,1fr)}.console-kpi-grid{grid-template-columns:repeat(2,1fr)}.console-secondary-grid{grid-template-columns:repeat(2,1fr)}.console-chart-grid{grid-template-columns:1fr}.recent-table-head{display:none}.console-recent-moves .move-row{grid-template-columns:45px 65px 1fr 50px}.console-recent-moves .move-row>span:nth-child(n+5){display:none}.console-player-summary{align-items:flex-start;flex-direction:column}.console-player-actions{justify-content:flex-start}}
+
+
+/* =====================================================================
+   Pitwall Spectator Realtime 1.1 — reference dashboard layout
+   ===================================================================== */
+.pitwall-spectator{
+  width:min(2020px,calc(100vw - 24px));
+  margin-left:50%;transform:translateX(-50%);
+  background:linear-gradient(180deg,#edf7ff 0%,#f7fbff 38%,#eef7ff 100%);
+  border-radius:22px;padding:0 12px 14px;overflow:hidden;
+}
+.spectator-topbar{
+  margin:0 -12px 12px;padding:13px 20px;
+  min-height:82px;display:flex;align-items:center;justify-content:space-between;gap:18px;
+  background:linear-gradient(120deg,#072f66 0%,#064984 55%,#062b58 100%);
+  color:#fff;box-shadow:0 8px 26px rgba(8,48,96,.18);
+}
+.spectator-brand{display:flex;align-items:center;gap:12px;min-width:320px}
+.spectator-mark{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;
+  background:linear-gradient(145deg,#3cb9ff,#176fe5);font:900 29px "IBM Plex Mono";
+  box-shadow:inset 0 1px #ffffff66,0 8px 20px #001d4938}
+.spectator-brand h2{margin:0;font-size:28px;line-height:1.05}.spectator-brand p{margin:5px 0 0;font-size:11px;color:#c5dcf5}
+.spectator-top-stats{display:flex;align-items:center;gap:0;min-width:0}
+.spectator-top-stats>span{min-height:42px;display:flex;flex-direction:column;justify-content:center;padding:0 18px;border-left:1px solid #ffffff26}
+.spectator-top-stats small{font-size:8px;color:#a9c8e8}.spectator-top-stats b{font:700 12px "Sarabun";white-space:nowrap}.spectator-top-stats em{font-style:normal;font:800 20px "IBM Plex Mono"}
+.spectator-online{flex-direction:row!important;align-items:center;gap:7px;border-left:0!important;background:#0d4779;border-radius:10px;padding:9px 12px!important}
+.spectator-online i{width:8px;height:8px;border-radius:50%;background:#2bdc78;box-shadow:0 0 0 4px #2bdc7825}
+.spectator-online b{font-size:10px}.spectator-online .warn{color:#ffd677}
+
+.spectator-layout{display:grid;grid-template-columns:390px minmax(0,1fr);gap:12px;align-items:start}
+.spectator-roster{padding:0!important;overflow:hidden;min-height:780px;position:sticky;top:80px}
+.spectator-panel-head,.spectator-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.spectator-panel-head{padding:13px 14px;border-bottom:1px solid #d9e9f8}
+.spectator-panel-head>div,.spectator-section-head>div{display:flex;align-items:center;gap:7px}
+.spectator-panel-head strong,.spectator-section-head strong{font-size:15px;color:#143f75}.spectator-panel-head small{color:#6c89a6;font-size:10px}
+.spectator-search{padding:9px 12px 5px}.spectator-search input{width:100%;border:1px solid #cfe1f1;background:#fbfdff;border-radius:9px;padding:9px 11px;font:inherit}
+.spectator-filters{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:3px 12px 9px}
+.spectator-filters select{min-width:0;border:1px solid #cfe1f1;background:#fff;border-radius:9px;padding:8px;font:600 10px "Sarabun";color:#365f87}
+.spectator-roster-head{display:grid;grid-template-columns:26px minmax(145px,1fr) 56px 58px 67px;gap:4px;padding:7px 10px;background:#eaf4fd;color:#557797;font-size:9px;font-weight:800;text-align:center}
+.spectator-roster-head span:nth-child(2){text-align:left}
+.spectator-roster-list{padding:5px 7px;max-height:660px;overflow:auto}
+.spectator-roster .live-card{
+  width:100%;display:grid;grid-template-columns:26px minmax(145px,1fr) 56px 58px 67px;gap:4px;align-items:center;
+  margin:0;border:0;border-bottom:1px solid #e6eff7;border-radius:0;padding:9px 4px;background:#fff
+}
+.spectator-roster .live-card:hover{background:#f3f9ff}.spectator-roster .live-card.selected{background:#e8f4ff;box-shadow:inset 3px 0 #1684ee}
+.spectator-roster .roster-score{color:#173f72}.spectator-roster .roster-time{color:#446987}.spectator-roster .roster-status .status{font-size:8px}
+.spectator-roster .roster-person strong{font-size:10px}.spectator-roster .roster-person small{font-size:8px}
+
+.spectator-main{display:grid;gap:10px;min-width:0}
+.spectator-player-card{padding:13px 16px!important;min-height:102px!important}
+.spectator-player-summary{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.spectator-code{display:block;color:#175db3;font:800 11px "IBM Plex Mono";margin-bottom:2px}
+.spectator-player-summary .selected-person h3{font-size:24px;margin:0}.spectator-player-summary .selected-person p{font-size:10px}
+.spectator-profile-meta{display:grid;grid-template-columns:minmax(150px,1fr) minmax(130px,.8fr) auto;gap:8px;align-items:stretch}
+.spectator-profile-meta>div{border:1px solid #d9e8f6;border-radius:10px;padding:8px 12px;min-width:0;background:#fbfdff}
+.spectator-profile-meta small{display:block;color:#7991a7;font-size:8px}.spectator-profile-meta strong{display:block;color:#173f72;font-size:11px;margin-top:3px}
+.spectator-analysis-btn{border:1px solid #5aa6ef;background:#fff;color:#1471cf;border-radius:10px;padding:0 15px;font:800 11px "Sarabun";cursor:pointer}.spectator-analysis-btn:hover{background:#eef7ff}
+
+.spectator-section{padding:11px!important}.spectator-section-head{margin-bottom:9px}.spectator-section-head small{font-size:9px;color:#7891aa}
+.spectator-match-grid{display:grid;grid-template-columns:repeat(8,minmax(92px,1fr));gap:7px}
+.spectator-match-grid .console-stat{min-height:74px;display:flex;flex-direction:column;justify-content:center;padding:8px}
+.spectator-match-grid .console-stat small{font-size:8px}.spectator-match-grid .console-stat strong{font-size:21px}.spectator-match-grid .console-stat span{font-size:8px}
+.console-stat.score-blue strong{color:#0875e1}.console-stat.score-red strong{color:#df3752}.console-stat.turn-purple strong{color:#7d35d7}
+
+.spectator-performance-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.spectator-performance-grid .pit-kpi{min-height:90px;display:flex;flex-direction:column;justify-content:center;background:linear-gradient(180deg,#fff,#f7fbff);box-shadow:inset 0 1px #fff}
+.spectator-performance-grid .pit-kpi small{font-size:9px}.spectator-performance-grid .pit-kpi strong{font-size:24px}
+.spectator-performance-grid .mini-ring{width:58px;height:58px}.spectator-performance-grid .mini-ring::after{width:45px;height:45px}
+.spectator-secondary-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:7px}
+.spectator-secondary-grid .secondary-kpi{padding:5px;min-height:44px}.spectator-secondary-grid .secondary-kpi strong{font-size:12px}
+
+.spectator-mid-grid{display:grid;grid-template-columns:minmax(340px,.9fr) minmax(520px,1.4fr);gap:10px}
+.spectator-amats{padding:12px!important;background:linear-gradient(145deg,#f6fbff,#fff)!important;min-height:250px}
+.ai-badge{border-radius:999px;background:#e8f4ff;color:#1572ce;padding:4px 8px;font:800 9px "Sarabun"}
+.spectator-amats .amats-live{margin-top:12px}.spectator-amats .amats-symbol{width:54px;height:54px}
+.spectator-right-stack{display:grid;gap:10px}.spectator-rack-card,.spectator-recent-card{padding:11px!important}
+.spectator-rack{justify-content:center;gap:10px;padding:7px 0}.spectator-rack .pit-rack-tile{width:54px;height:54px;font-size:23px;border-radius:7px}
+.spectator-live-label{font-size:8px;color:#168456;background:#e8f8ef;border-radius:999px;padding:4px 7px}
+.spectator-recent-head,.spectator-move-row{display:grid;grid-template-columns:48px 66px minmax(160px,1fr) 60px 50px 50px 58px;gap:6px;align-items:center}
+.spectator-recent-head{padding:6px 7px;background:#ebf5fe;color:#5c7895;font-size:8px;font-weight:800}
+.spectator-recent-moves{max-height:160px;overflow:auto}
+.spectator-move-row{padding:6px 7px;border-bottom:1px solid #edf2f7;font-size:9px;color:#496c8e}
+.spectator-move-row strong{font:700 9px "IBM Plex Mono";color:#223f61}.spectator-move-row .actor-player{color:#1379d5;font-weight:800}.spectator-move-row .actor-bot{color:#e25461;font-weight:800}.spectator-move-row .move-score{color:#15945e;font-weight:800}.spectator-move-row.critical{background:#fff8f9;box-shadow:inset 2px 0 #ed5268}
+
+.spectator-charts-block{background:#f7fbff;border:1px solid #d8e8f6;border-radius:14px;padding:9px}.spectator-charts-title{display:flex;align-items:center;gap:7px;color:#173f72;margin:0 2px 8px}
+.spectator-chart-grid{display:grid;grid-template-columns:repeat(6,minmax(175px,1fr));gap:7px}
+.spectator-chart-grid .chart-card{min-height:210px;padding:9px}.spectator-chart-grid .pit-chart-wrap{height:145px}.spectator-chart-grid .pit-card-head strong{font-size:11px}
+
+@media(max-width:1650px){
+  .spectator-layout{grid-template-columns:340px minmax(0,1fr)}
+  .spectator-match-grid{grid-template-columns:repeat(4,1fr)}
+  .spectator-chart-grid{grid-template-columns:repeat(3,1fr)}
+  .spectator-profile-meta{grid-template-columns:1fr 1fr}.spectator-analysis-btn{grid-column:1/-1;padding:9px}
+}
+@media(max-width:1180px){
+  .spectator-layout{grid-template-columns:1fr}.spectator-roster{position:static;min-height:auto}.spectator-roster-list{max-height:300px}
+  .spectator-mid-grid{grid-template-columns:1fr}.spectator-performance-grid{grid-template-columns:repeat(3,1fr)}
+  .spectator-topbar{align-items:flex-start;flex-direction:column}.spectator-top-stats{width:100%;overflow:auto}
+}
+@media(max-width:760px){
+  .pitwall-spectator{width:100%;padding:0 6px 10px}.spectator-topbar{margin:0 -6px 8px;padding:12px}.spectator-brand h2{font-size:23px}
+  .spectator-match-grid,.spectator-performance-grid{grid-template-columns:repeat(2,1fr)}.spectator-secondary-grid{grid-template-columns:repeat(2,1fr)}
+  .spectator-chart-grid{grid-template-columns:1fr}.spectator-player-summary{align-items:flex-start;flex-direction:column}.spectator-profile-meta{width:100%;grid-template-columns:1fr}
+  .spectator-recent-head{display:none}.spectator-move-row{grid-template-columns:40px 60px 1fr 48px}.spectator-move-row span:nth-child(n+5){display:none}
+}

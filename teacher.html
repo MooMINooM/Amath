@@ -49,121 +49,109 @@
       </div>
     </section>
 
-    <section id="view-pitwall" class="view pitwall-view pitwall-console" hidden>
-      <div class="pitwall-topline">
-        <div class="pitwall-title">
-          <div class="pitwall-logo">A</div>
-          <div>
-            <p class="eyebrow">TEACHER DATA CONSOLE</p>
-            <h2>A-Math Pitwall</h2>
-          </div>
+    <section id="view-pitwall" class="view pitwall-view pitwall-spectator" hidden>
+      <div class="spectator-topbar">
+        <div class="spectator-brand">
+          <div class="spectator-mark">A</div>
+          <div><h2>A-Math Pitwall</h2><p>Teacher Data Console · วิเคราะห์เกม พัฒนาการ และกลยุทธ์ของผู้เรียน</p></div>
         </div>
-        <div class="pitwall-session-strip">
-          <span class="live-badge"><i></i> DATA</span>
-          <span id="pitwall-data-status" class="pitwall-data-status">กำลังเชื่อมข้อมูล...</span>
-          <span id="pitwall-clock" class="mono-time">--:--:--</span>
-          <span>กำลังเล่น <b id="live-count">0</b> คน</span>
-          <span id="pitwall-round">โหมดฝึกซ้อม</span>
-          <span id="last-refresh">—</span>
+        <div class="spectator-top-stats">
+          <span class="spectator-online"><i></i><b id="pitwall-data-status">กำลังเชื่อม...</b></span>
+          <span><small>เวลาปัจจุบัน</small><b id="pitwall-clock">--:--:--</b></span>
+          <span><small>ผู้เล่นกำลังเล่น</small><b><em id="live-count">0</em> คน</b></span>
+          <span><small>โหมด / กติกา</small><b id="pitwall-round">—</b></span>
+          <span><small>อัปเดตล่าสุด</small><b id="last-refresh">—</b></span>
         </div>
       </div>
 
-      <section class="pit-card console-roster-section">
-        <div class="pit-section-head">
-          <div><span class="pit-icon">👥</span><strong>เลือกนักเรียน</strong></div>
-          <div class="console-roster-controls">
-            <input id="live-search" placeholder="ค้นหารหัส / ชื่อ">
+      <div class="spectator-layout">
+        <aside class="pit-card spectator-roster">
+          <div class="spectator-panel-head">
+            <div><span>👥</span><strong>รายชื่อนักเรียน</strong></div>
+            <small id="roster-total">ทั้งหมด 0 คน</small>
+          </div>
+          <div class="spectator-search">
+            <input id="live-search" placeholder="ค้นหารหัสนักเรียน หรือชื่อ...">
+          </div>
+          <div class="spectator-filters">
             <select id="live-status-filter">
-              <option value="all">ทั้งหมด</option>
+              <option value="all">สถานะ: ทั้งหมด</option>
               <option value="playing">กำลังเล่น</option>
               <option value="finished">จบแล้ว</option>
             </select>
             <select id="live-sort">
-              <option value="score">คะแนนสูงสุด</option>
-              <option value="time">เวลาเหลือน้อย</option>
-              <option value="recent">อัปเดตล่าสุด</option>
+              <option value="score">เรียง: คะแนนสูงสุด</option>
+              <option value="time">เรียง: เวลาเหลือน้อย</option>
+              <option value="recent">เรียง: อัปเดตล่าสุด</option>
             </select>
           </div>
-        </div>
-        <div class="roster-head"><span>#</span><span>รหัส · ชื่อ</span><span>คะแนน</span><span>เวลา</span><span>สถานะ</span></div>
-        <div id="live-list" class="pit-roster-list console-roster-list"></div>
-      </section>
+          <div class="spectator-roster-head"><span>#</span><span>รหัส · ชื่อ</span><span>คะแนน</span><span>เวลา</span><span>สถานะ</span></div>
+          <div id="live-list" class="spectator-roster-list"></div>
+        </aside>
 
-      <div id="selected-player-card" class="pit-card selected-player-card empty-state console-player-card">
-        <p>เลือกนักเรียนเพื่อดูข้อมูลทั้งหมดในหน้าเดียว</p>
-      </div>
+        <main class="spectator-main">
+          <section id="selected-player-card" class="pit-card spectator-player-card empty-state">
+            <p>เลือกนักเรียนจากรายชื่อด้านซ้าย</p>
+          </section>
 
-      <div class="console-section-title">
-        <div><span class="pit-kicker">MATCH STATUS</span><h3>สถานะการแข่งขัน</h3></div>
-        <span id="performance-live" class="status">—</span>
-      </div>
-      <section class="pit-card console-match-section">
-        <div id="match-status-grid" class="console-stat-grid"></div>
-      </section>
+          <section class="pit-card spectator-section">
+            <div class="spectator-section-head">
+              <div><span>🎮</span><strong>สถานะการแข่งขันปัจจุบัน</strong></div>
+              <span id="performance-live" class="status">—</span>
+            </div>
+            <div id="match-status-grid" class="spectator-match-grid"></div>
+          </section>
 
-      <div class="console-section-title">
-        <div><span class="pit-kicker">PERFORMANCE</span><h3 id="performance-title">ประสิทธิภาพการเล่น</h3></div>
-      </div>
-      <section class="pit-card console-performance-section">
-        <div id="pit-kpis" class="pit-kpi-grid console-kpi-grid"></div>
-        <div id="pit-secondary-kpis" class="secondary-kpi-grid console-secondary-grid"></div>
-      </section>
+          <section class="pit-card spectator-section">
+            <div class="spectator-section-head">
+              <div><span>🏆</span><strong id="performance-title">ภาพรวมประสิทธิภาพ</strong></div>
+              <small>ข้อมูลจากแมตช์ปัจจุบัน</small>
+            </div>
+            <div id="pit-kpis" class="spectator-performance-grid"></div>
+            <div id="pit-secondary-kpis" class="spectator-secondary-grid"></div>
+          </section>
 
-      <div class="console-two-column">
-        <section class="pit-card amats-callout console-amats-card">
-          <div class="pit-card-head">
-            <div><span class="pit-kicker">AMATS</span><strong>สถานะเชิงยุทธวิธี</strong></div>
+          <div class="spectator-mid-grid">
+            <section class="pit-card spectator-amats">
+              <div class="spectator-section-head">
+                <div><span>🧠</span><strong>AMATS Strategy</strong></div>
+                <span class="ai-badge">AI Insight</span>
+              </div>
+              <div id="pit-amats" class="amats-live-empty">ยังไม่มีข้อมูลสำหรับวิเคราะห์</div>
+            </section>
+
+            <section class="spectator-right-stack">
+              <div class="pit-card spectator-rack-card">
+                <div class="spectator-section-head">
+                  <div><span>♟</span><strong>เบี้ยบนแร็คปัจจุบัน</strong></div>
+                  <span id="console-turn-badge" class="board-turn-badge">—</span>
+                </div>
+                <div id="pit-rack" class="pit-rack spectator-rack"></div>
+              </div>
+
+              <div class="pit-card spectator-recent-card">
+                <div class="spectator-section-head">
+                  <div><span>☷</span><strong>รายการเดินล่าสุด</strong></div>
+                  <span class="spectator-live-label">อัปเดตอัตโนมัติ</span>
+                </div>
+                <div class="spectator-recent-head"><span>Turn</span><span>ผู้เล่น</span><span>สมการ / เหตุการณ์</span><span>คะแนน</span><span>DQ</span><span>Loss</span><span>เวลา</span></div>
+                <div id="pit-recent-moves" class="spectator-recent-moves"></div>
+              </div>
+            </section>
           </div>
-          <div id="pit-amats" class="amats-live-empty">ยังไม่มีข้อมูลสำหรับวิเคราะห์</div>
-        </section>
 
-        <section class="pit-card console-rack-card">
-          <div class="pit-card-head">
-            <div><span class="pit-kicker">CURRENT RACK</span><strong>เบี้ยของผู้เล่น</strong></div>
-            <span id="console-turn-badge" class="board-turn-badge">—</span>
-          </div>
-          <div id="pit-rack" class="pit-rack console-rack"></div>
-          <p class="console-help">แสดงจากข้อมูลล่าสุดที่เกมส่งเข้าระบบ หากไม่มี snapshot จะแสดง —</p>
-        </section>
-      </div>
-
-      <section class="pit-card console-recent-section">
-        <div class="pit-card-head">
-          <div><span class="pit-kicker">RECENT MOVES</span><strong>การเคลื่อนไหวล่าสุด</strong></div>
-          <button id="btn-refresh-selected" class="pit-primary-btn" type="button">↻ ดึงข้อมูลล่าสุด</button>
-        </div>
-        <div class="recent-table-head"><span>Turn</span><span>ผู้เล่น</span><span>สมการ / เหตุการณ์</span><span>คะแนน</span><span>DQ</span><span>Loss</span><span>เวลา</span></div>
-        <div id="pit-recent-moves" class="recent-moves console-recent-moves"></div>
-      </section>
-
-      <div class="console-section-title">
-        <div><span class="pit-kicker">TELEMETRY</span><h3>แนวโน้มและการวิเคราะห์</h3></div>
-      </div>
-      <div class="pitwall-chart-grid console-chart-grid">
-        <section class="pit-card chart-card">
-          <div class="pit-card-head"><div><span class="pit-kicker">SCORE TREND</span><strong>แนวโน้มคะแนน</strong></div></div>
-          <div class="pit-chart-wrap"><canvas id="pit-score-chart"></canvas></div>
-        </section>
-        <section class="pit-card chart-card">
-          <div class="pit-card-head"><div><span class="pit-kicker">DECISION QUALITY</span><strong>คุณภาพการตัดสินใจ</strong></div></div>
-          <div class="pit-chart-wrap"><canvas id="pit-dq-chart"></canvas></div>
-        </section>
-        <section class="pit-card chart-card">
-          <div class="pit-card-head"><div><span class="pit-kicker">DECISION TIME</span><strong>เวลาในการเล่นแต่ละตา</strong></div></div>
-          <div class="pit-chart-wrap"><canvas id="pit-time-chart"></canvas></div>
-        </section>
-        <section class="pit-card chart-card">
-          <div class="pit-card-head"><div><span class="pit-kicker">TACTICAL LOSS</span><strong>โอกาสที่เสียไป</strong></div></div>
-          <div class="pit-chart-wrap"><canvas id="pit-loss-chart"></canvas></div>
-        </section>
-        <section class="pit-card chart-card">
-          <div class="pit-card-head"><div><span class="pit-kicker">LIVE PROFILE</span><strong>โปรไฟล์ระหว่างเกม</strong></div></div>
-          <div class="pit-chart-wrap"><canvas id="pit-profile-chart"></canvas></div>
-        </section>
-        <section class="pit-card chart-card">
-          <div class="pit-card-head"><div><span class="pit-kicker">BENCHMARK</span><strong>เทียบผู้เล่นกลุ่มเดียวกัน</strong></div></div>
-          <div class="pit-chart-wrap"><canvas id="pit-benchmark-chart"></canvas></div>
-        </section>
+          <section class="spectator-charts-block">
+            <div class="spectator-charts-title"><span>▥</span><strong>กราฟและข้อมูลเชิงลึก</strong></div>
+            <div class="spectator-chart-grid">
+              <section class="pit-card chart-card"><div class="pit-card-head"><div><span class="pit-kicker">1. SCORE TREND</span><strong>แนวโน้มคะแนน</strong></div></div><div class="pit-chart-wrap"><canvas id="pit-score-chart"></canvas></div></section>
+              <section class="pit-card chart-card"><div class="pit-card-head"><div><span class="pit-kicker">2. DECISION QUALITY</span><strong>คุณภาพการตัดสินใจ</strong></div></div><div class="pit-chart-wrap"><canvas id="pit-dq-chart"></canvas></div></section>
+              <section class="pit-card chart-card"><div class="pit-card-head"><div><span class="pit-kicker">3. DECISION TIME</span><strong>เวลาในการตัดสินใจ</strong></div></div><div class="pit-chart-wrap"><canvas id="pit-time-chart"></canvas></div></section>
+              <section class="pit-card chart-card"><div class="pit-card-head"><div><span class="pit-kicker">4. TACTICAL LOSS</span><strong>ความสูญเสียเชิงกลยุทธ์</strong></div></div><div class="pit-chart-wrap"><canvas id="pit-loss-chart"></canvas></div></section>
+              <section class="pit-card chart-card"><div class="pit-card-head"><div><span class="pit-kicker">5. LIVE PROFILE</span><strong>โปรไฟล์การเล่น</strong></div></div><div class="pit-chart-wrap"><canvas id="pit-profile-chart"></canvas></div></section>
+              <section class="pit-card chart-card"><div class="pit-card-head"><div><span class="pit-kicker">6. BENCHMARK</span><strong>เทียบกับค่าเฉลี่ย</strong></div></div><div class="pit-chart-wrap"><canvas id="pit-benchmark-chart"></canvas></div></section>
+            </div>
+          </section>
+        </main>
       </div>
     </section>
 

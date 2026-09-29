@@ -8,7 +8,7 @@
 
   let board, bag, playerRack, botRack, playerScore, botScore;
   let isFirstMove, currentTurn, pendingCoords, nonScoringAfterBagEmpty, gameOver, difficulty;
-  let clock = null, clockInterval = null, botTimeout = null;
+  let clock = null, clockInterval = null, botTimeout = null, liveHeartbeatInterval = null;
   let selectedRackIndex = null;
   let turnNumber = 0;
   let showAmats = true;
@@ -97,12 +97,17 @@
     requestAnimationFrame(sizeBoard);
     clock.switchTo("player");
     clockInterval = setInterval(checkClock, 200);
+    liveHeartbeatInterval = setInterval(() => {
+      if (!gameOver) syncLiveSession("playing");
+    }, 10000);
     renderClock();
     syncLiveSession("playing");
   }
 
   function stopTimers() {
     clearInterval(clockInterval);
+    clearInterval(liveHeartbeatInterval);
+    liveHeartbeatInterval = null;
     clearTimeout(botTimeout);
     if (clock) clock.pause();
   }
