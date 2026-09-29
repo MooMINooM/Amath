@@ -5,6 +5,7 @@
   let matches = [];
   let liveChannel = null;
   let turnChannel = null;
+  let broadcastChannel = null;
   let pitwallSafetyInterval = null;
   let selectedLiveId = null;
   let selectedTurns = [];
@@ -117,6 +118,7 @@
     await Promise.all([refreshLive(), refreshStudents()]);
     subscribeLive();
     subscribeTurnEvents();
+    subscribePitwallBroadcast();
     startPitwallSafetySync();
   }
 
@@ -145,6 +147,7 @@
     $("teacher-logout").addEventListener("click", async () => {
       if (liveChannel) await sb().removeChannel(liveChannel);
       if (turnChannel) await sb().removeChannel(turnChannel);
+      if (broadcastChannel) await sb().removeChannel(broadcastChannel);
       clearInterval(pitwallSafetyInterval);
       pitwallSafetyInterval = null;
       await AMATH_TEACHER_AUTH.signOut();
@@ -238,9 +241,7 @@
         const turn = payload.new;
         const row = selectedRow();
         if (!turn?.match_id || !row?.match_id || turn.match_id !== row.match_id) return;
-        const exists = selectedTurns.some(t => Number(t.id) === Number(turn.id));
-        if (!exists) selectedTurns.push(turn);
-        selectedTurns.sort((a,b)=>Number(a.id)-Number(b.id));
+        mergeSelectedTurn(turn);
         applyTurnDerivedState(row, selectedTurns);
         renderLiveDetail(row);
         renderTelemetryPanels();
@@ -260,7 +261,7 @@
       if (!teacher || !view || view.hidden) return;
       await refreshLive();
       if (selectedLiveId) await refreshSelectedTelemetry(false);
-    }, 2000);
+    }, 3000);
   }
 
   function applyTurnDerivedState(row, turns) {
@@ -293,6 +294,80 @@
       }
     }
     return row;
+  }
+
+  function turnIdentity(t) {
+    return [
+      t?.match_id || "",
+      t?.actor || "",
+      t?.turn_number ?? "",
+      t?.occurred_at || "",
+      t?.equation || t?.event_type || "",
+    ].join("|");
+  }
+
+  function mergeSelectedTurn(turn) {
+    if (!turn) return;
+    const key = turnIdentity(turn);
+    const idx = selectedTurns.findIndex(t => turnIdentity(t) === key);
+    if (idx >= 0) {
+      selectedTurns[idx] = { ...selectedTurns[idx], ...turn };
+    } else {
+      selectedTurns.push(turn);
+    }
+    selectedTurns.sort((a,b) => {
+      const ai = Number.isFinite(Number(a.id)) ? Number(a.id) : Number.MAX_SAFE_INTEGER;
+      const bi = Number.isFinite(Number(b.id)) ? Number(b.id) : Number.MAX_SAFE_INTEGER;
+      if (ai !== bi) return ai - bi;
+      return new Date(a.occurred_at || 0) - new Date(b.occurred_at || 0);
+    });
+  }
+
+  function applyBroadcastLiveRow(payload) {
+    if (!payload?.student_user_id) return;
+    const row = { ...payload, _received_at: Date.now(), _source: "broadcast" };
+    const idx = liveRows.findIndex(x => x.student_user_id === row.student_user_id);
+    if (idx >= 0) liveRows[idx] = { ...liveRows[idx], ...row };
+    else liveRows.unshift(row);
+
+    liveRows.sort((a,b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0));
+    renderLiveList();
+
+    if (!selectedLiveId) selectedLiveId = row.student_user_id;
+    if (selectedLiveId === row.student_user_id) {
+      const current = selectedRow();
+      renderLiveDetail(current);
+      renderTelemetryPanels();
+    }
+    if ($("last-refresh")) $("last-refresh").textContent = new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+    setPitwallDataStatus("Broadcast สด · เชื่อมต่อแล้ว", "ok");
+  }
+
+  function applyBroadcastTurn(turn) {
+    const row = selectedRow();
+    if (!turn?.match_id || !row?.match_id || turn.match_id !== row.match_id) return;
+    mergeSelectedTurn(turn);
+    applyTurnDerivedState(row, selectedTurns);
+    renderLiveList();
+    renderLiveDetail(row);
+    renderTelemetryPanels();
+    if ($("last-refresh")) $("last-refresh").textContent = new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  }
+
+  function subscribePitwallBroadcast() {
+    if (broadcastChannel) sb().removeChannel(broadcastChannel);
+    broadcastChannel = sb()
+      .channel("amath-pitwall-broadcast", {
+        config: { broadcast: { self: false } },
+      })
+      .on("broadcast", { event:"live_state" }, ({ payload }) => applyBroadcastLiveRow(payload))
+      .on("broadcast", { event:"turn_event" }, ({ payload }) => applyBroadcastTurn(payload))
+      .subscribe(status => {
+        if (status === "SUBSCRIBED") setPitwallDataStatus("Broadcast สด · เชื่อมต่อแล้ว", "ok");
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setPitwallDataStatus("Broadcast ขัดข้อง · ใช้ Realtime DB สำรอง", "warn");
+        }
+      });
   }
 
   function liveFiltered() {
