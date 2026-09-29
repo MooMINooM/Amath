@@ -120,7 +120,7 @@ using (auth.uid() = student_user_id)
 with check (auth.uid() = student_user_id);
 
 -- Enable realtime for compact Pitwall state and turn telemetry.
-do $
+do $pitwall$
 begin
   if not exists (
     select 1 from pg_publication_tables
@@ -139,4 +139,4 @@ begin
   ) then
     alter publication supabase_realtime add table public.turn_events;
   end if;
-end $;
+end $pitwall$;
