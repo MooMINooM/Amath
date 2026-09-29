@@ -302,50 +302,70 @@
     refreshSelectedTelemetry(true);
   }
 
+  function consoleStat(label,value,sub="",tone="") {
+    return `<div class="console-stat ${tone}"><small>${label}</small><strong>${value}</strong>${sub ? `<span>${sub}</span>` : ""}</div>`;
+  }
+
   function renderLiveDetail(r) {
     const gap = (r.player_score || 0) - (r.bot_score || 0);
     const totalClock = r.ruleset_id === "PRIMARY_70" ? 20*60*1000 : 22*60*1000;
-    const timePct = r.player_time_ms == null ? 0 : Math.max(0,Math.min(100,r.player_time_ms / totalClock * 100));
+    const timePct = r.player_time_ms == null ? null : Math.max(0,Math.min(100,r.player_time_ms / totalClock * 100));
     const cls = [r.class_name,r.room_no].filter(Boolean).join("/");
-    const active = r.active_side === "player" ? "ตาของนักเรียน" : r.active_side === "bot" ? "ตาของบอท" : "—";
+    const active = r.active_side === "player" ? "ตาของนักเรียน" : r.active_side === "bot" ? "ตาของบอท" : (r._source === "matches-fallback" ? "ข้อมูลย้อนหลัง" : "—");
+    const rulesetLabel = r.ruleset_id === "PRIMARY_70" ? "ประถม 70 เบี้ย" : r.ruleset_id === "STANDARD_100" ? "มาตรฐาน 100 เบี้ย" : (r.ruleset_id || "—");
+    const statusLabel = r.status === "playing" ? "กำลังเล่น" : r.status === "finished" ? "จบแล้ว" : (r.status || "—");
 
-    $("selected-player-card").className = "pit-card selected-player-card";
+    $("selected-player-card").className = "pit-card selected-player-card console-player-card";
     $("selected-player-card").innerHTML = `
-      <div class="selected-player-summary">
+      <div class="console-player-summary">
         <div class="selected-person">
           <div class="selected-avatar">🧑‍🎓</div>
-          <div><h3>${r.student_code || ""} · ${r.student_name || "นักเรียน"}</h3><p>${cls || "—"} · ${r.ruleset_id === "PRIMARY_70" ? "ประถม 70 เบี้ย" : "มาตรฐาน 100 เบี้ย"} · ${r.difficulty || "—"}</p></div>
+          <div>
+            <h3>${r.student_code || ""} · ${r.student_name || "นักเรียน"}</h3>
+            <p>${cls || "—"} · ${rulesetLabel} · Bot ${r.difficulty || "—"}</p>
+          </div>
         </div>
-        <div class="selected-stat"><small>คะแนน</small><strong>${r.player_score ?? 0}</strong><span class="sub">Gap ${gap > 0 ? "+" : ""}${gap}</span></div>
-        <div class="selected-stat time"><small>เวลาเหลือ</small><strong>${fmtTime(r.player_time_ms)}</strong><div class="time-bar"><i style="width:${timePct}%"></i></div></div>
-        <div class="selected-stat"><small>เบี้ยในถุง</small><strong>${r.bag_count ?? "—"}</strong><span class="sub">Turn ${r.turn_number ?? 0}</span></div>
-      </div>
-      <div class="pit-selected-actions">
-        <button id="pit-open-replay" class="pit-action-btn primary" type="button">▶ Replay แมตช์นี้</button>
-        <button id="pit-open-student" class="pit-action-btn" type="button">ดู Deep Analysis</button>
+        <div class="console-player-actions">
+          <button id="pit-open-replay" class="pit-action-btn primary" type="button" ${r.match_id ? "" : "disabled"}>▶ Replay แมตช์นี้</button>
+          <button id="pit-open-student" class="pit-action-btn" type="button">Deep Analysis</button>
+        </div>
       </div>`;
 
     $("pit-open-replay")?.addEventListener("click",()=>openPitwallReplay());
     $("pit-open-student")?.addEventListener("click",()=>openStudentDeepAnalysis(r.student_user_id));
 
-    $("board-turn-badge").textContent = r._source === "matches-fallback" ? "ข้อมูลย้อนหลัง" : active;
-    $("pitwall-round").textContent = r.ruleset_id === "PRIMARY_70" ? "ประถม 70 เบี้ย" : r.ruleset_id === "STANDARD_100" ? "มาตรฐาน 100 เบี้ย" : "โหมดฝึกซ้อม";
-    renderPitBoard(r.board_snapshot);
-    renderPitRack(r.rack_snapshot);
-
-    $("performance-title").textContent = `ภาพรวมผู้เล่น (${r.student_code || ""})`;
+    $("pitwall-round").textContent = rulesetLabel;
+    $("performance-title").textContent = `ประสิทธิภาพการเล่น · ${r.student_code || ""}`;
     $("performance-live").className = `status ${r.status}`;
-    $("performance-live").textContent = r.status === "playing" ? "สด" : r.status;
+    $("performance-live").textContent = statusLabel;
+    $("console-turn-badge").textContent = active;
+
+    const clockNote = timePct == null ? "ไม่มีข้อมูลนาฬิกา" : `เหลือ ${Math.round(timePct)}%`;
+    $("match-status-grid").innerHTML =
+      consoleStat("คะแนนนักเรียน", r.player_score ?? 0) +
+      consoleStat("คะแนนบอท", r.bot_score ?? 0) +
+      consoleStat("Gap", `${gap > 0 ? "+" : ""}${gap}`, "", gap < 0 ? "negative" : gap > 0 ? "positive" : "") +
+      consoleStat("เวลาเหลือ", fmtTime(r.player_time_ms), clockNote) +
+      consoleStat("เวลาบอท", fmtTime(r.bot_time_ms)) +
+      consoleStat("Turn", r.turn_number ?? 0, active) +
+      consoleStat("เบี้ยในถุง", r.bag_count ?? "—") +
+      consoleStat("สถานะ", statusLabel, r._source === "matches-fallback" ? "จากประวัติ matches" : "Realtime");
+
+    renderPitRack(r.rack_snapshot);
 
     const playerMoves = selectedTurns.filter(t => t.actor === "player" && (t.event_type || "move") === "move");
     const avgTime = average(playerMoves.map(t=>t.decision_time_ms));
     const avgDQ = average(playerMoves.map(t=>t.decision_quality));
+    const avgLoss = average(playerMoves.map(t=>t.tactical_loss));
     const rack = r.rack_quality;
+
     $("pit-kpis").innerHTML =
       ringKpi("Win %", r.win_probability) +
       ringKpi("DQ %", avgDQ ?? r.decision_quality) +
       `<div class="pit-kpi"><small>เวลาเฉลี่ย/ตา</small><strong>${avgTime == null ? "—" : Math.round(avgTime/1000)+"s"}</strong></div>` +
-      `<div class="pit-kpi"><small>Rack</small><strong>${rack == null ? "—" : Number(rack).toFixed(0)+"%"}</strong></div>`;
+      `<div class="pit-kpi"><small>Tactical Loss</small><strong>${avgLoss == null ? "—" : avgLoss.toFixed(1)}</strong></div>` +
+      `<div class="pit-kpi"><small>Rack Quality</small><strong>${rack == null ? "—" : Number(rack).toFixed(0)+"%"}</strong></div>` +
+      `<div class="pit-kpi"><small>Last Score</small><strong>${r.last_move_score == null ? "—" : Number(r.last_move_score)}</strong></div>`;
 
     $("pit-secondary-kpis").innerHTML =
       secondaryKpi("🔥","Pressure",r.pressure_level) +
@@ -355,7 +375,6 @@
       secondaryKpi("⚙","CL",null);
 
     renderAmatsLive(r, playerMoves);
-    renderHeatmap(r.board_snapshot);
   }
 
   function renderAmatsLive(r,playerMoves) {
@@ -424,13 +443,21 @@
   }
 
   function renderRecentMoves() {
-    const moves = selectedTurns.slice(-8).reverse();
-    $("pit-recent-moves").innerHTML = moves.length ? moves.map(t => `<button class="move-row pit-replay-turn ${isCriticalTurn(t) ? "critical" : ""}" data-turn-id="${t.id}" type="button" title="เปิด Turn นี้ใน Replay">
-      <span class="turn">T${t.turn_number ?? "—"}</span>
-      <small>${t.actor === "player" ? "นักเรียน" : "บอท"}</small>
-      <span class="eq">${t.equation || t.event_type || "move"}</span>
-      <span class="score">${t.move_score > 0 ? "+" : ""}${t.move_score ?? 0}</span>
-    </button>`).join("") : '<p class="empty">ยังไม่มีการเดิน</p>';
+    const moves = selectedTurns.slice(-12).reverse();
+    $("pit-recent-moves").innerHTML = moves.length ? moves.map(t => {
+      const dq = t.decision_quality == null ? "—" : Math.round(Number(t.decision_quality)) + "%";
+      const loss = t.tactical_loss == null ? "—" : Number(t.tactical_loss).toFixed(1);
+      const dt = t.decision_time_ms == null ? "—" : (Number(t.decision_time_ms)/1000).toFixed(1) + "s";
+      return `<button class="move-row pit-replay-turn ${isCriticalTurn(t) ? "critical" : ""}" data-turn-id="${t.id}" type="button" title="เปิด Turn นี้ใน Replay">
+        <span class="turn">T${t.turn_number ?? "—"}</span>
+        <small>${t.actor === "player" ? "นักเรียน" : "บอท"}</small>
+        <span class="eq">${t.equation || t.event_type || "move"}</span>
+        <span class="score">${t.move_score > 0 ? "+" : ""}${t.move_score ?? 0}</span>
+        <span>${dq}</span>
+        <span>${loss}</span>
+        <span>${dt}</span>
+      </button>`;
+    }).join("") : '<p class="empty">ยังไม่มีการเดิน</p>';
 
     document.querySelectorAll(".pit-replay-turn").forEach(btn => {
       btn.addEventListener("click",()=>openPitwallReplay(Number(btn.dataset.turnId)));
@@ -489,18 +516,16 @@
     const avgScore = average(player.map(t=>t.move_score)) ?? 0;
     const avgTime = average(player.map(t=>t.decision_time_ms));
     const avgLoss = average(player.map(t=>t.tactical_loss)) ?? 0;
-    const occupied = Array.isArray(row.board_snapshot) ? row.board_snapshot.flat().filter(Boolean).length : 0;
     const profile = [
       Math.max(0,Math.min(100,avgDQ)),
       Math.max(0,Math.min(100,avgScore/20*100)),
       avgTime == null ? 0 : Math.max(0,Math.min(100,100-(avgTime/60000*100))),
       Math.max(0,Math.min(100,Number(row.rack_quality)||0)),
-      Math.max(0,Math.min(100,100-avgLoss*5)),
-      Math.max(0,Math.min(100,occupied/55*100))
+      Math.max(0,Math.min(100,100-avgLoss*5))
     ];
     pitCharts.profile = new Chart($("pit-profile-chart"),{
       type:"radar",
-      data:{labels:["DQ","Scoring","Speed","Rack","Control","Board"],datasets:[{data:profile,borderColor:"#2a7fd8",backgroundColor:"#2a7fd820",pointRadius:2,borderWidth:2}]},
+      data:{labels:["DQ","Scoring","Speed","Rack","Control"],datasets:[{data:profile,borderColor:"#2a7fd8",backgroundColor:"#2a7fd820",pointRadius:2,borderWidth:2}]},
       options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{r:{beginAtZero:true,max:100,ticks:{display:false},pointLabels:{font:{size:8}}}}}
     });
 
@@ -1010,7 +1035,10 @@
     $("live-status-filter").addEventListener("change",renderLiveList);
     $("live-sort").addEventListener("change",renderLiveList);
     $("student-search").addEventListener("input",renderStudents);
-    $("btn-refresh-selected").addEventListener("click",()=>refreshSelectedTelemetry(true));
+    $("btn-refresh-selected").addEventListener("click",async()=>{
+      await refreshLive();
+      if (selectedLiveId) await refreshSelectedTelemetry(true);
+    });
     const tickPitClock = () => {
       const el = $("pitwall-clock");
       if (el) el.textContent = new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
