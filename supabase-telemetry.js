@@ -3,6 +3,52 @@
  */
 const AMATH_SUPABASE_TELEMETRY = (() => {
   const pendingMatchStarts = new Map();
+  let broadcastChannel = null;
+  let broadcastReady = null;
+
+  function ensureBroadcastChannel() {
+    const sb = client();
+    if (!sb) return Promise.resolve(null);
+    if (broadcastChannel && broadcastReady) return broadcastReady;
+
+    broadcastChannel = sb.channel("amath-pitwall-broadcast", {
+      config: { broadcast: { self: false } },
+    });
+
+    broadcastReady = new Promise(resolve => {
+      let settled = false;
+      broadcastChannel.subscribe(status => {
+        if (status === "SUBSCRIBED" && !settled) {
+          settled = true;
+          resolve(broadcastChannel);
+        } else if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") && !settled) {
+          settled = true;
+          console.warn("[A-Math telemetry] broadcast unavailable:", status);
+          resolve(null);
+        }
+      });
+      setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          resolve(broadcastChannel);
+        }
+      }, 1200);
+    });
+
+    return broadcastReady;
+  }
+
+  async function broadcast(event, payload) {
+    try {
+      const channel = await ensureBroadcastChannel();
+      if (!channel) return false;
+      const result = await channel.send({ type: "broadcast", event, payload });
+      return result === "ok";
+    } catch (e) {
+      console.warn("[A-Math telemetry] broadcast", event, e);
+      return false;
+    }
+  }
 
   function client() {
     return typeof AMATH_AUTH !== "undefined" ? AMATH_AUTH.getClient() : null;
@@ -51,6 +97,34 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
   async function logTurn(match, entry) {
     const sb = client();
     if (!sb || !match?.studentUserId || !entry) return false;
+
+    const liveTurn = {
+      id: `live-${entry.ts || Date.now()}-${entry.actor || "turn"}`,
+      match_id: match.id,
+      student_user_id: match.studentUserId,
+      actor: entry.actor,
+      turn_number: entry.turnNumber ?? 0,
+      event_type: entry.eventType || "move",
+      occurred_at: iso(entry.ts) || new Date().toISOString(),
+      move_score: entry.moveScore ?? null,
+      equation: entry.equation ?? null,
+      decision_time_ms: entry.decisionTimeMs ?? null,
+      decision_quality: entry.decisionQuality ?? null,
+      tactical_loss: entry.tacticalLoss ?? null,
+      move_value: entry.moveValue ?? null,
+      best_move_value: entry.bestMoveValue ?? null,
+      gap_before: entry.gapBefore ?? null,
+      gap_after: entry.gapAfter ?? null,
+      rack_before: entry.rackBefore ?? null,
+      rack_after: entry.rackAfter ?? null,
+      board_state: entry.boardState ?? null,
+      threat_before: entry.threatBefore ?? null,
+      suggested_mode: entry.suggestedMode ?? null,
+      raw: entry,
+      _broadcast: true,
+    };
+    broadcast("turn_event", liveTurn);
+
     await waitForMatch(match.id);
     const { error } = await sb.from("turn_events").insert({
       match_id: match.id,
@@ -132,6 +206,9 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
       last_move_score: state.lastMoveScore ?? null,
       updated_at: new Date().toISOString(),
     };
+
+    // Broadcast first: the Pitwall can update immediately without waiting for a DB commit.
+    broadcast("live_state", { ...payload, _broadcast: true, _sent_at: Date.now() });
 
     let result = await sb.from("live_sessions").upsert(payload, { onConflict: "student_user_id" });
     if (result.error) {
