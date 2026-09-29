@@ -101,6 +101,7 @@
   }
 
   function setView(name) {
+    document.body.classList.toggle("pitwall-mode", name === "pitwall");
     document.querySelectorAll(".view").forEach(v => v.hidden = true);
     $("view-" + name).hidden = false;
     document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.view === name));
@@ -653,10 +654,25 @@
       options:{
         responsive:true,maintainAspectRatio:false,
         animation:false,
-        plugins:{legend:{display:!!opts.legend,position:"top",labels:{boxWidth:8,font:{size:9}}}},
+        plugins:{
+          legend:{
+            display:!!opts.legend,
+            position:"top",
+            labels:{boxWidth:8,color:"#9ec7eb",font:{size:9}}
+          }
+        },
         scales: opts.noScales ? undefined : {
-          x:{grid:{display:false},ticks:{font:{size:8},maxTicksLimit:6}},
-          y:{beginAtZero:opts.beginAtZero !== false,grid:{color:"#edf3f8"},ticks:{font:{size:8},maxTicksLimit:5}}
+          x:{
+            grid:{color:"#123653",display:true},
+            border:{color:"#245274"},
+            ticks:{color:"#7fa8ca",font:{size:8},maxTicksLimit:6}
+          },
+          y:{
+            beginAtZero:opts.beginAtZero !== false,
+            grid:{color:"#123653"},
+            border:{color:"#245274"},
+            ticks:{color:"#7fa8ca",font:{size:8},maxTicksLimit:5}
+          }
         },
         ...opts.extra
       }
@@ -678,20 +694,20 @@
       scoreLabels.push(t.turn_number ?? i+1); pScores.push(ps); bScores.push(bs);
     });
     pitCharts.score = new Chart($("pit-score-chart"),chartBase("line",scoreLabels,[
-      {label:"นักเรียน",data:pScores,borderColor:"#1d7fe5",backgroundColor:"#1d7fe520",tension:.28,pointRadius:1.5,borderWidth:2},
-      {label:"บอท",data:bScores,borderColor:"#9daec1",backgroundColor:"#9daec120",tension:.28,pointRadius:1.5,borderWidth:2}
+      {label:"นักเรียน",data:pScores,borderColor:"#12b7ff",backgroundColor:"#12b7ff22",tension:.28,pointRadius:1.8,borderWidth:2},
+      {label:"บอท",data:bScores,borderColor:"#ff3f88",backgroundColor:"#ff3f8822",tension:.28,pointRadius:1.8,borderWidth:2}
     ],{legend:true}));
 
     pitCharts.dq = new Chart($("pit-dq-chart"),chartBase("bar",player.map(t=>t.turn_number),[
-      {data:player.map(t=>t.decision_quality),backgroundColor:player.map(t => Number(t.decision_quality)>=70 ? "#2588ea" : Number(t.decision_quality)>=50 ? "#f0a533" : "#ea5263"),borderRadius:4}
+      {data:player.map(t=>t.decision_quality),backgroundColor:player.map(t => Number(t.decision_quality)>=70 ? "#12b7ff" : Number(t.decision_quality)>=50 ? "#f5c84c" : "#ff4f78"),borderRadius:4}
     ]));
 
     pitCharts.time = new Chart($("pit-time-chart"),chartBase("line",player.map(t=>t.turn_number),[
-      {data:player.map(t=>t.decision_time_ms == null ? null : Number((t.decision_time_ms/1000).toFixed(1))),borderColor:"#267fe0",tension:.3,pointRadius:2,borderWidth:2}
+      {data:player.map(t=>t.decision_time_ms == null ? null : Number((t.decision_time_ms/1000).toFixed(1))),borderColor:"#b45cff",tension:.3,pointRadius:2,borderWidth:2}
     ]));
 
     pitCharts.loss = new Chart($("pit-loss-chart"),chartBase("line",player.map(t=>t.turn_number),[
-      {data:player.map(t=>t.tactical_loss),borderColor:"#9b6ee8",backgroundColor:"#9b6ee820",tension:.3,pointRadius:2,borderWidth:2,fill:true}
+      {data:player.map(t=>t.tactical_loss),borderColor:"#ff3d83",backgroundColor:"#ff3d8326",tension:.3,pointRadius:2,borderWidth:2,fill:true}
     ]));
 
     const avgDQ = average(player.map(t=>t.decision_quality)) ?? 0;
@@ -707,8 +723,8 @@
     ];
     pitCharts.profile = new Chart($("pit-profile-chart"),{
       type:"radar",
-      data:{labels:["DQ","Scoring","Speed","Rack","Control"],datasets:[{data:profile,borderColor:"#2a7fd8",backgroundColor:"#2a7fd820",pointRadius:2,borderWidth:2}]},
-      options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{r:{beginAtZero:true,max:100,ticks:{display:false},pointLabels:{font:{size:8}}}}}
+      data:{labels:["DQ","Scoring","Speed","Rack","Control"],datasets:[{data:profile,borderColor:"#18b7ff",backgroundColor:"#18b7ff26",pointRadius:2,borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{r:{beginAtZero:true,max:100,grid:{color:"#21445e"},angleLines:{color:"#21445e"},ticks:{display:false},pointLabels:{color:"#9ec4df",font:{size:8}}}}}
     });
 
     const peers = liveRows.filter(x => x.student_user_id !== row.student_user_id && (!row.class_name || x.class_name === row.class_name));
@@ -716,8 +732,8 @@
     const peerDQ = average(peers.map(x=>x.decision_quality)) ?? 0;
     const peerRack = average(peers.map(x=>x.rack_quality)) ?? 0;
     pitCharts.benchmark = new Chart($("pit-benchmark-chart"),chartBase("bar",["คะแนน","DQ","Rack"],[
-      {label:row.student_code || "ผู้เล่น",data:[row.player_score||0,row.decision_quality||avgDQ,row.rack_quality||0],backgroundColor:"#2a84e6",borderRadius:4},
-      {label:"ค่าเฉลี่ยกลุ่ม",data:[peerScore,peerDQ,peerRack],backgroundColor:"#aab8c8",borderRadius:4}
+      {label:row.student_code || "ผู้เล่น",data:[row.player_score||0,row.decision_quality||avgDQ,row.rack_quality||0],backgroundColor:"#12b7ff",borderRadius:4},
+      {label:"ค่าเฉลี่ยกลุ่ม",data:[peerScore,peerDQ,peerRack],backgroundColor:"#6686a1",borderRadius:4}
     ],{legend:true}));
   }
 
