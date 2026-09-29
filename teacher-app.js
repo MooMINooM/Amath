@@ -211,6 +211,7 @@
         if (idx >= 0) liveRows[idx] = row; else liveRows.unshift(row);
         liveRows.sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
         renderLiveList();
+        if ($("last-refresh")) $("last-refresh").textContent = new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
         if (selectedLiveId === row.student_user_id) {
           renderLiveDetail(row);
           refreshSelectedTelemetry(false);
