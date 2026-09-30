@@ -849,3 +849,22 @@ body.pitwall-mode #view-pitwall{margin:0}
 @media(max-width:1180px){
   .ref-pitwall .ref-sidebar{align-self:start}
 }
+
+
+/* Deep Analysis telemetry availability states */
+.deep-analysis-mode .deep-chart{position:relative}
+.deep-analysis-mode .deep-chart-empty{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  padding:18px;
+  text-align:center;
+  color:#6f9ab6;
+  font:600 11px "Sarabun";
+  background:linear-gradient(180deg,rgba(3,15,24,.18),rgba(3,15,24,.58));
+  pointer-events:none;
+  z-index:2;
+}
+.deep-analysis-mode .deep-phase-table + .empty,
+.deep-analysis-mode .deep-critical-table .empty{color:#7198b2}
