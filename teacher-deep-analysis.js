@@ -46,8 +46,8 @@
     $('deep-profile-meta').innerHTML=metas.map(([icon,label,value])=>`<div><span class="deep-icon" aria-hidden="true">${icon}</span><div><small>${label}</small><strong title="${esc(value)}">${esc(value)}</strong></div></div>`).join('');
     $('deep-dq-badge').textContent='Avg '+format(model.dq,0,'/100');
     $('deep-time-badge').textContent='Avg '+format(model.time==null?null:model.time/1000,1,'s');
-    $('deep-loss-badge').textContent='Avg '+format(model.loss,1,' pts');
-    const metrics=[['♛','SCORE AVG',model.score,0,'',colors.blue,model.finished.map(m=>m.final_player_score)],['♛','WIN %',model.win,0,'%',colors.green,model.finished.map((m,i,ms)=>ms.slice(0,i+1).filter(x=>x.result==='win').length/(i+1)*100)],['◈','DQ',model.dq,0,'',colors.blue,model.player.map(t=>t.decision_quality)],['◷','AVG TIME',model.time==null?null:model.time/1000,1,'s',colors.purple,model.player.map(t=>num(t.decision_time_ms)==null?null:t.decision_time_ms/1000)],['✕','TACTICAL LOSS',model.loss,1,' pts',colors.red,model.player.map(t=>t.tactical_loss)],['▦','RACK QUALITY',liveRow?.rack_quality,0,'/100',colors.yellow,[]],['⬟','PRESSURE',liveRow?.pressure_level,0,'/100',colors.purple,[]],['▲','RISK',model.risk,1,'',colors.green,[]]];
+    $('deep-loss-badge').textContent='Avg '+format(model.loss,1,'%');
+    const metrics=[['♛','SCORE AVG',model.score,0,'',colors.blue,model.finished.map(m=>m.final_player_score)],['♛','WIN %',model.win,0,'%',colors.green,model.finished.map((m,i,ms)=>ms.slice(0,i+1).filter(x=>x.result==='win').length/(i+1)*100)],['◈','DQ',model.dq,0,'',colors.blue,model.player.map(t=>t.decision_quality)],['◷','AVG TIME',model.time==null?null:model.time/1000,1,'s',colors.purple,model.player.map(t=>num(t.decision_time_ms)==null?null:t.decision_time_ms/1000)],['✕','TACTICAL LOSS',model.loss,1,'%',colors.red,model.player.map(t=>t._v2?.tacticalLossRate)],['▦','RACK QUALITY',model.rackQuality,0,'/100',colors.yellow,model.player.map(t=>t._v2?.rackQuality)],['⬟','PRESSURE',model.pressure,0,'/100',colors.purple,model.player.map(t=>t._v2?.pressure)],['▲','RISK',model.risk,0,'/100',colors.green,model.player.map(t=>t._v2?.risk)]];
     $('student-kpis').innerHTML=metrics.map(([icon,label,value,digits,suffix,color,values])=>`<div class="deep-kpi" ${label==='RACK QUALITY'?'id="deep-rack-quality"':''} style="--metric-color:${color}"><div class="deep-kpi-top"><span aria-hidden="true">${icon}</span><div><small>${label}</small><strong>${label==='RISK' && typeof value==='string' ? esc(value.toUpperCase()) : format(value,digits,suffix)}</strong></div></div>${spark(values,color)}</div>`).join('');
   }
   function cumulative(turns,actor) {
@@ -176,7 +176,7 @@
       ['Score / turn','scorePerTurn',colors.blue,20,''],
       ['DQ','dq',colors.blue,100,''],
       ['Avg Time (s)','avgTimeMs',colors.purple,60000,''],
-      ['Tactical Loss','tacticalLoss',colors.red,20,'']
+      ['Tactical Loss %','tacticalLoss',colors.red,100,'%']
     ];
     const phaseLabels=phases.source==='bag-ratio'
       ? ['Opening<br>Bag > 65%','Midgame<br>Bag 25–65%','Endgame<br>Bag < 25%']
@@ -201,9 +201,11 @@
   function renderInsights() {
     const m=state.model,peer=state.peerModel,insights=[];
     if(m.time!=null)insights.push(['Decision pace',`เวลาเฉลี่ย ${(m.time/1000).toFixed(1)} วินาทีต่อตา${peer.time==null?'':` · ชั้นเรียน ${(peer.time/1000).toFixed(1)} วินาที`} ลองเตรียมสมการสำรองระหว่างรอคู่แข่ง`,colors.blue]);
-    if(m.loss!=null)insights.push(['Reduce tactical loss',`เสียโอกาสเฉลี่ย ${m.loss.toFixed(1)} คะแนน ลองย้อนดูตาที่มี Loss สูงใน Critical Moves`,colors.red]);
+    if(m.loss!=null)insights.push(['Reduce tactical loss',`Tactical Loss เฉลี่ย ${m.loss.toFixed(1)}% ลองย้อนดูตาที่มี Loss สูงใน Critical Moves`,colors.red]);
     if(m.dq!=null)insights.push(['Decision quality',`DQ เฉลี่ย ${Math.round(m.dq)}/100 เปรียบเทียบตัวเลือกก่อนส่งคำตอบและตรวจ Replay เพื่อฝึกตัดสินใจ`,colors.yellow]);
-    if(num(state.liveRow?.rack_quality)!=null)insights.push(['Rack balance',`คุณภาพแร็คปัจจุบัน ${Math.round(state.liveRow.rack_quality)}/100 วางแผนใช้ตัวเลขและเครื่องหมายให้สมดุล`,colors.green]);
+    if(num(m.rackQuality ?? state.liveRow?.rack_quality)!=null)insights.push(['Rack balance',`คุณภาพแร็คเฉลี่ย ${Math.round(m.rackQuality ?? state.liveRow?.rack_quality)}/100 วางแผนใช้ตัวเลขและเครื่องหมายให้สมดุล`,colors.green]);
+    if(num(m.pressure)!=null && m.pressure>=70)insights.push(['High game pressure',`Pressure ${Math.round(m.pressure)}/100 มาจากเวลา คะแนน และช่วงของเกม ควรลดเวลาที่เสียกับตัวเลือกที่ผลตอบแทนต่ำ`,colors.purple]);
+    if(num(m.risk)!=null && m.risk>=60)insights.push(['Board exposure',`Risk ${Math.round(m.risk)}/100 สะท้อนช่องโบนัส/โอกาสที่เปิดให้คู่แข่ง ควรตรวจช่องที่เปิดหลังการลงทุกครั้ง`,colors.red]);
     $('deep-insights').innerHTML=insights.length?insights.slice(0,4).map(([title,text,color],i)=>`<div class="deep-insight" style="--insight-color:${color}"><span>${i+1}</span><div><strong>${title}</strong><p>${text}</p></div></div>`).join(''):'<p class="empty">คำแนะนำจะแสดงเมื่อมีข้อมูลการเล่น</p>';
   }
   function renderLog() {

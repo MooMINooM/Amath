@@ -188,6 +188,21 @@
     const lastPlayerTurn = playerTurns[playerTurns.length - 1] || null;
     const lastTurn = match.turns[match.turns.length - 1] || null;
     const clockState = clock?.snapshot?.() || null;
+    const pressureV2 = typeof AMATH_ANALYTICS !== "undefined"
+      ? AMATH_ANALYTICS.calculatePressure({
+          gapPoints: playerScore - botScore,
+          playerTimeMs: clockState?.remainingMs?.player ?? null,
+          initialTimeMs: D.CLOCK_MINUTES * 60 * 1000,
+          bagCount: bag.length,
+          bagSize: D.TOTAL_TILES,
+        })
+      : null;
+    const riskV2 = typeof AMATH_ANALYTICS !== "undefined"
+      ? AMATH_ANALYTICS.calculateRisk({
+          threatPct: analysis?.threatPct ?? null,
+          opponentOpportunity: lastPlayerTurn?.opponentOpportunity ?? null,
+        })
+      : null;
 
     AMATH_SUPABASE_TELEMETRY.syncLive({
       studentUserId: student.user_id,
@@ -207,9 +222,11 @@
       playerTimeMs: clockState?.remainingMs?.player ?? null,
       botTimeMs: clockState?.remainingMs?.bot ?? null,
       decisionQuality: lastPlayerTurn?.decisionQuality ?? null,
-      tacticalLoss: lastPlayerTurn?.tacticalLoss ?? null,
+      tacticalLoss: lastPlayerTurn?.tacticalLossPctV2 ?? lastPlayerTurn?.tacticalLoss ?? null,
       winProbability: analysis?.winProb ?? null,
-      pressureLevel: null,
+      pressureLevel: pressureV2,
+      riskLevel: riskV2,
+      analyticsVersion: typeof AMATH_ANALYTICS !== "undefined" ? AMATH_ANALYTICS.ANALYTICS_VERSION : null,
       rackQuality: analysis?.rackHealth?.pct ?? null,
       boardSnapshot: compactBoardSnapshot(),
       rackSnapshot: playerRack.map(t => ({
@@ -524,7 +541,11 @@
     AMATS_LOGGER.logPlayerTurn({
       board: turnStartBoard, rackBefore: turnStartRack, playerScoreBefore, botScoreBefore,
       turnNumber, isFirstMove: wasFirstMove, candidate: candidateForLog, moveResult: result,
-      opponentDifficulty: difficulty, bagCount: bag.length,
+      opponentDifficulty: difficulty,
+      bagCount: bag.length,
+      bagSize: D.TOTAL_TILES,
+      playerTimeMs: clock?.snapshot?.()?.remainingMs?.player ?? null,
+      initialTimeMs: D.CLOCK_MINUTES * 60 * 1000,
     });
 
     if (checkImmediateEndgame("player")) return;

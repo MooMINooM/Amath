@@ -62,7 +62,7 @@ const AMATS_LOGGER = (() => {
    */
   function logPlayerTurn(ctx) {
     if (!currentMatch) return null;
-    const { board, rackBefore, playerScoreBefore, botScoreBefore, turnNumber, isFirstMove, candidate, moveResult, opponentDifficulty, bagCount } = ctx;
+    const { board, rackBefore, playerScoreBefore, botScoreBefore, turnNumber, isFirstMove, candidate, moveResult, opponentDifficulty, bagCount, bagSize, playerTimeMs, initialTimeMs } = ctx;
 
     const gapBefore = AMATS_BRIDGE.gapFromScores(playerScoreBefore, botScoreBefore);
     const before = AMATS_BRIDGE.analyze({ board, myScore: playerScoreBefore, oppScore: botScoreBefore, turnNumber, rack: rackBefore, opponentDifficulty });
@@ -75,10 +75,22 @@ const AMATS_LOGGER = (() => {
     const best = AMATS_MOVE_ANALYSIS.findBestMoveValue(board, rackBefore, isFirstMove);
     const bestValue = best ? Math.max(best.value, chosenMV.value) : chosenMV.value;
     const tacticalLoss = Math.max(0, bestValue - chosenMV.value);
-    // Decision Quality อิงจาก Tactical Loss เทียบสเกลอ้างอิง (ไม่ใช้หารตรงๆ เพราะ Move Value ติดลบได้
-    // การหารค่าติดลบทำให้สัดส่วนพลิกเครื่องหมายและให้ผลลัพธ์ผิดทิศทาง)
-    const DECISION_SCALE = 20;
-    const decisionQuality = Math.max(0, 100 - (tacticalLoss / DECISION_SCALE) * 100);
+    const tacticalLossV2 = typeof AMATH_ANALYTICS !== "undefined"
+      ? AMATH_ANALYTICS.calculateTacticalLoss({ chosenValue: chosenMV.value, bestValue, tacticalLoss })
+      : { points:tacticalLoss, rate:Math.max(0, Math.min(100, tacticalLoss / 20 * 100)), scale:20 };
+    const decisionQuality = typeof AMATH_ANALYTICS !== "undefined"
+      ? AMATH_ANALYTICS.calculateDecisionQuality({ chosenValue: chosenMV.value, bestValue, tacticalLoss })
+      : Math.max(0, 100 - tacticalLossV2.rate);
+
+    const rackBeforePct = before?.rackHealth?.pct ?? null;
+    const rackAfterPct = AMATS_BRIDGE.rackHealth(rackAfter)?.pct ?? null;
+    const gapPoints = playerScoreBefore - botScoreBefore;
+    const pressureV2 = typeof AMATH_ANALYTICS !== "undefined"
+      ? AMATH_ANALYTICS.calculatePressure({ gapPoints, playerTimeMs, initialTimeMs, bagCount, bagSize })
+      : null;
+    const riskV2 = typeof AMATH_ANALYTICS !== "undefined"
+      ? AMATH_ANALYTICS.calculateRisk({ threatPct: before?.threatPct, opponentOpportunity: chosenMV.breakdown.opponentOpportunity })
+      : null;
 
     const entry = {
       actor: "player",
@@ -99,6 +111,15 @@ const AMATS_LOGGER = (() => {
       bestMoveValue: Math.round(bestValue * 10) / 10,
       decisionQuality: Math.round(decisionQuality * 10) / 10,
       tacticalLoss: Math.round(tacticalLoss * 10) / 10,
+      analyticsVersion: typeof AMATH_ANALYTICS !== "undefined" ? AMATH_ANALYTICS.ANALYTICS_VERSION : "LEGACY",
+      decisionQualityV2: decisionQuality,
+      tacticalLossPctV2: tacticalLossV2.rate,
+      tacticalLossScaleV2: tacticalLossV2.scale,
+      rackQualityBefore: rackBeforePct,
+      rackQualityAfter: rackAfterPct,
+      pressureV2,
+      riskV2,
+      threatPctBefore: before?.threatPct ?? null,
       bagCount: bagCount ?? null,
       boardSnapshotBefore: compactBoard(board),
       boardSnapshotAfter: boardAfterCandidate(board, candidate),
@@ -188,20 +209,28 @@ const AMATS_LOGGER = (() => {
   }
 
   function computeSummary(match) {
-    const playerTurns = match.turns.filter(t => t.actor === "player");
+    const playerTurns = match.turns.filter(t => t.actor === "player" && (t.eventType || "move") === "move");
     if (playerTurns.length === 0) return null;
-    const avg = (arr) => arr.reduce((s, v) => s + v, 0) / arr.length;
-    const sorted = [...playerTurns].sort((a, b) => b.decisionQuality - a.decisionQuality);
+    const nums = arr => arr.map(Number).filter(Number.isFinite);
+    const avg = arr => { const xs=nums(arr); return xs.length ? xs.reduce((s,v)=>s+v,0)/xs.length : null; };
+    const dqTurns = playerTurns.filter(t => Number.isFinite(Number(t.decisionQuality)));
+    const sorted = [...dqTurns].sort((a,b) => Number(b.decisionQuality)-Number(a.decisionQuality));
     return {
+      analyticsVersion: typeof AMATH_ANALYTICS !== "undefined" ? AMATH_ANALYTICS.ANALYTICS_VERSION : "LEGACY",
       turnsPlayed: playerTurns.length,
-      avgScore: avg(playerTurns.map(t => t.moveScore)),
-      avgDecisionQuality: avg(playerTurns.map(t => t.decisionQuality)),
-      avgTacticalLoss: avg(playerTurns.map(t => t.tacticalLoss)),
-      totalTacticalLoss: playerTurns.reduce((s, t) => s + t.tacticalLoss, 0),
-      goodDecisionRate: playerTurns.filter(t => t.decisionQuality >= 70).length / playerTurns.length * 100,
-      bestDecisions: sorted.slice(0, 3),
-      worstDecisions: [...playerTurns].sort((a, b) => b.tacticalLoss - a.tacticalLoss).slice(0, 3).filter(t => t.tacticalLoss > 0),
-      modeUsage: playerTurns.reduce((acc, t) => { if (t.suggestedMode) acc[t.suggestedMode] = (acc[t.suggestedMode] || 0) + 1; return acc; }, {}),
+      avgScore: avg(playerTurns.map(t=>t.moveScore)),
+      avgDecisionQuality: avg(playerTurns.map(t=>t.decisionQuality)),
+      avgDecisionTimeMs: avg(playerTurns.map(t=>t.decisionTimeMs)),
+      avgTacticalLoss: avg(playerTurns.map(t=>t.tacticalLoss)),
+      avgTacticalLossPctV2: avg(playerTurns.map(t=>t.tacticalLossPctV2)),
+      totalTacticalLoss: nums(playerTurns.map(t=>t.tacticalLoss)).reduce((s,v)=>s+v,0),
+      avgRackQuality: avg(playerTurns.map(t=>t.rackQualityAfter)),
+      avgPressure: avg(playerTurns.map(t=>t.pressureV2)),
+      avgRisk: avg(playerTurns.map(t=>t.riskV2)),
+      goodDecisionRate: dqTurns.length ? dqTurns.filter(t=>Number(t.decisionQuality)>=70).length/dqTurns.length*100 : null,
+      bestDecisions: sorted.slice(0,3),
+      worstDecisions: [...playerTurns].sort((a,b)=>(Number(b.tacticalLoss)||0)-(Number(a.tacticalLoss)||0)).slice(0,3).filter(t=>(Number(t.tacticalLoss)||0)>0),
+      modeUsage: playerTurns.reduce((acc,t)=>{ if(t.suggestedMode) acc[t.suggestedMode]=(acc[t.suggestedMode]||0)+1; return acc; },{}),
     };
   }
 

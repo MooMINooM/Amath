@@ -1,5 +1,6 @@
-/* A-Math Analytics Core 1.6
- * Pure calculations only. UI code should consume this layer instead of reimplementing formulas.
+/* A-Math Analytics Core 1.8 — AMATS Analytics v2
+ * Pure calculations only. UI/game telemetry consume the same formulas.
+ * Scores below are heuristic game analytics, not psychometric or diagnostic measures.
  */
 (() => {
   const n = v => v == null || v === "" || !Number.isFinite(Number(v)) ? null : Number(v);
@@ -10,11 +11,68 @@
   const clamp = (v,min=0,max=100) => v == null ? null : Math.max(min,Math.min(max,v));
   const playerMoves = turns => (turns || []).filter(t =>
     t.actor === "player" && (t.event_type || "move") === "move" && Number(t.turn_number) > 0
-  );
+  ).map(enrichPlayerTurn);
   const botMoves = turns => (turns || []).filter(t =>
     t.actor === "bot" && (t.event_type || "move") === "move" && Number(t.turn_number) > 0
   );
   const finishedMatches = matches => (matches || []).filter(m => m.status === "finished");
+  const ANALYTICS_VERSION = "AMATS_ANALYTICS_V2";
+
+  function calculateTacticalLoss({chosenValue,bestValue,tacticalLoss}={}) {
+    const chosen=n(chosenValue), best=n(bestValue);
+    const points=n(tacticalLoss) ?? (chosen!=null && best!=null ? Math.max(0,best-chosen) : null);
+    if(points==null) return {points:null,rate:null,scale:null};
+    const scale=clamp((Math.abs(best ?? chosen ?? 0)*0.35)+8,10,30);
+    const rate=Math.round(clamp(100*(1-Math.exp(-Math.max(0,points)/scale)))*10)/10;
+    return {points:Math.round(Math.max(0,points)*10)/10,rate,scale:Math.round(scale*10)/10};
+  }
+
+  function calculateDecisionQuality(input={}) {
+    const loss=calculateTacticalLoss(input);
+    return loss.rate==null ? null : Math.round((100-loss.rate)*10)/10;
+  }
+
+  function calculateRackQualityFromPct(value) {
+    return n(value)==null ? null : Math.round(clamp(Number(value))*10)/10;
+  }
+
+  function calculatePressure({gapPoints,playerTimeMs,initialTimeMs,bagCount,bagSize}={}) {
+    const components=[];
+    const gap=n(gapPoints);
+    if(gap!=null) components.push({w:.30,v:clamp(100-(Math.abs(gap)/50)*100)});
+    const remain=n(playerTimeMs), initial=n(initialTimeMs);
+    if(remain!=null && initial!=null && initial>0) components.push({w:.45,v:clamp((1-remain/initial)*100)});
+    const bag=n(bagCount), total=n(bagSize);
+    if(bag!=null && total!=null && total>0) components.push({w:.25,v:clamp((1-bag/total)*100)});
+    if(!components.length) return null;
+    const w=components.reduce((s,x)=>s+x.w,0);
+    return Math.round((components.reduce((s,x)=>s+x.v*x.w,0)/w)*10)/10;
+  }
+
+  function calculateRisk({threatPct,opponentOpportunity}={}) {
+    const parts=[];
+    const threat=n(threatPct);
+    if(threat!=null) parts.push({w:.65,v:clamp(threat)});
+    const exposure=n(opponentOpportunity);
+    if(exposure!=null) parts.push({w:.35,v:clamp(exposure/6*100)});
+    if(!parts.length) return null;
+    const w=parts.reduce((s,x)=>s+x.w,0);
+    return Math.round((parts.reduce((s,x)=>s+x.v*x.w,0)/w)*10)/10;
+  }
+
+  function enrichPlayerTurn(t) {
+    if(!t || t.actor!=="player") return t;
+    const raw=t.raw || {};
+    const tacticalLoss=n(t.tactical_loss) ?? (n(t.best_move_value)!=null && n(t.move_value)!=null ? Math.max(0,n(t.best_move_value)-n(t.move_value)) : null);
+    const lossV2=calculateTacticalLoss({chosenValue:t.move_value,bestValue:t.best_move_value,tacticalLoss});
+    const lossRate=n(raw.tacticalLossPctV2) ?? lossV2.rate;
+    const dq=n(raw.decisionQualityV2) ?? (lossRate==null ? null : Math.round((100-lossRate)*10)/10) ?? n(t.decision_quality);
+    const rackQuality=n(raw.rackQualityAfter ?? raw.rackQuality ?? raw.rack_quality);
+    const pressure=n(raw.pressureV2 ?? raw.pressure_level);
+    const risk=n(raw.riskV2 ?? raw.risk);
+    return {...t,tactical_loss:tacticalLoss,decision_quality:dq,_v2:{tacticalLossRate:lossRate,rackQuality,pressure,risk,version:raw.analyticsVersion || null}};
+  }
+
 
   function summarize(matches=[],turns=[],liveRow=null) {
     const finished = finishedMatches(matches);
@@ -25,7 +83,8 @@
     const wins = finished.filter(m=>m.result==="win").length;
     const losses = finished.filter(m=>m.result==="loss").length;
     const dq = avg(player.map(t=>t.decision_quality)) ?? avg(finished.map(m=>m.summary?.avgDecisionQuality));
-    const loss = avg(player.map(t=>t.tactical_loss)) ?? avg(finished.map(m=>m.summary?.avgTacticalLoss));
+    const lossPoints = avg(player.map(t=>t.tactical_loss)) ?? avg(finished.map(m=>m.summary?.avgTacticalLoss));
+    const loss = avg(player.map(t=>t._v2?.tacticalLossRate)) ?? avg(finished.map(m=>m.summary?.avgTacticalLossPctV2));
     const timeMs = avg(player.map(t=>t.decision_time_ms)) ?? avg(finished.map(m=>m.summary?.avgDecisionTimeMs));
     const moveScoreAvg = avg(player.map(t=>t.move_score));
     const botMoveScoreAvg = avg(bot.map(t=>t.move_score));
@@ -36,12 +95,12 @@
       opponentScore:botScoreAvg,
       win:finished.length ? wins/finished.length*100 : null,
       opponentWin:finished.length ? losses/finished.length*100 : null,
-      dq,loss,time:timeMs,
+      dq,loss,lossPoints,time:timeMs,
       moveScore:moveScoreAvg,
       opponentMoveScore:botMoveScoreAvg,
-      rackQuality:n(liveRow?.rack_quality),
-      pressure:n(liveRow?.pressure_level),
-      risk:player.at(-1)?.threat_before ?? null,
+      rackQuality:avg(player.map(t=>t._v2?.rackQuality)) ?? n(liveRow?.rack_quality),
+      pressure:avg(player.map(t=>t._v2?.pressure)) ?? n(liveRow?.pressure_level),
+      risk:avg(player.map(t=>t._v2?.risk)) ?? n(liveRow?.risk_level),
       lastMoveScore:n(liveRow?.last_move_score) ?? n(player.at(-1)?.move_score),
     };
   }
@@ -76,8 +135,11 @@
       scorePerTurn:avg(ts.map(t=>t.move_score)),
       dq:avg(ts.map(t=>t.decision_quality)),
       avgTimeMs:avg(ts.map(t=>t.decision_time_ms)),
-      tacticalLoss:avg(ts.map(t=>t.tactical_loss)),
-      rackQuality:avg(ts.map(t=>t.raw?.rackQuality ?? t.raw?.rack_quality)),
+      tacticalLoss:avg(ts.map(t=>t._v2?.tacticalLossRate)),
+      tacticalLossPoints:avg(ts.map(t=>t.tactical_loss)),
+      rackQuality:avg(ts.map(t=>t._v2?.rackQuality ?? t.raw?.rackQualityAfter ?? t.raw?.rackQuality ?? t.raw?.rack_quality)),
+      pressure:avg(ts.map(t=>t._v2?.pressure)),
+      risk:avg(ts.map(t=>t._v2?.risk)),
       winRate:games.length ? games.filter(m=>m.result==="win").length/games.length*100 : null,
     };
   }
@@ -131,7 +193,7 @@
       scoring:summary.moveScore == null ? null : clamp(summary.moveScore/20*100),
       speed:speedScore(summary.time),
       rackManagement:clamp(summary.rackQuality),
-      tacticalControl:summary.loss == null ? null : clamp(100-summary.loss*5),
+      tacticalControl:summary.loss == null ? null : clamp(100-summary.loss),
     };
   }
 
@@ -158,7 +220,7 @@
         null
       ],
       opponentComparable:{
-        score:true,win:false,dq:false,time:true,tacticalLoss:false,rackQuality:false
+        score:true,win:true,dq:false,time:true,tacticalLoss:false,rackQuality:false
       }
     };
   }
@@ -195,7 +257,7 @@
         if(metric==="score") value=score;
         else if(metric==="dq") value=n(t.decision_quality);
         else if(metric==="time") value=n(t.decision_time_ms)==null?null:Number(t.decision_time_ms)/1000;
-        else if(metric==="loss") value=n(t.tactical_loss);
+        else if(metric==="loss") value=n(t._v2?.tacticalLossRate);
         if(!groups.has(Number(t.turn_number))) groups.set(Number(t.turn_number),[]);
         groups.get(Number(t.turn_number)).push(value);
       }
@@ -231,7 +293,7 @@
         classAverage:labels.map(turn=>avg(peerTime.get(turn)||[])),
       },
       loss:{
-        student:player.map(t=>n(t.tactical_loss)),
+        student:player.map(t=>n(t._v2?.tacticalLossRate)),
         classAverage:labels.map(turn=>avg(peerLoss.get(turn)||[])),
       },
     };
@@ -263,6 +325,13 @@
     calculatePlayerProfile,
     calculateBenchmark,
     calculateTrendSeries,
+    calculateDecisionQuality,
+    calculateTacticalLoss,
+    calculateRackQualityFromPct,
+    calculatePressure,
+    calculateRisk,
+    enrichPlayerTurn,
+    ANALYTICS_VERSION,
     cumulativeSeries,
     phaseOf,
   };

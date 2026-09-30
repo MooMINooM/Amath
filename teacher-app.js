@@ -96,10 +96,11 @@
       player_time_ms: null,
       bot_time_ms: null,
       decision_quality: m.summary?.avgDecisionQuality ?? null,
-      tactical_loss: m.summary?.avgTacticalLoss ?? null,
+      tactical_loss: m.summary?.avgTacticalLossPctV2 ?? m.summary?.avgTacticalLoss ?? null,
       win_probability: null,
-      pressure_level: null,
-      rack_quality: null,
+      pressure_level: m.summary?.avgPressure ?? null,
+      risk_level: m.summary?.avgRisk ?? null,
+      rack_quality: m.summary?.avgRackQuality ?? null,
       board_snapshot: null,
       rack_snapshot: null,
       last_equation: null,
@@ -186,7 +187,13 @@
         const dbTs = new Date(dbRow.updated_at || 0).getTime();
         const currentTs = new Date(current?.updated_at || 0).getTime();
         if (current?._source === "broadcast" && currentTs > dbTs) return current;
-        return { ...dbRow, _received_at: now };
+        return {
+          ...current,
+          ...dbRow,
+          risk_level: current?.risk_level ?? dbRow.risk_level ?? null,
+          analytics_version: current?.analytics_version ?? dbRow.analytics_version ?? null,
+          _received_at: now
+        };
       });
       setPitwallDataStatus(`Realtime พร้อม · ${liveRows.length} session`, "ok");
     } else {
@@ -237,7 +244,15 @@
         const row = payload.new ? { ...payload.new, _received_at: Date.now() } : null;
         if (!row?.student_user_id) return;
         const idx = liveRows.findIndex(x => x.student_user_id === row.student_user_id);
-        if (idx >= 0) liveRows[idx] = row; else liveRows.unshift(row);
+        if (idx >= 0) {
+          const current = liveRows[idx];
+          liveRows[idx] = {
+            ...current,
+            ...row,
+            risk_level: current?.risk_level ?? row.risk_level ?? null,
+            analytics_version: current?.analytics_version ?? row.analytics_version ?? null,
+          };
+        } else liveRows.unshift(row);
         liveRows.sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
         renderLiveList();
         if ($("last-refresh")) $("last-refresh").textContent = new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
@@ -306,8 +321,12 @@
       row.last_move_score = last.move_score ?? row.last_move_score;
     }
     if (lastPlayer) {
-      row.decision_quality = lastPlayer.decision_quality ?? row.decision_quality;
-      row.tactical_loss = lastPlayer.tactical_loss ?? row.tactical_loss;
+      const raw = lastPlayer.raw || {};
+      row.decision_quality = raw.decisionQualityV2 ?? lastPlayer.decision_quality ?? row.decision_quality;
+      row.tactical_loss = raw.tacticalLossPctV2 ?? lastPlayer.tactical_loss ?? row.tactical_loss;
+      row.pressure_level = raw.pressureV2 ?? row.pressure_level;
+      row.risk_level = raw.riskV2 ?? row.risk_level;
+      row.rack_quality = raw.rackQualityAfter ?? row.rack_quality;
       if ((!row.rack_snapshot || row._source === "matches-fallback") && Array.isArray(lastPlayer.rack_after)) {
         row.rack_snapshot = lastPlayer.rack_after.map(x => typeof x === "string" ? { face:x, resolvedChar:x, points:null } : x);
       }
@@ -667,17 +686,17 @@
     };
     const gap = (r.player_score || 0) - (r.bot_score || 0);
     const dq = last?.decision_quality ?? r.decision_quality;
-    const loss = last?.tactical_loss ?? r.tactical_loss;
-    const threat = last?.threat_before;
+    const loss = last?.raw?.tacticalLossPctV2 ?? last?.tactical_loss ?? r.tactical_loss;
+    const risk = last?.raw?.riskV2 ?? r.risk_level ?? null;
     const decisionTime = average(playerMoves.map(t=>t.decision_time_ms));
     const pace = decisionTime == null ? "—" : decisionTime < 10000 ? "FAST" : decisionTime < 25000 ? "STEADY" : "SLOW";
     const focus = ({PRESS:"SCORING",BUILD:"SETUP",CONTROL:"BALANCE",DENY:"DEFENSE",GUARD:"SAFETY",RESET:"RACK"})[mode] || "—";
     $("pit-amats").className = "amats-live";
     $("pit-amats").innerHTML = `
-      <div class="amats-live-chips"><span class="amats-chip">GAP ${gap >= 0 ? "+" : ""}${gap}</span><span class="amats-chip">DQ ${pct(dq)}</span><span class="amats-chip">LOSS ${loss == null ? "—" : Number(loss).toFixed(1)}</span></div>
+      <div class="amats-live-chips"><span class="amats-chip">GAP ${gap >= 0 ? "+" : ""}${gap}</span><span class="amats-chip">DQ ${pct(dq)}</span><span class="amats-chip">LOSS ${loss == null ? "—" : Number(loss).toFixed(1)+"%"}</span></div>
       <div class="amats-metric-grid">
         <div class="amats-metric"><small>MODE</small><strong>${mode || "—"}</strong><span>Suggested play</span></div>
-        <div class="amats-metric"><small>RISK</small><strong>${threat == null ? "—" : Number(threat).toFixed(1)}</strong><span>Board threat</span></div>
+        <div class="amats-metric"><small>RISK</small><strong>${risk == null ? "—" : Number(risk).toFixed(0)+"%"}</strong><span>Exposure + threat</span></div>
         <div class="amats-metric"><small>PACE</small><strong>${pace}</strong><span>${decisionTime == null ? "No timing yet" : `${(decisionTime/1000).toFixed(1)}s / turn`}</span></div>
         <div class="amats-metric"><small>NEXT FOCUS</small><strong>${focus}</strong><span>Next decision</span></div>
       </div><div class="amats-recommendation"><span aria-hidden="true">✦</span><p>${advice[mode] || "Waiting for a completed turn to recommend the next move."}</p></div>`;
@@ -731,10 +750,11 @@
     const moves = selectedTurns.slice(showAllPitMoves ? 0 : -5).reverse();
     $("pit-recent-moves").innerHTML = moves.length ? moves.map((t,index) => {
       const dq = t.decision_quality == null ? "—" : Math.round(Number(t.decision_quality));
-      const loss = t.tactical_loss == null ? "—" : Number(t.tactical_loss).toFixed(1);
+      const lossValue = t.raw?.tacticalLossPctV2 ?? t.tactical_loss;
+      const loss = lossValue == null ? "—" : Number(lossValue).toFixed(1)+"%";
       const time = t.occurred_at ? new Date(t.occurred_at).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"}) : "—";
       const rack = Array.isArray(t.rack_after) ? `${t.rack_after.length} tiles` : "—";
-      const rackQuality = t.raw?.rackQuality;
+      const rackQuality = t.raw?.rackQualityAfter ?? t.raw?.rackQuality ?? t.raw?.rack_quality;
       return `<div class="spectator-move-row ${isCriticalTurn(t) ? "critical" : ""}">
         <span>${selectedTurns.length - index}</span>
         <span>${t.turn_number ?? "—"}</span>
@@ -806,22 +826,22 @@
     ]));
 
     pitCharts.loss = new Chart($("pit-loss-chart"),chartBase("bar",player.map(t=>t.turn_number),[
-      {data:player.map(t=>t.tactical_loss),backgroundColor:"#ff4e78",borderRadius:2}
+      {data:player.map(t=>t.raw?.tacticalLossPctV2 ?? t.tactical_loss),backgroundColor:"#ff4e78",borderRadius:2}
     ]));
 
     const avgDQ = average(player.map(t=>t.decision_quality)) ?? 0;
     const avgScore = average(player.map(t=>t.move_score)) ?? 0;
     const avgTime = average(player.map(t=>t.decision_time_ms));
-    const avgLoss = average(player.map(t=>t.tactical_loss)) ?? 0;
+    const avgLoss = average(player.map(t=>t.raw?.tacticalLossPctV2 ?? t.tactical_loss)) ?? 0;
     $("pit-dq-average").textContent = player.some(t=>t.decision_quality != null) ? `${Math.round(avgDQ)}% AVG` : "—";
     $("pit-time-average").textContent = avgTime == null ? "—" : `${(avgTime/1000).toFixed(1)}s AVG`;
-    $("pit-loss-average").textContent = player.some(t=>t.tactical_loss != null) ? `${avgLoss.toFixed(1)} AVG` : "—";
+    $("pit-loss-average").textContent = player.some(t=>(t.raw?.tacticalLossPctV2 ?? t.tactical_loss) != null) ? `${avgLoss.toFixed(1)}% AVG` : "—";
     const profile = [
       Math.max(0,Math.min(100,avgDQ)),
       Math.max(0,Math.min(100,avgScore/20*100)),
       avgTime == null ? 0 : Math.max(0,Math.min(100,100-(avgTime/60000*100))),
       Math.max(0,Math.min(100,Number(row.rack_quality)||0)),
-      Math.max(0,Math.min(100,100-avgLoss*5))
+      Math.max(0,Math.min(100,100-avgLoss))
     ];
     pitCharts.profile = new Chart($("pit-profile-chart"),{
       type:"radar",
