@@ -81,6 +81,27 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     finally { generationPromise = null; }
   }
 
+  async function refreshGeneration() {
+    const sb = client();
+    if (!sb) return currentGeneration ?? 1;
+    const { data,error } = await sb
+      .from("amath_system_state")
+      .select("generation")
+      .eq("id",1)
+      .maybeSingle();
+    if (error) {
+      report("generation:refresh", error);
+      return currentGeneration ?? 1;
+    }
+    const next = Number(data?.generation) || 1;
+    const previous = currentGeneration;
+    currentGeneration = next;
+    if (previous != null && next !== previous && generationResetHandler) {
+      generationResetHandler(next,previous);
+    }
+    return next;
+  }
+
   async function watchGeneration(onReset) {
     generationResetHandler = typeof onReset === "function" ? onReset : null;
     const initial = await ensureGeneration();
@@ -342,6 +363,6 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
 
   return {
     startMatch, logTurn, finishMatch, syncLive,
-    ensureGeneration, watchGeneration, stopGenerationWatch, generation
+    ensureGeneration, refreshGeneration, watchGeneration, stopGenerationWatch, generation
   };
 })();
