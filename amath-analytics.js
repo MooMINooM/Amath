@@ -249,8 +249,8 @@
 
   function cumulativeSeries(turns=[],actor="player") {
     let score=0;
-    return (turns || [])
-      .filter(t => (t.event_type || "move") === "move" && t.actor === actor && Number(t.turn_number)>0)
+    return normalizeTurns(turns)
+      .filter(t => (t.event_type || "move") === "move" && t.actor === actor)
       .map(t => ({ turn:Number(t.turn_number), value:score += Number(t.move_score)||0 }));
   }
 
