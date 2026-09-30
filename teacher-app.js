@@ -225,32 +225,121 @@
     });
   }
 
+  const LIVE_BROADCAST_STICKY_MS = 18000;
+  const LIVE_MEMORY_GRACE_MS = 30000;
+  const LIVE_STICKY_FIELDS = [
+    "player_time_ms","bot_time_ms","board_snapshot","rack_snapshot","rack_quality",
+    "decision_quality","tactical_loss","win_probability","pressure_level","risk_level",
+    "last_equation","last_move_score","active_side","bag_count","turn_number",
+    "player_score","bot_score"
+  ];
+
+  function liveRowTimestamp(row) {
+    const candidates = [
+      Number(row?._sent_at),
+      new Date(row?.updated_at || 0).getTime(),
+      Number(row?._received_at)
+    ].filter(v => Number.isFinite(v) && v > 0);
+    return candidates.length ? Math.max(...candidates) : 0;
+  }
+
+  function isRecentBroadcastRow(row, now=Date.now()) {
+    return row?._source === "broadcast"
+      && Number(row?._received_at) > 0
+      && now - Number(row._received_at) <= LIVE_BROADCAST_STICKY_MS;
+  }
+
+  function mergeLiveRow(current,incoming,{source="db",now=Date.now()}={}) {
+    if (!current) return { ...incoming, _received_at:now, _source:source };
+
+    const sameGeneration = current.generation == null || incoming.generation == null
+      || Number(current.generation) === Number(incoming.generation);
+    const sameMatch = !current.match_id || !incoming.match_id || current.match_id === incoming.match_id;
+
+    // A different match/generation is a real state transition: never carry rich
+    // snapshots from the old game into the new one.
+    if (!sameGeneration || !sameMatch) {
+      return { ...incoming, _received_at:now, _source:source };
+    }
+
+    // Broadcast is the lowest-latency source. While it is fresh, DB polling and
+    // postgres realtime may confirm the row but must not roll the UI backwards.
+    if (isRecentBroadcastRow(current,now) && source !== "broadcast") {
+      return {
+        ...incoming,
+        ...current,
+        generation: current.generation ?? incoming.generation,
+        _received_at: current._received_at,
+        _source:"broadcast"
+      };
+    }
+
+    const merged = { ...current, ...incoming, _received_at:now, _source:source };
+
+    // Null from a slower source means "not available in that snapshot", not
+    // "erase the value already shown on screen".
+    LIVE_STICKY_FIELDS.forEach(field => {
+      if ((incoming[field] === null || incoming[field] === undefined) && current[field] != null) {
+        merged[field] = current[field];
+      }
+    });
+
+    merged.analytics_version = incoming.analytics_version ?? current.analytics_version ?? null;
+    merged.risk_level = incoming.risk_level ?? current.risk_level ?? null;
+    return merged;
+  }
+
+  function hasUsableLiveMemory(now=Date.now()) {
+    return liveRows.some(row => {
+      if (row?._source === "matches-fallback") return false;
+      const age = now - (Number(row?._received_at) || liveRowTimestamp(row) || 0);
+      return row?.status === "playing" && age <= LIVE_MEMORY_GRACE_MS;
+    });
+  }
+
   async function refreshLive() {
     if (!teacher) return;
-    setPitwallDataStatus("กำลังอ่าน live_sessions...", "loading");
+    setPitwallDataStatus("กำลังตรวจสอบ live_sessions...", "loading");
 
     const liveResult = await sb()
       .from("live_sessions")
       .select("*")
       .order("updated_at", { ascending:false });
 
-    if (!liveResult.error && (liveResult.data || []).length) {
-      const now = Date.now();
+    const now = Date.now();
+    const dbRows = !liveResult.error ? (liveResult.data || []).filter(row =>
+      currentGeneration == null || Number(row.generation) === Number(currentGeneration)
+    ) : [];
+
+    if (dbRows.length) {
       const previous = new Map(liveRows.map(r => [r.student_user_id, r]));
-      liveRows = (liveResult.data || []).map(dbRow => {
+      const next = [];
+      const seen = new Set();
+
+      for (const dbRow of dbRows) {
         const current = previous.get(dbRow.student_user_id);
-        const dbTs = new Date(dbRow.updated_at || 0).getTime();
-        const currentTs = new Date(current?.updated_at || 0).getTime();
-        if (current?._source === "broadcast" && currentTs > dbTs) return current;
-        return {
-          ...current,
-          ...dbRow,
-          risk_level: current?.risk_level ?? dbRow.risk_level ?? null,
-          analytics_version: current?.analytics_version ?? dbRow.analytics_version ?? null,
-          _received_at: now
-        };
-      });
+        next.push(mergeLiveRow(current,dbRow,{source:"db",now}));
+        seen.add(dbRow.student_user_id);
+      }
+
+      // A Broadcast row can legitimately arrive before its DB upsert. Keep it
+      // during a short grace window instead of making the student disappear.
+      for (const current of liveRows) {
+        if (seen.has(current.student_user_id)) continue;
+        const age = now - (Number(current._received_at) || liveRowTimestamp(current) || 0);
+        if (current._source === "broadcast" && age <= LIVE_MEMORY_GRACE_MS) next.push(current);
+      }
+
+      liveRows = next;
       setPitwallDataStatus(`Realtime พร้อม · ${liveRows.length} session`, "ok");
+    } else if (hasUsableLiveMemory(now)) {
+      // Critical no-flicker rule: an empty/error DB poll must never erase a
+      // healthy Broadcast snapshot that the teacher is currently reading.
+      if (liveResult.error) console.warn("[Pitwall] live_sessions query failed; keeping live Broadcast state",liveResult.error);
+      setPitwallDataStatus(
+        liveResult.error ? "Broadcast สด · DB sync ขัดข้องชั่วคราว" : "Broadcast สด · รอ DB sync",
+        "warn"
+      );
     } else {
       const matchResult = await sb()
         .from("matches")
@@ -258,20 +347,26 @@
         .order("started_at",{ascending:false})
         .limit(100);
 
-      if (liveResult.error) {
-        console.warn("[Pitwall] live_sessions query failed", liveResult.error);
-      }
+      if (liveResult.error) console.warn("[Pitwall] live_sessions query failed", liveResult.error);
 
       if (!matchResult.error && (matchResult.data || []).length) {
         const latestByStudent = new Map();
         for (const m of matchResult.data) {
-          if (!latestByStudent.has(m.student_user_id)) latestByStudent.set(m.student_user_id, m);
+          if (!latestByStudent.has(m.student_user_id)) latestByStudent.set(m.student_user_id,m);
         }
-        liveRows = [...latestByStudent.values()].map(m => ({ ...fallbackRowFromMatch(m), _received_at: Date.now() }));
+        const fallbackRows = [...latestByStudent.values()].map(m => ({ ...fallbackRowFromMatch(m), _received_at:now }));
+
+        // Preserve any still-useful current row field-by-field. Match history is
+        // a last resort; it should never blank a richer live snapshot.
+        const previous = new Map(liveRows.map(r => [r.student_user_id,r]));
+        liveRows = fallbackRows.map(row => {
+          const current = previous.get(row.student_user_id);
+          return current ? mergeLiveRow(current,row,{source:"matches-fallback",now}) : row;
+        });
+
         const reason = liveResult.error ? "live_sessions อ่านไม่ได้" : "live_sessions ยังว่าง";
         setPitwallDataStatus(`${reason} · ใช้ประวัติ matches ชั่วคราว`, "warn");
-      } else {
-        liveRows = [];
+      } else if (!liveRows.length) {
         if (matchResult.error) console.warn("[Pitwall] matches fallback failed", matchResult.error);
         const code = liveResult.error?.code || matchResult.error?.code || "";
         setPitwallDataStatus(
@@ -288,7 +383,7 @@
     } else if (selectedLiveId && !liveRows.some(r => r.student_user_id === selectedLiveId)) {
       selectedLiveId = null;
     }
-    $("last-refresh").textContent = new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+    if ($("last-refresh")) $("last-refresh").textContent = new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
   }
 
   function subscribeLive() {
