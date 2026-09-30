@@ -487,6 +487,7 @@
       exchangedTiles: returned.length,
       board,
       rackAfter: playerRack.map(t => t.kind === "blank" ? "?" : t.face),
+      bagCount: bag.length,
     });
     recordNonScoringTurn("player");
     endTurn();
@@ -522,7 +523,8 @@
 
     AMATS_LOGGER.logPlayerTurn({
       board: turnStartBoard, rackBefore: turnStartRack, playerScoreBefore, botScoreBefore,
-      turnNumber, isFirstMove: wasFirstMove, candidate: candidateForLog, moveResult: result, opponentDifficulty: difficulty,
+      turnNumber, isFirstMove: wasFirstMove, candidate: candidateForLog, moveResult: result,
+      opponentDifficulty: difficulty, bagCount: bag.length,
     });
 
     if (checkImmediateEndgame("player")) return;
@@ -536,6 +538,7 @@
     AMATS_LOGGER.logPlayerAction("pass", turnNumber + 1, {
       board,
       rackAfter: playerRack.map(t => t.kind === "blank" ? "?" : t.face),
+      bagCount: bag.length,
     });
     recordNonScoringTurn("player");
     endTurn();
@@ -587,6 +590,7 @@
           char: move.tiles[i]?.resolvedChar ?? move.tiles[i]?.face ?? null,
           points: move.tiles[i]?.points ?? 0,
         })),
+        bagCount: bag.length,
       });
       if (checkImmediateEndgame("bot")) return;
     } else {
@@ -606,6 +610,7 @@
         eventType: bag.length >= 5 ? "exchange" : "pass",
         board,
         rackAfter: botRack.map(t => t.kind === "blank" ? "?" : t.face),
+        bagCount: bag.length,
       });
     }
     endTurn();
