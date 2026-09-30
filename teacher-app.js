@@ -6,6 +6,8 @@
   let liveChannel = null;
   let turnChannel = null;
   let broadcastChannel = null;
+  let resetChannel = null;
+  let currentGeneration = null;
   let pitwallSafetyInterval = null;
   let selectedLiveId = null;
   let selectedTurns = [];
@@ -121,6 +123,54 @@
     if (name === "students") refreshStudents();
   }
 
+  async function readCompetitionGeneration() {
+    const { data,error } = await sb()
+      .from("amath_system_state")
+      .select("generation")
+      .eq("id",1)
+      .maybeSingle();
+    if (error) {
+      console.warn("[Pitwall] reset generation unavailable",error);
+      return currentGeneration ?? 1;
+    }
+    currentGeneration = Number(data?.generation) || 1;
+    return currentGeneration;
+  }
+
+  async function handleTeacherGenerationReset(next,previous) {
+    if (!Number.isFinite(Number(next)) || Number(next) === Number(previous)) return;
+    currentGeneration = Number(next);
+    liveRows = [];
+    matches = [];
+    selectedLiveId = null;
+    selectedTurns = [];
+    liveTurnCache.clear();
+    selectedTelemetryRequest++;
+    deepAnalysisRequest++;
+    destroyPitCharts();
+    renderLiveList();
+    setPitwallDataStatus(`RESET G${currentGeneration} · กำลังโหลด session ใหม่`,"warn");
+    await Promise.all([refreshLive(),refreshStudents()]);
+  }
+
+  async function initCompetitionGenerationWatch() {
+    await readCompetitionGeneration();
+    if (resetChannel) await sb().removeChannel(resetChannel);
+    resetChannel = sb()
+      .channel("teacher-competition-generation")
+      .on("postgres_changes",{
+        event:"UPDATE",
+        schema:"public",
+        table:"amath_system_state",
+        filter:"id=eq.1"
+      },payload=>{
+        const next=Number(payload.new?.generation);
+        const previous=currentGeneration;
+        handleTeacherGenerationReset(next,previous);
+      })
+      .subscribe();
+  }
+
   async function unlock(t) {
     teacher = t;
     document.body.classList.remove("teacher-locked");
@@ -128,6 +178,7 @@
     $("teacher-name").textContent = t.full_name;
     $("welcome-title").textContent = `ยินดีต้อนรับ ${t.full_name}`;
     setView("home");
+    await initCompetitionGenerationWatch();
     await Promise.all([refreshLive(), refreshStudents()]);
     subscribeLive();
     subscribeTurnEvents();
@@ -161,6 +212,9 @@
       if (liveChannel) await sb().removeChannel(liveChannel);
       if (turnChannel) await sb().removeChannel(turnChannel);
       if (broadcastChannel) await sb().removeChannel(broadcastChannel);
+      if (resetChannel) await sb().removeChannel(resetChannel);
+      resetChannel = null;
+      currentGeneration = null;
       clearInterval(pitwallSafetyInterval);
       pitwallSafetyInterval = null;
       await AMATH_TEACHER_AUTH.signOut();
@@ -244,6 +298,7 @@
       .on("postgres_changes", { event:"*", schema:"public", table:"live_sessions" }, payload => {
         const row = payload.new ? { ...payload.new, _received_at: Date.now() } : null;
         if (!row?.student_user_id) return;
+        if (currentGeneration != null && Number(row.generation) !== Number(currentGeneration)) return;
         const idx = liveRows.findIndex(x => x.student_user_id === row.student_user_id);
         if (idx >= 0) {
           const current = liveRows[idx];
@@ -254,7 +309,6 @@
             analytics_version: current?.analytics_version ?? row.analytics_version ?? null,
           };
         } else liveRows.unshift(row);
-        liveRows.sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
         renderLiveList();
         if ($("last-refresh")) $("last-refresh").textContent = new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
         if (selectedLiveId === row.student_user_id) {
@@ -274,6 +328,7 @@
       .channel("teacher-pitwall-turn-events")
       .on("postgres_changes", { event:"INSERT", schema:"public", table:"turn_events" }, payload => {
         const turn = payload.new;
+        if (currentGeneration != null && Number(turn?.generation) !== Number(currentGeneration)) return;
         cacheLiveTurn(turn);
         const row = selectedRow();
         if (!turn?.match_id || !row?.match_id || turn.match_id !== row.match_id) return;
@@ -377,6 +432,7 @@
 
   function applyBroadcastLiveRow(payload) {
     if (!payload?.student_user_id) return;
+    if (currentGeneration != null && Number(payload.generation) !== Number(currentGeneration)) return;
     const row = { ...payload, _received_at: Date.now(), _source: "broadcast" };
     const idx = liveRows.findIndex(x => x.student_user_id === row.student_user_id);
     if (idx >= 0) liveRows[idx] = { ...liveRows[idx], ...row };
@@ -395,6 +451,7 @@
   }
 
   function applyBroadcastTurn(turn) {
+    if (currentGeneration != null && Number(turn?.generation) !== Number(currentGeneration)) return;
     cacheLiveTurn(turn);
     const row = selectedRow();
     if (!turn?.match_id || !row?.match_id || turn.match_id !== row.match_id) return;

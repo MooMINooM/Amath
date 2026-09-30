@@ -5,6 +5,10 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
   const pendingMatchStarts = new Map();
   let broadcastChannel = null;
   let broadcastReady = null;
+  let generationChannel = null;
+  let currentGeneration = null;
+  let generationPromise = null;
+  let generationResetHandler = null;
 
   function ensureBroadcastChannel() {
     const sb = client();
@@ -54,6 +58,88 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     return typeof AMATH_AUTH !== "undefined" ? AMATH_AUTH.getClient() : null;
   }
 
+  async function ensureGeneration() {
+    if (currentGeneration != null) return currentGeneration;
+    if (generationPromise) return generationPromise;
+    const sb = client();
+    if (!sb) return 1;
+    generationPromise = (async () => {
+      const { data,error } = await sb
+        .from("amath_system_state")
+        .select("generation")
+        .eq("id",1)
+        .maybeSingle();
+      if (error) {
+        report("generation:read", error);
+        currentGeneration = 1;
+      } else {
+        currentGeneration = Number(data?.generation) || 1;
+      }
+      return currentGeneration;
+    })();
+    try { return await generationPromise; }
+    finally { generationPromise = null; }
+  }
+
+  async function refreshGeneration() {
+    const sb = client();
+    if (!sb) return currentGeneration ?? 1;
+    const { data,error } = await sb
+      .from("amath_system_state")
+      .select("generation")
+      .eq("id",1)
+      .maybeSingle();
+    if (error) {
+      report("generation:refresh", error);
+      return currentGeneration ?? 1;
+    }
+    const next = Number(data?.generation) || 1;
+    const previous = currentGeneration;
+    currentGeneration = next;
+    if (previous != null && next !== previous && generationResetHandler) {
+      generationResetHandler(next,previous);
+    }
+    return next;
+  }
+
+  async function watchGeneration(onReset) {
+    generationResetHandler = typeof onReset === "function" ? onReset : null;
+    const initial = await ensureGeneration();
+    const sb = client();
+    if (!sb) return initial;
+
+    if (generationChannel) await sb.removeChannel(generationChannel);
+    generationChannel = sb()
+      .channel("amath-student-reset-generation")
+      .on("postgres_changes", {
+        event:"UPDATE",
+        schema:"public",
+        table:"amath_system_state",
+        filter:"id=eq.1"
+      }, payload => {
+        const next = Number(payload.new?.generation);
+        if (!Number.isFinite(next)) return;
+        const previous = currentGeneration;
+        currentGeneration = next;
+        if (previous != null && next !== previous && generationResetHandler) {
+          generationResetHandler(next, previous);
+        }
+      })
+      .subscribe();
+    return initial;
+  }
+
+  async function stopGenerationWatch() {
+    const sb = client();
+    if (sb && generationChannel) await sb.removeChannel(generationChannel);
+    generationChannel = null;
+    generationResetHandler = null;
+  }
+
+  function generation() {
+    return currentGeneration;
+  }
+
   function iso(ms) {
     return ms ? new Date(ms).toISOString() : null;
   }
@@ -62,12 +148,23 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     if (error) console.warn("[A-Math telemetry]", label, error);
   }
 
+  function isMissingGenerationColumn(error) {
+    const message = String(error?.message || error?.details || "").toLowerCase();
+    return (
+      (error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")
+      && message.includes("generation")
+    );
+  }
+
   function startMatch(match) {
     const sb = client();
     if (!sb || !match?.studentUserId) return Promise.resolve(false);
     const task = (async () => {
-      const { error } = await sb.from("matches").upsert({
+      const generation = await ensureGeneration();
+      match.generation = generation;
+      const payload = {
         id: match.id,
+        generation,
         student_user_id: match.studentUserId,
         student_code: match.studentCode,
         student_name: match.studentName,
@@ -80,9 +177,15 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
         status: "active",
         started_at: iso(match.startedAt),
         updated_at: new Date().toISOString(),
-      });
-      report("startMatch", error);
-      return !error;
+      };
+      let result = await sb.from("matches").upsert(payload);
+      if (result.error && isMissingGenerationColumn(result.error)) {
+        const legacyPayload = { ...payload };
+        delete legacyPayload.generation;
+        result = await sb.from("matches").upsert(legacyPayload);
+      }
+      report("startMatch", result.error);
+      return !result.error;
     })();
     pendingMatchStarts.set(match.id, task);
     task.finally(() => pendingMatchStarts.delete(match.id));
@@ -98,10 +201,12 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     const sb = client();
     if (!sb || !match?.studentUserId || !entry) return false;
 
+    const generation = match.generation ?? await ensureGeneration();
     const occurredAt = iso(entry.ts) || new Date().toISOString();
     const liveTurn = {
       id: `live-${entry.ts || Date.now()}-${entry.actor || "turn"}`,
       match_id: match.id,
+      generation,
       student_user_id: match.studentUserId,
       actor: entry.actor,
       turn_number: entry.turnNumber ?? 0,
@@ -130,6 +235,7 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
 
     const fullPayload = {
       match_id: match.id,
+      generation,
       student_user_id: match.studentUserId,
       actor: entry.actor,
       turn_number: entry.turnNumber ?? 0,
@@ -164,6 +270,7 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     // Preserve the turn instead of dropping the entire row.
     const compatPayload = {
       match_id: match.id,
+      generation,
       student_user_id: match.studentUserId,
       actor: entry.actor,
       turn_number: entry.turnNumber ?? 0,
@@ -186,6 +293,7 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
       raw: entry,
     };
 
+    if (isMissingGenerationColumn(result.error)) delete compatPayload.generation;
     await new Promise(resolve => setTimeout(resolve, 250));
     result = await sb.from("turn_events").insert(compatPayload);
     report("logTurn:compat-retry", result.error);
@@ -195,7 +303,7 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
   async function finishMatch(match) {
     const sb = client();
     if (!sb || !match?.studentUserId) return false;
-    const { error } = await sb.from("matches").update({
+    const updatePayload = {
       status: "finished",
       finished_at: iso(match.finishedAt),
       result: match.result,
@@ -205,17 +313,29 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
       clock: match.clock,
       summary: match.summary,
       updated_at: new Date().toISOString(),
-    }).eq("id", match.id).eq("student_user_id", match.studentUserId);
-    report("finishMatch", error);
-    return !error;
+    };
+    const generation = match.generation ?? await ensureGeneration();
+    let result = await sb.from("matches").update(updatePayload)
+      .eq("id", match.id)
+      .eq("student_user_id", match.studentUserId)
+      .eq("generation", generation);
+    if (result.error && isMissingGenerationColumn(result.error)) {
+      result = await sb.from("matches").update(updatePayload)
+        .eq("id", match.id)
+        .eq("student_user_id", match.studentUserId);
+    }
+    report("finishMatch", result.error);
+    return !result.error;
   }
 
   async function syncLive(state) {
     const sb = client();
     if (!sb || !state?.studentUserId) return false;
     if (state.matchId) await waitForMatch(state.matchId);
+    const generation = state.matchGeneration ?? await ensureGeneration();
 
     const payload = {
+      generation,
       student_user_id: state.studentUserId,
       match_id: state.matchId || null,
       student_code: state.studentCode,
@@ -254,7 +374,11 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     });
 
     let result = await sb.from("live_sessions").upsert(payload, { onConflict: "student_user_id" });
-    if (result.error) {
+    if (result.error && isMissingGenerationColumn(result.error)) {
+      const legacyPayload = { ...payload };
+      delete legacyPayload.generation;
+      result = await sb.from("live_sessions").upsert(legacyPayload, { onConflict: "student_user_id" });
+    } else if (result.error) {
       report("syncLive:first-attempt", result.error);
       await new Promise(resolve => setTimeout(resolve, 300));
       payload.updated_at = new Date().toISOString();
@@ -264,5 +388,8 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     return !result.error;
   }
 
-  return { startMatch, logTurn, finishMatch, syncLive };
+  return {
+    startMatch, logTurn, finishMatch, syncLive,
+    ensureGeneration, refreshGeneration, watchGeneration, stopGenerationWatch, generation
+  };
 })();

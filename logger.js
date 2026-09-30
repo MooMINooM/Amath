@@ -240,5 +240,14 @@ const AMATS_LOGGER = (() => {
 
   function getCurrentMatch() { return currentMatch; }
 
-  return { startMatch, markTurnStart, logPlayerTurn, logPlayerAction, logBotTurn, finalizeMatch, computeSummary, loadAll, getCurrentMatch };
+  function resetLocalData() {
+    currentMatch = null;
+    turnStartedAt = null;
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* storage unavailable */ }
+  }
+
+  return {
+    startMatch, markTurnStart, logPlayerTurn, logPlayerAction, logBotTurn,
+    finalizeMatch, computeSummary, loadAll, getCurrentMatch, resetLocalData
+  };
 })();

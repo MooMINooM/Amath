@@ -9,6 +9,7 @@
   let board, bag, playerRack, botRack, playerScore, botScore;
   let isFirstMove, currentTurn, pendingCoords, nonScoringAfterBagEmpty, gameOver, difficulty;
   let clock = null, clockInterval = null, botTimeout = null, liveHeartbeatInterval = null;
+  let resetReloading = false;
   let selectedRackIndex = null;
   let turnNumber = 0;
   let showAmats = true;
@@ -47,11 +48,15 @@
     }
   }
 
-  function startGame(diff) {
+  async function startGame(diff) {
     const signedInStudent = typeof AMATH_AUTH !== "undefined" ? AMATH_AUTH.currentStudent() : null;
     if (!signedInStudent) {
       showToast("กรุณาเข้าสู่ระบบก่อนเริ่มเกม", "error");
       return;
+    }
+    if (typeof AMATH_SUPABASE_TELEMETRY !== "undefined") {
+      await AMATH_SUPABASE_TELEMETRY.refreshGeneration();
+      if (resetReloading) return;
     }
     stopTimers();
     difficulty = diff;
@@ -207,6 +212,7 @@
     AMATH_SUPABASE_TELEMETRY.syncLive({
       studentUserId: student.user_id,
       matchId: match.id,
+      matchGeneration: match.generation ?? null,
       studentCode: student.student_code,
       studentName: student.full_name,
       className: student.class_name,
@@ -861,6 +867,31 @@
   }
 
   /* ---------- Init ---------- */
+  function handleCompetitionReset(nextGeneration, previousGeneration) {
+    if (resetReloading) return;
+    resetReloading = true;
+    stopTimers();
+    gameOver = true;
+    try { AMATS_LOGGER.resetLocalData?.(); } catch (e) { /* no-op */ }
+    try {
+      sessionStorage.setItem("amath-reset-notice", String(nextGeneration));
+    } catch (e) { /* no-op */ }
+    showToast("ครูรีเซ็ตการแข่งขันแล้ว · กำลังเริ่ม session ใหม่", "info");
+    setTimeout(() => window.location.reload(), 650);
+  }
+
+  async function armCompetitionResetWatch() {
+    if (typeof AMATH_SUPABASE_TELEMETRY === "undefined") return;
+    await AMATH_SUPABASE_TELEMETRY.watchGeneration(handleCompetitionReset);
+    try {
+      const notice = sessionStorage.getItem("amath-reset-notice");
+      if (notice) {
+        sessionStorage.removeItem("amath-reset-notice");
+        showToast("เริ่ม session ใหม่หลังการรีเซ็ตเรียบร้อย", "success");
+      }
+    } catch (e) { /* no-op */ }
+  }
+
   async function unlockForStudent(student) {
     document.getElementById("login-screen").hidden = true;
     document.body.classList.remove("auth-locked");
@@ -868,6 +899,7 @@
     document.getElementById("student-identity").textContent = cls ? `${student.full_name} · ${cls}` : student.full_name;
     const headerPlayer = document.querySelector(".header-context strong");
     if (headerPlayer) headerPlayer.textContent = student.full_name;
+    await armCompetitionResetWatch();
   }
 
   async function initStudentAuth() {
@@ -901,6 +933,7 @@
 
     document.getElementById("btn-logout").addEventListener("click", async () => {
       stopTimers();
+      await AMATH_SUPABASE_TELEMETRY.stopGenerationWatch?.();
       await AMATH_AUTH.signOut();
       document.getElementById("game-layout").hidden = true;
       document.getElementById("bottom-bar").hidden = true;
