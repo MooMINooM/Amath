@@ -736,10 +736,11 @@
     const moves = selectedTurns.slice(showAllPitMoves ? 0 : -5).reverse();
     $("pit-recent-moves").innerHTML = moves.length ? moves.map((t,index) => {
       const dq = t.decision_quality == null ? "—" : Math.round(Number(t.decision_quality));
-      const loss = t.tactical_loss == null ? "—" : Number(t.tactical_loss).toFixed(1);
+      const lossValue = t.raw?.tacticalLossPctV2 ?? t.tactical_loss;
+      const loss = lossValue == null ? "—" : Number(lossValue).toFixed(1)+"%";
       const time = t.occurred_at ? new Date(t.occurred_at).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"}) : "—";
       const rack = Array.isArray(t.rack_after) ? `${t.rack_after.length} tiles` : "—";
-      const rackQuality = t.raw?.rackQuality;
+      const rackQuality = t.raw?.rackQualityAfter ?? t.raw?.rackQuality ?? t.raw?.rack_quality;
       return `<div class="spectator-move-row ${isCriticalTurn(t) ? "critical" : ""}">
         <span>${selectedTurns.length - index}</span>
         <span>${t.turn_number ?? "—"}</span>
@@ -811,22 +812,22 @@
     ]));
 
     pitCharts.loss = new Chart($("pit-loss-chart"),chartBase("bar",player.map(t=>t.turn_number),[
-      {data:player.map(t=>t.tactical_loss),backgroundColor:"#ff4e78",borderRadius:2}
+      {data:player.map(t=>t.raw?.tacticalLossPctV2 ?? t.tactical_loss),backgroundColor:"#ff4e78",borderRadius:2}
     ]));
 
     const avgDQ = average(player.map(t=>t.decision_quality)) ?? 0;
     const avgScore = average(player.map(t=>t.move_score)) ?? 0;
     const avgTime = average(player.map(t=>t.decision_time_ms));
-    const avgLoss = average(player.map(t=>t.tactical_loss)) ?? 0;
+    const avgLoss = average(player.map(t=>t.raw?.tacticalLossPctV2 ?? t.tactical_loss)) ?? 0;
     $("pit-dq-average").textContent = player.some(t=>t.decision_quality != null) ? `${Math.round(avgDQ)}% AVG` : "—";
     $("pit-time-average").textContent = avgTime == null ? "—" : `${(avgTime/1000).toFixed(1)}s AVG`;
-    $("pit-loss-average").textContent = player.some(t=>t.tactical_loss != null) ? `${avgLoss.toFixed(1)} AVG` : "—";
+    $("pit-loss-average").textContent = player.some(t=>(t.raw?.tacticalLossPctV2 ?? t.tactical_loss) != null) ? `${avgLoss.toFixed(1)}% AVG` : "—";
     const profile = [
       Math.max(0,Math.min(100,avgDQ)),
       Math.max(0,Math.min(100,avgScore/20*100)),
       avgTime == null ? 0 : Math.max(0,Math.min(100,100-(avgTime/60000*100))),
       Math.max(0,Math.min(100,Number(row.rack_quality)||0)),
-      Math.max(0,Math.min(100,100-avgLoss*5))
+      Math.max(0,Math.min(100,100-avgLoss))
     ];
     pitCharts.profile = new Chart($("pit-profile-chart"),{
       type:"radar",
