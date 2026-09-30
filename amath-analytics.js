@@ -23,6 +23,7 @@
     const scoreAvg = avg(finished.map(m=>m.final_player_score)) ?? n(liveRow?.player_score);
     const botScoreAvg = avg(finished.map(m=>m.final_bot_score)) ?? n(liveRow?.bot_score);
     const wins = finished.filter(m=>m.result==="win").length;
+    const losses = finished.filter(m=>m.result==="loss").length;
     const dq = avg(player.map(t=>t.decision_quality)) ?? avg(finished.map(m=>m.summary?.avgDecisionQuality));
     const loss = avg(player.map(t=>t.tactical_loss)) ?? avg(finished.map(m=>m.summary?.avgTacticalLoss));
     const timeMs = avg(player.map(t=>t.decision_time_ms)) ?? avg(finished.map(m=>m.summary?.avgDecisionTimeMs));
@@ -34,6 +35,7 @@
       score:scoreAvg,
       opponentScore:botScoreAvg,
       win:finished.length ? wins/finished.length*100 : null,
+      opponentWin:finished.length ? losses/finished.length*100 : null,
       dq,loss,time:timeMs,
       moveScore:moveScoreAvg,
       opponentMoveScore:botMoveScoreAvg,
@@ -149,7 +151,7 @@
       ],
       opponent:[
         studentSummary.opponentScore,
-        null,
+        studentSummary.opponentWin,
         null,
         avg(bot.map(t=>t.decision_time_ms)) == null ? null : avg(bot.map(t=>t.decision_time_ms))/1000,
         null,
