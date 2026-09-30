@@ -299,9 +299,9 @@
     });
   }
 
-  async function refreshLive() {
+  async function refreshLive(background=false) {
     if (!teacher) return;
-    setPitwallDataStatus("กำลังตรวจสอบ live_sessions...", "loading");
+    if (!background) setPitwallDataStatus("กำลังตรวจสอบ live_sessions...", "loading");
 
     const liveResult = await sb()
       .from("live_sessions")
@@ -333,15 +333,17 @@
       }
 
       liveRows = next;
-      setPitwallDataStatus(`Realtime พร้อม · ${liveRows.length} session`, "ok");
+      if (!background) setPitwallDataStatus(`Realtime พร้อม · ${liveRows.length} session`, "ok");
     } else if (hasUsableLiveMemory(now)) {
       // Critical no-flicker rule: an empty/error DB poll must never erase a
       // healthy Broadcast snapshot that the teacher is currently reading.
       if (liveResult.error) console.warn("[Pitwall] live_sessions query failed; keeping live Broadcast state",liveResult.error);
-      setPitwallDataStatus(
-        liveResult.error ? "Broadcast สด · DB sync ขัดข้องชั่วคราว" : "Broadcast สด · รอ DB sync",
-        "warn"
-      );
+      if (!background || liveResult.error) {
+        setPitwallDataStatus(
+          liveResult.error ? "Broadcast สด · DB sync ขัดข้องชั่วคราว" : "Broadcast สด · รอ DB sync",
+          liveResult.error ? "warn" : "ok"
+        );
+      }
     } else {
       const matchResult = await sb()
         .from("matches")
@@ -448,9 +450,9 @@
     pitwallSafetyInterval = setInterval(async () => {
       const view = $("view-pitwall");
       if (!teacher || !view || view.hidden) return;
-      await refreshLive();
+      await refreshLive(true);
       if (selectedLiveId) await refreshSelectedTelemetry(false);
-    }, 3000);
+    }, 8000);
   }
 
   function applyTurnDerivedState(row, turns) {
