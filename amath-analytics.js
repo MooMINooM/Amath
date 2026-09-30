@@ -98,7 +98,7 @@
     const lossPoints = avg(player.map(t=>t.tactical_loss)) ?? avg(finished.map(m=>m.summary?.avgTacticalLoss));
     const loss = avg(player.map(t=>t._v2?.tacticalLossRate)) ?? avg(finished.map(m=>m.summary?.avgTacticalLossPctV2));
     const timeMs = avg(player.map(t=>t.decision_time_ms)) ?? avg(finished.map(m=>m.summary?.avgDecisionTimeMs));
-    const moveScoreAvg = avg(player.map(t=>t.move_score));
+    const moveScoreAvg = avg(player.map(t=>t.move_score)) ?? avg(finished.map(m=>m.summary?.avgScore));
     const botMoveScoreAvg = avg(bot.map(t=>t.move_score));
     return {
       player,bot,finished,
@@ -110,9 +110,9 @@
       dq,loss,lossPoints,time:timeMs,
       moveScore:moveScoreAvg,
       opponentMoveScore:botMoveScoreAvg,
-      rackQuality:avg(player.map(t=>t._v2?.rackQuality)) ?? n(liveRow?.rack_quality),
-      pressure:avg(player.map(t=>t._v2?.pressure)) ?? n(liveRow?.pressure_level),
-      risk:avg(player.map(t=>t._v2?.risk)) ?? n(liveRow?.risk_level),
+      rackQuality:avg(player.map(t=>t._v2?.rackQuality)) ?? n(liveRow?.rack_quality) ?? avg(finished.map(m=>m.summary?.avgRackQuality)),
+      pressure:avg(player.map(t=>t._v2?.pressure)) ?? n(liveRow?.pressure_level) ?? avg(finished.map(m=>m.summary?.avgPressure)),
+      risk:avg(player.map(t=>t._v2?.risk)) ?? n(liveRow?.risk_level) ?? avg(finished.map(m=>m.summary?.avgRisk)),
       lastMoveScore:n(liveRow?.last_move_score) ?? n(player.at(-1)?.move_score),
     };
   }
@@ -277,7 +277,7 @@
     return groups;
   }
 
-  function calculateTrendSeries(turns=[],peerTurns=[],preferredMatchId=null) {
+  function calculateTrendSeries(turns=[],peerTurns=[],preferredMatchId=null,matches=[],peerMatches=[]) {
     const normalized=normalizeTurns(turns);
     const byMatch=new Map();
     for(const t of normalized){
@@ -296,7 +296,40 @@
       });
       lastMatchId=candidateIds[0] || null;
     }
-    const matchTurns=lastMatchId ? (byMatch.get(lastMatchId)||[]) : [];
+
+    if(!lastMatchId){
+      const history=finishedMatches(matches).slice().sort((a,b)=>new Date(a.started_at||0)-new Date(b.started_at||0));
+      const peer=finishedMatches(peerMatches);
+      const peerScore=avg(peer.map(m=>m.final_player_score));
+      const peerDQ=avg(peer.map(m=>m.summary?.avgDecisionQuality));
+      const peerTime=avg(peer.map(m=>m.summary?.avgDecisionTimeMs));
+      const peerLoss=avg(peer.map(m=>m.summary?.avgTacticalLossPctV2 ?? m.summary?.avgTacticalLoss));
+      return {
+        matchId:null,
+        source:history.length ? "match-history" : "no-turn-data",
+        axis:"game",
+        labels:history.map((_,i)=>i+1),
+        score:{
+          student:history.map(m=>n(m.final_player_score)),
+          opponent:history.map(m=>n(m.final_bot_score)),
+          classAverage:history.map(()=>peerScore),
+        },
+        dq:{
+          student:history.map(m=>n(m.summary?.avgDecisionQuality)),
+          classAverage:history.map(()=>peerDQ),
+        },
+        time:{
+          student:history.map(m=>n(m.summary?.avgDecisionTimeMs)==null?null:Number(m.summary.avgDecisionTimeMs)/1000),
+          classAverage:history.map(()=>peerTime==null?null:peerTime/1000),
+        },
+        loss:{
+          student:history.map(m=>n(m.summary?.avgTacticalLossPctV2 ?? m.summary?.avgTacticalLoss)),
+          classAverage:history.map(()=>peerLoss),
+        },
+      };
+    }
+
+    const matchTurns=byMatch.get(lastMatchId)||[];
     const player=playerMoves(matchTurns);
     const labels=player.map(t=>Number(t.turn_number));
     const playerScoreMap=new Map(cumulativeSeries(matchTurns,"player").map(x=>[x.turn,x.value]));
@@ -307,7 +340,8 @@
     const peerLoss=peerMetricByTurn(peerTurns,"loss");
     return {
       matchId:lastMatchId,
-      source:lastMatchId === preferredMatchId ? "active-match" : (lastMatchId ? "latest-player-match" : "no-turn-data"),
+      source:lastMatchId === preferredMatchId ? "active-match" : "latest-player-match",
+      axis:"turn",
       labels,
       score:{
         student:labels.map(turn=>playerScoreMap.get(turn) ?? null),
@@ -339,7 +373,7 @@
       student,
       classAverage,
       benchmark:calculateBenchmark(student,classAverage,data.turns||[]),
-      trends:calculateTrendSeries(data.turns||[],data.peerTurns||[],data.liveRow?.match_id || null),
+      trends:calculateTrendSeries(data.turns||[],data.peerTurns||[],data.liveRow?.match_id || null,data.studentMatches||[],data.peerMatches||[]),
       phaseSource:student.phases.source,
       generatedAt:new Date().toISOString(),
     };
