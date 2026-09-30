@@ -71,60 +71,87 @@
   }
   function renderCharts() {
     const model=state.model,limit=Number($('deep-turn-range').value),metric=$('deep-trend-metric').value;
-    const lastMatch=state.turns.at(-1)?.match_id;
-    const matchTurns=state.turns.filter(t=>t.match_id===lastMatch),allPlayer=playerMoves(matchTurns);
-    const player=limit?allPlayer.slice(-limit):allPlayer;
-    $('deep-performance').title='Latest match · DQ, time and loss use the latest loaded telemetry (up to 2,000 events)';
-    const labels=player.map(t=>t.turn_number),classValues=classByTurn(metric);
-    const scoreMap=new Map(cumulative(matchTurns,'player').map(x=>[x.turn,x.value]));
-    const primary=player.map(t=>metric==='score'?scoreMap.get(t.turn_number):metric==='dq'?num(t.decision_quality):num(t.decision_time_ms)==null?null:t.decision_time_ms/1000);
+    const trends=state.analytics?.trends;
+    $('deep-performance').title='Latest match · all charts use AMATH_ANALYTICS output';
+
+    let labels=[],scoreStudent=[],scoreClass=[],scoreOpponent=[],dqStudent=[],dqClass=[],timeStudent=[],timeClass=[],lossStudent=[];
+    if (trends) {
+      const from=limit ? Math.max(0,trends.labels.length-limit) : 0;
+      labels=trends.labels.slice(from);
+      scoreStudent=trends.score.student.slice(from);
+      scoreClass=trends.score.classAverage.slice(from);
+      scoreOpponent=trends.score.opponent.slice(from);
+      dqStudent=trends.dq.student.slice(from);
+      dqClass=trends.dq.classAverage.slice(from);
+      timeStudent=trends.time.student.slice(from);
+      timeClass=trends.time.classAverage.slice(from);
+      lossStudent=trends.loss.student.slice(from);
+    }
+
+    const primary = metric==='score' ? scoreStudent : metric==='dq' ? dqStudent : timeStudent;
+    const peerPrimary = metric==='score' ? scoreClass : metric==='dq' ? dqClass : timeClass;
     const trend=[line('Student',primary,colors.blue)];
-    if(state.peerTurns.length)trend.push(line('Class Avg',labels.map(t=>avg(classValues.get(t)||[])),colors.red));
-    if(metric==='score') {const bot=cumulative(matchTurns,'bot');trend.push(line('Bot',labels.map(t=>bot.filter(x=>Number(x.turn)<=Number(t)).at(-1)?.value ?? 0),colors.yellow));}
+    if(peerPrimary.some(v=>v!=null)) trend.push(line('Class Avg',peerPrimary,colors.red));
+    if(metric==='score' && scoreOpponent.length) trend.push(line('Opponent',scoreOpponent,colors.yellow));
     chart('score-trend-chart','line',labels,trend);
-    const peerDQ=classByTurn('dq'),peerTime=classByTurn('time');
-    chart('dq-trend-chart','bar',labels,[bar('DQ',player.map(t=>num(t.decision_quality)),colors.blue),...(state.peerTurns.length?[bar('Class Avg',labels.map(t=>avg(peerDQ.get(t)||[])),colors.muted)]:[])]);
-    chart('decision-time-chart','bar',labels,[bar('Student',player.map(t=>num(t.decision_time_ms)==null?null:t.decision_time_ms/1000),colors.purple),...(state.peerTurns.length?[{...line('Class Avg',labels.map(t=>avg(peerTime.get(t)||[])),colors.muted),type:'line'}]:[])]);
-    chart('loss-chart','bar',labels,[bar('Tactical Loss (points)',player.map(t=>num(t.tactical_loss)),colors.red)]);
-    const profileModel=state.analytics?.student?.profile || {
-      decisionQuality:model.dq,
-      scoring:model.player.length?clamp((avg(model.player.map(t=>t.move_score))||0)/20*100):null,
-      speed:model.time==null?null:clamp(100-model.time/600),
-      rackManagement:num(state.liveRow?.rack_quality),
-      tacticalControl:model.loss==null?null:clamp(100-model.loss*5)
-    };
-    const profile=[profileModel.decisionQuality,profileModel.scoring,profileModel.speed,profileModel.rackManagement,profileModel.tacticalControl];
+
+    chart('dq-trend-chart','bar',labels,[
+      bar('DQ',dqStudent,colors.blue),
+      ...(dqClass.some(v=>v!=null)?[bar('Class Avg',dqClass,colors.muted)]:[])
+    ]);
+
+    chart('decision-time-chart','bar',labels,[
+      bar('Student',timeStudent,colors.purple),
+      ...(timeClass.some(v=>v!=null)?[{...line('Class Avg',timeClass,colors.muted),type:'line'}]:[])
+    ]);
+
+    chart('loss-chart','bar',labels,[bar('Tactical Loss (points)',lossStudent,colors.red)]);
+
+    const profileModel=state.analytics?.student?.profile || {};
+    const profile=[
+      profileModel.decisionQuality,
+      profileModel.scoring,
+      profileModel.speed,
+      profileModel.rackManagement,
+      profileModel.tacticalControl
+    ];
     const peer=state.peerModel;
-    const peerRack=avg((state.peerLiveRows || []).map(r=>r.rack_quality));
-    const peerProfileModel=state.analytics?.classAverage?.profile || {
-      decisionQuality:peer.dq,
-      scoring:peer.player.length?clamp((avg(peer.player.map(t=>t.move_score))||0)/20*100):null,
-      speed:peer.time==null?null:clamp(100-peer.time/600),
-      rackManagement:peerRack,
-      tacticalControl:peer.loss==null?null:clamp(100-peer.loss*5)
-    };
-    const peerProfile=[peerProfileModel.decisionQuality,peerProfileModel.scoring,peerProfileModel.speed,peerProfileModel.rackManagement,peerProfileModel.tacticalControl];
-    const profileSets=[{...line('Student',profile,colors.blue),fill:true},...(peer.player.length?[{...line('Class Avg',peerProfile,colors.muted),fill:false}]:[])];
-    chart('deep-profile-chart','radar',['DQ','Scoring','Speed','Rack','Control'],profileSets,{scales:{r:{min:0,max:100,ticks:{display:false},grid:{color:'#285067'},angleLines:{color:'#285067'},pointLabels:{color:'#abc8dc',font:{size:9}}}},plugins:{legend:{display:profileSets.length>1,position:'top',labels:{color:'#b7d4e6',font:{size:9},boxWidth:9}},tooltip:{enabled:true}}});
+    const peerProfileModel=state.analytics?.classAverage?.profile || {};
+    const peerProfile=[
+      peerProfileModel.decisionQuality,
+      peerProfileModel.scoring,
+      peerProfileModel.speed,
+      peerProfileModel.rackManagement,
+      peerProfileModel.tacticalControl
+    ];
+    const hasPeerProfile=peerProfile.some(v=>v!=null);
+    const profileSets=[{...line('Student',profile,colors.blue),fill:true},...(hasPeerProfile?[{...line('Class Avg',peerProfile,colors.muted),fill:false}]:[])];
+    chart('deep-profile-chart','radar',['DQ','Scoring','Speed','Rack','Control'],profileSets,{
+      scales:{r:{min:0,max:100,ticks:{display:false},grid:{color:'#285067'},angleLines:{color:'#285067'},pointLabels:{color:'#abc8dc',font:{size:9}}}},
+      plugins:{legend:{display:profileSets.length>1,position:'top',labels:{color:'#b7d4e6',font:{size:9},boxWidth:9}},tooltip:{enabled:true}}
+    });
+
     const modes=['PRESS','CONTROL','BUILD','DENY','GUARD','RESET','Unclassified'];
     const counts=modes.map(mode=>model.player.filter(t=>mode==='Unclassified'?!modes.includes(t.suggested_mode):t.suggested_mode===mode).length);
-    chart('result-chart','doughnut',modes,[{data:counts,backgroundColor:[colors.red,colors.blue,colors.purple,colors.yellow,colors.green,'#ed8c43',colors.muted],borderWidth:0}],{scales:{},cutout:'62%',plugins:{legend:{display:true,position:'right',labels:{color:'#b7d4e6',boxWidth:9,font:{size:9}}}}});
+    chart('result-chart','doughnut',modes,[{
+      data:counts,
+      backgroundColor:[colors.red,colors.blue,colors.purple,colors.yellow,colors.green,'#ed8c43',colors.muted],
+      borderWidth:0
+    }],{
+      scales:{},cutout:'62%',
+      plugins:{legend:{display:true,position:'right',labels:{color:'#b7d4e6',boxWidth:9,font:{size:9}}}}
+    });
+
     const benchmark=state.analytics?.benchmark;
     if (benchmark) {
       chart('deep-benchmark-chart','bar',benchmark.labels,[
         bar('Student',benchmark.student,colors.blue),
-        bar('Class Avg',benchmark.classAverage,colors.muted),
-        bar('Opponent',benchmark.opponent,colors.yellow)
-      ]);
-    } else {
-      const botTime=avg(state.turns.filter(t=>t.actor==='bot').map(t=>t.decision_time_ms));
-      chart('deep-benchmark-chart','bar',['Score','Win %','DQ','Time (s)','Loss (pts)','Rack'],[
-        bar('Student',[model.score,model.win,model.dq,model.time==null?null:model.time/1000,model.loss,num(state.liveRow?.rack_quality)],colors.blue),
-        bar('Class Avg',[peer.score,peer.win,peer.dq,peer.time==null?null:peer.time/1000,peer.loss,peerRack],colors.muted),
-        bar('Opponent',[avg(model.finished.map(m=>m.final_bot_score)),null,null,botTime==null?null:botTime/1000,null,null],colors.yellow)
+        bar('Opponent',benchmark.opponent,colors.yellow),
+        bar('Class Avg',benchmark.classAverage,colors.muted)
       ]);
     }
   }
+
   function renderHeatmap() {
     const snapshot=state.liveRow?.board_snapshot || [...state.turns].reverse().find(t=>Array.isArray(t.raw?.boardSnapshotAfter))?.raw.boardSnapshotAfter;
     if(!Array.isArray(snapshot)){$('deep-heatmap').innerHTML='<p class="empty">ยังไม่มี Board Snapshot</p>';return;}

@@ -891,7 +891,7 @@
     const columns = "id,match_id,actor,turn_number,event_type,occurred_at,move_score,equation,decision_time_ms,decision_quality,tactical_loss,move_value,best_move_value,gap_before,gap_after,suggested_mode,threat_before,raw";
     const results = await Promise.all([
       sb().from("turn_events").select(columns).eq("student_user_id",studentId).order("occurred_at",{ascending:false}).limit(2000),
-      peerIds.length ? sb().from("turn_events").select("match_id,actor,turn_number,event_type,occurred_at,move_score,decision_time_ms,decision_quality,tactical_loss,threat_before")
+      peerIds.length ? sb().from("turn_events").select("match_id,actor,turn_number,event_type,occurred_at,move_score,decision_time_ms,decision_quality,tactical_loss,threat_before,raw")
         .in("student_user_id",peerIds).order("occurred_at",{ascending:false}).limit(2000) : Promise.resolve({data:[],error:null}),
     ]);
     if (requestId !== deepAnalysisRequest) return;
