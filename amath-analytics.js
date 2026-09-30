@@ -18,12 +18,18 @@
   const finishedMatches = matches => (matches || []).filter(m => m.status === "finished");
   const ANALYTICS_VERSION = "AMATS_ANALYTICS_V2";
 
-  function calculateDecisionQuality({chosenValue,bestValue,tacticalLoss}={}) {
+  function calculateTacticalLoss({chosenValue,bestValue,tacticalLoss}={}) {
     const chosen=n(chosenValue), best=n(bestValue);
-    const loss=n(tacticalLoss) ?? (chosen!=null && best!=null ? Math.max(0,best-chosen) : null);
-    if(loss==null) return null;
+    const points=n(tacticalLoss) ?? (chosen!=null && best!=null ? Math.max(0,best-chosen) : null);
+    if(points==null) return {points:null,rate:null,scale:null};
     const scale=clamp((Math.abs(best ?? chosen ?? 0)*0.35)+8,10,30);
-    return Math.round(clamp(100*Math.exp(-Math.max(0,loss)/scale))*10)/10;
+    const rate=Math.round(clamp(100*(1-Math.exp(-Math.max(0,points)/scale)))*10)/10;
+    return {points:Math.round(Math.max(0,points)*10)/10,rate,scale:Math.round(scale*10)/10};
+  }
+
+  function calculateDecisionQuality(input={}) {
+    const loss=calculateTacticalLoss(input);
+    return loss.rate==null ? null : Math.round((100-loss.rate)*10)/10;
   }
 
   function calculateRackQualityFromPct(value) {
@@ -58,13 +64,13 @@
     if(!t || t.actor!=="player") return t;
     const raw=t.raw || {};
     const tacticalLoss=n(t.tactical_loss) ?? (n(t.best_move_value)!=null && n(t.move_value)!=null ? Math.max(0,n(t.best_move_value)-n(t.move_value)) : null);
-    const dq=n(raw.decisionQualityV2) ?? calculateDecisionQuality({
-      chosenValue:t.move_value,bestValue:t.best_move_value,tacticalLoss
-    }) ?? n(t.decision_quality);
+    const lossV2=calculateTacticalLoss({chosenValue:t.move_value,bestValue:t.best_move_value,tacticalLoss});
+    const lossRate=n(raw.tacticalLossPctV2) ?? lossV2.rate;
+    const dq=n(raw.decisionQualityV2) ?? (lossRate==null ? null : Math.round((100-lossRate)*10)/10) ?? n(t.decision_quality);
     const rackQuality=n(raw.rackQualityAfter ?? raw.rackQuality ?? raw.rack_quality);
     const pressure=n(raw.pressureV2 ?? raw.pressure_level);
     const risk=n(raw.riskV2 ?? raw.risk);
-    return {...t,tactical_loss:tacticalLoss,decision_quality:dq,_v2:{rackQuality,pressure,risk,version:raw.analyticsVersion || null}};
+    return {...t,tactical_loss:tacticalLoss,decision_quality:dq,_v2:{tacticalLossRate:lossRate,rackQuality,pressure,risk,version:raw.analyticsVersion || null}};
   }
 
 
@@ -77,7 +83,8 @@
     const wins = finished.filter(m=>m.result==="win").length;
     const losses = finished.filter(m=>m.result==="loss").length;
     const dq = avg(player.map(t=>t.decision_quality)) ?? avg(finished.map(m=>m.summary?.avgDecisionQuality));
-    const loss = avg(player.map(t=>t.tactical_loss)) ?? avg(finished.map(m=>m.summary?.avgTacticalLoss));
+    const lossPoints = avg(player.map(t=>t.tactical_loss)) ?? avg(finished.map(m=>m.summary?.avgTacticalLoss));
+    const loss = avg(player.map(t=>t._v2?.tacticalLossRate)) ?? avg(finished.map(m=>m.summary?.avgTacticalLossPctV2));
     const timeMs = avg(player.map(t=>t.decision_time_ms)) ?? avg(finished.map(m=>m.summary?.avgDecisionTimeMs));
     const moveScoreAvg = avg(player.map(t=>t.move_score));
     const botMoveScoreAvg = avg(bot.map(t=>t.move_score));
@@ -88,7 +95,7 @@
       opponentScore:botScoreAvg,
       win:finished.length ? wins/finished.length*100 : null,
       opponentWin:finished.length ? losses/finished.length*100 : null,
-      dq,loss,time:timeMs,
+      dq,loss,lossPoints,time:timeMs,
       moveScore:moveScoreAvg,
       opponentMoveScore:botMoveScoreAvg,
       rackQuality:avg(player.map(t=>t._v2?.rackQuality)) ?? n(liveRow?.rack_quality),
@@ -128,7 +135,8 @@
       scorePerTurn:avg(ts.map(t=>t.move_score)),
       dq:avg(ts.map(t=>t.decision_quality)),
       avgTimeMs:avg(ts.map(t=>t.decision_time_ms)),
-      tacticalLoss:avg(ts.map(t=>t.tactical_loss)),
+      tacticalLoss:avg(ts.map(t=>t._v2?.tacticalLossRate)),
+      tacticalLossPoints:avg(ts.map(t=>t.tactical_loss)),
       rackQuality:avg(ts.map(t=>t._v2?.rackQuality ?? t.raw?.rackQualityAfter ?? t.raw?.rackQuality ?? t.raw?.rack_quality)),
       pressure:avg(ts.map(t=>t._v2?.pressure)),
       risk:avg(ts.map(t=>t._v2?.risk)),
@@ -185,7 +193,7 @@
       scoring:summary.moveScore == null ? null : clamp(summary.moveScore/20*100),
       speed:speedScore(summary.time),
       rackManagement:clamp(summary.rackQuality),
-      tacticalControl:summary.loss == null ? null : clamp(100-summary.loss*5),
+      tacticalControl:summary.loss == null ? null : clamp(100-summary.loss),
     };
   }
 
@@ -249,7 +257,7 @@
         if(metric==="score") value=score;
         else if(metric==="dq") value=n(t.decision_quality);
         else if(metric==="time") value=n(t.decision_time_ms)==null?null:Number(t.decision_time_ms)/1000;
-        else if(metric==="loss") value=n(t.tactical_loss);
+        else if(metric==="loss") value=n(t._v2?.tacticalLossRate);
         if(!groups.has(Number(t.turn_number))) groups.set(Number(t.turn_number),[]);
         groups.get(Number(t.turn_number)).push(value);
       }
@@ -285,7 +293,7 @@
         classAverage:labels.map(turn=>avg(peerTime.get(turn)||[])),
       },
       loss:{
-        student:player.map(t=>n(t.tactical_loss)),
+        student:player.map(t=>n(t._v2?.tacticalLossRate)),
         classAverage:labels.map(turn=>avg(peerLoss.get(turn)||[])),
       },
     };
@@ -318,6 +326,7 @@
     calculateBenchmark,
     calculateTrendSeries,
     calculateDecisionQuality,
+    calculateTacticalLoss,
     calculateRackQualityFromPct,
     calculatePressure,
     calculateRisk,
