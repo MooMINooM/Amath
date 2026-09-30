@@ -222,7 +222,7 @@
       playerTimeMs: clockState?.remainingMs?.player ?? null,
       botTimeMs: clockState?.remainingMs?.bot ?? null,
       decisionQuality: lastPlayerTurn?.decisionQuality ?? null,
-      tacticalLoss: lastPlayerTurn?.tacticalLoss ?? null,
+      tacticalLoss: lastPlayerTurn?.tacticalLossPctV2 ?? lastPlayerTurn?.tacticalLoss ?? null,
       winProbability: analysis?.winProb ?? null,
       pressureLevel: pressureV2,
       riskLevel: riskV2,
