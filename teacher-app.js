@@ -11,6 +11,7 @@
   let pitwallSafetyInterval = null;
   let selectedLiveId = null;
   let selectedTurns = [];
+  let selectedTurnsSignature = "";
   let pitCharts = {};
   let selectedTelemetryRequest = 0;
   let replayMatch = null;
@@ -144,6 +145,7 @@
     matches = [];
     selectedLiveId = null;
     selectedTurns = [];
+    selectedTurnsSignature = "";
     liveTurnCache.clear();
     selectedTelemetryRequest++;
     deepAnalysisRequest++;
@@ -749,7 +751,10 @@
     const previousMatchId = selectedRow()?.match_id || null;
     selectedLiveId = studentId;
     const row = selectedRow();
-    if (row?.match_id !== previousMatchId) selectedTurns = [];
+    if (row?.match_id !== previousMatchId) {
+      selectedTurns = [];
+      selectedTurnsSignature = "";
+    }
     renderLiveList();
     if (!row) return;
     renderLiveDetail(row);
@@ -909,6 +914,8 @@
     const sameMatch = selectedTurns.filter(t => t.match_id === row.match_id);
     selectedTurns = sameMatch;
     (data || []).forEach(mergeSelectedTurn);
+    const nextSignature = telemetrySignature(selectedTurns);
+    if (!force && nextSignature === selectedTurnsSignature) return;
     applyTurnDerivedState(row, selectedTurns);
     renderLiveList();
     renderLiveDetail(row);
@@ -1028,7 +1035,26 @@
     ],{legend:true}));
   }
 
+  function telemetrySignature(turns=selectedTurns) {
+    const recent = turns.slice(-12).map(t => [
+      t.id ?? "",
+      t.match_id ?? "",
+      t.actor ?? "",
+      t.turn_number ?? "",
+      t.event_type ?? "",
+      t.occurred_at ?? "",
+      t.move_score ?? "",
+      t.decision_time_ms ?? "",
+      t.decision_quality ?? "",
+      t.tactical_loss ?? "",
+      t.raw?.tacticalLossPctV2 ?? "",
+      t.raw?.rackQualityAfter ?? ""
+    ].join(":"));
+    return `${turns.length}|${recent.join("|")}`;
+  }
+
   function renderTelemetryPanels() {
+    selectedTurnsSignature = telemetrySignature(selectedTurns);
     renderRecentMoves();
     renderTelemetryCharts();
   }
