@@ -220,7 +220,7 @@
         null
       ],
       opponentComparable:{
-        score:true,win:false,dq:false,time:true,tacticalLoss:false,rackQuality:false
+        score:true,win:true,dq:false,time:true,tacticalLoss:false,rackQuality:false
       }
     };
   }
