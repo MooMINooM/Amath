@@ -226,6 +226,7 @@
       winProbability: analysis?.winProb ?? null,
       pressureLevel: pressureV2,
       riskLevel: riskV2,
+      analyticsVersion: typeof AMATH_ANALYTICS !== "undefined" ? AMATH_ANALYTICS.ANALYTICS_VERSION : null,
       rackQuality: analysis?.rackHealth?.pct ?? null,
       boardSnapshot: compactBoardSnapshot(),
       rackSnapshot: playerRack.map(t => ({
