@@ -208,7 +208,13 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     };
 
     // Broadcast first: the Pitwall can update immediately without waiting for a DB commit.
-    broadcast("live_state", { ...payload, _broadcast: true, _sent_at: Date.now() });
+    broadcast("live_state", {
+      ...payload,
+      risk_level: state.riskLevel ?? null,
+      analytics_version: state.analyticsVersion ?? null,
+      _broadcast: true,
+      _sent_at: Date.now()
+    });
 
     let result = await sb.from("live_sessions").upsert(payload, { onConflict: "student_user_id" });
     if (result.error) {
