@@ -20,8 +20,8 @@
     const finished = finishedMatches(matches);
     const player = playerMoves(turns);
     const bot = botMoves(turns);
-    const scoreAvg = avg(finished.map(m=>m.final_player_score));
-    const botScoreAvg = avg(finished.map(m=>m.final_bot_score));
+    const scoreAvg = avg(finished.map(m=>m.final_player_score)) ?? n(liveRow?.player_score);
+    const botScoreAvg = avg(finished.map(m=>m.final_bot_score)) ?? n(liveRow?.bot_score);
     const wins = finished.filter(m=>m.result==="win").length;
     const dq = avg(player.map(t=>t.decision_quality)) ?? avg(finished.map(m=>m.summary?.avgDecisionQuality));
     const loss = avg(player.map(t=>t.tactical_loss)) ?? avg(finished.map(m=>m.summary?.avgTacticalLoss));
