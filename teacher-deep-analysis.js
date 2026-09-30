@@ -86,17 +86,44 @@
     chart('dq-trend-chart','bar',labels,[bar('DQ',player.map(t=>num(t.decision_quality)),colors.blue),...(state.peerTurns.length?[bar('Class Avg',labels.map(t=>avg(peerDQ.get(t)||[])),colors.muted)]:[])]);
     chart('decision-time-chart','bar',labels,[bar('Student',player.map(t=>num(t.decision_time_ms)==null?null:t.decision_time_ms/1000),colors.purple),...(state.peerTurns.length?[{...line('Class Avg',labels.map(t=>avg(peerTime.get(t)||[])),colors.muted),type:'line'}]:[])]);
     chart('loss-chart','bar',labels,[bar('Tactical Loss (points)',player.map(t=>num(t.tactical_loss)),colors.red)]);
-    const profile=[model.dq,model.player.length?clamp((avg(model.player.map(t=>t.move_score))||0)/20*100):null,model.time==null?null:clamp(100-model.time/600),num(state.liveRow?.rack_quality),model.loss==null?null:clamp(100-model.loss*5)];
+    const profileModel=state.analytics?.student?.profile || {
+      decisionQuality:model.dq,
+      scoring:model.player.length?clamp((avg(model.player.map(t=>t.move_score))||0)/20*100):null,
+      speed:model.time==null?null:clamp(100-model.time/600),
+      rackManagement:num(state.liveRow?.rack_quality),
+      tacticalControl:model.loss==null?null:clamp(100-model.loss*5)
+    };
+    const profile=[profileModel.decisionQuality,profileModel.scoring,profileModel.speed,profileModel.rackManagement,profileModel.tacticalControl];
     const peer=state.peerModel;
     const peerRack=avg((state.peerLiveRows || []).map(r=>r.rack_quality));
-    const peerProfile=[peer.dq,peer.player.length?clamp((avg(peer.player.map(t=>t.move_score))||0)/20*100):null,peer.time==null?null:clamp(100-peer.time/600),peerRack,peer.loss==null?null:clamp(100-peer.loss*5)];
+    const peerProfileModel=state.analytics?.classAverage?.profile || {
+      decisionQuality:peer.dq,
+      scoring:peer.player.length?clamp((avg(peer.player.map(t=>t.move_score))||0)/20*100):null,
+      speed:peer.time==null?null:clamp(100-peer.time/600),
+      rackManagement:peerRack,
+      tacticalControl:peer.loss==null?null:clamp(100-peer.loss*5)
+    };
+    const peerProfile=[peerProfileModel.decisionQuality,peerProfileModel.scoring,peerProfileModel.speed,peerProfileModel.rackManagement,peerProfileModel.tacticalControl];
     const profileSets=[{...line('Student',profile,colors.blue),fill:true},...(peer.player.length?[{...line('Class Avg',peerProfile,colors.muted),fill:false}]:[])];
     chart('deep-profile-chart','radar',['DQ','Scoring','Speed','Rack','Control'],profileSets,{scales:{r:{min:0,max:100,ticks:{display:false},grid:{color:'#285067'},angleLines:{color:'#285067'},pointLabels:{color:'#abc8dc',font:{size:9}}}},plugins:{legend:{display:profileSets.length>1,position:'top',labels:{color:'#b7d4e6',font:{size:9},boxWidth:9}},tooltip:{enabled:true}}});
     const modes=['PRESS','CONTROL','BUILD','DENY','GUARD','RESET','Unclassified'];
     const counts=modes.map(mode=>model.player.filter(t=>mode==='Unclassified'?!modes.includes(t.suggested_mode):t.suggested_mode===mode).length);
     chart('result-chart','doughnut',modes,[{data:counts,backgroundColor:[colors.red,colors.blue,colors.purple,colors.yellow,colors.green,'#ed8c43',colors.muted],borderWidth:0}],{scales:{},cutout:'62%',plugins:{legend:{display:true,position:'right',labels:{color:'#b7d4e6',boxWidth:9,font:{size:9}}}}});
-    const botTime=avg(state.turns.filter(t=>t.actor==='bot').map(t=>t.decision_time_ms));
-    chart('deep-benchmark-chart','bar',['Score','Win %','DQ','Time (s)','Loss (pts)','Rack'],[bar('Student',[model.score,model.win,model.dq,model.time==null?null:model.time/1000,model.loss,num(state.liveRow?.rack_quality)],colors.blue),bar('Class Avg',[peer.score,peer.win,peer.dq,peer.time==null?null:peer.time/1000,peer.loss,peerRack],colors.muted),bar('Bot',[avg(model.finished.map(m=>m.final_bot_score)),null,null,botTime==null?null:botTime/1000,null,null],colors.yellow)]);
+    const benchmark=state.analytics?.benchmark;
+    if (benchmark) {
+      chart('deep-benchmark-chart','bar',benchmark.labels,[
+        bar('Student',benchmark.student,colors.blue),
+        bar('Class Avg',benchmark.classAverage,colors.muted),
+        bar('Opponent',benchmark.opponent,colors.yellow)
+      ]);
+    } else {
+      const botTime=avg(state.turns.filter(t=>t.actor==='bot').map(t=>t.decision_time_ms));
+      chart('deep-benchmark-chart','bar',['Score','Win %','DQ','Time (s)','Loss (pts)','Rack'],[
+        bar('Student',[model.score,model.win,model.dq,model.time==null?null:model.time/1000,model.loss,num(state.liveRow?.rack_quality)],colors.blue),
+        bar('Class Avg',[peer.score,peer.win,peer.dq,peer.time==null?null:peer.time/1000,peer.loss,peerRack],colors.muted),
+        bar('Opponent',[avg(model.finished.map(m=>m.final_bot_score)),null,null,botTime==null?null:botTime/1000,null,null],colors.yellow)
+      ]);
+    }
   }
   function renderHeatmap() {
     const snapshot=state.liveRow?.board_snapshot || [...state.turns].reverse().find(t=>Array.isArray(t.raw?.boardSnapshotAfter))?.raw.boardSnapshotAfter;
@@ -111,20 +138,39 @@
     $('deep-heatmap').innerHTML=html;
   }
   function renderPhases() {
-    const groups=[state.model.player.filter(t=>Number(t.turn_number)<=10),state.model.player.filter(t=>Number(t.turn_number)>10&&Number(t.turn_number)<=20),state.model.player.filter(t=>Number(t.turn_number)>20)];
-    const phaseWin=ts=>{const ids=new Set(ts.map(t=>t.match_id));const games=state.model.finished.filter(m=>ids.has(m.id));return games.length?games.filter(m=>m.result==='win').length/games.length*100:null;};
-    const rows=[['Win %',phaseWin,colors.green,100,'%'],['Score / turn',ts=>avg(ts.map(t=>t.move_score)),colors.blue,20,''],['DQ',ts=>avg(ts.map(t=>t.decision_quality)),colors.blue,100,''],['Avg Time (s)',ts=>{const v=avg(ts.map(t=>t.decision_time_ms));return v==null?null:v/1000},colors.purple,60,''],['Tactical Loss',ts=>avg(ts.map(t=>t.tactical_loss)),colors.red,20,'']];
-    $('deep-phase-analysis').innerHTML=`<table class="deep-phase-table"><thead><tr><th>Metric</th><th>Opening<br>(1–10)</th><th>Midgame<br>(11–20)</th><th>Endgame<br>(21+)</th></tr></thead><tbody>${rows.map(([name,fn,color,max,suffix])=>`<tr><td>${name}</td>${groups.map(ts=>{const v=fn(ts);return `<td><div class="deep-phase-cell"><span class="deep-phase-meter" style="--phase-color:${color}"><i style="width:${v==null?0:clamp(v/max*100)}%"></i></span>${format(v,1,suffix)}</div></td>`}).join('')}</tr>`).join('')}</tbody></table>`;
+    const phases=state.analytics?.student?.phases;
+    if (!phases) {
+      $('deep-phase-analysis').innerHTML='<p class="empty">ยังไม่มีข้อมูล Phase Analysis</p>';
+      return;
+    }
+    const groups=[phases.opening,phases.midgame,phases.endgame];
+    const rows=[
+      ['Win %','winRate',colors.green,100,'%'],
+      ['Score / turn','scorePerTurn',colors.blue,20,''],
+      ['DQ','dq',colors.blue,100,''],
+      ['Avg Time (s)','avgTimeMs',colors.purple,60000,''],
+      ['Tactical Loss','tacticalLoss',colors.red,20,'']
+    ];
+    const phaseLabels=phases.source==='bag-ratio'
+      ? ['Opening<br>Bag > 65%','Midgame<br>Bag 25–65%','Endgame<br>Bag < 25%']
+      : ['Opening<br>(1–10)','Midgame<br>(11–20)','Endgame<br>(21+)'];
+    $('deep-phase-analysis').innerHTML=`<table class="deep-phase-table"><thead><tr><th>Metric</th>${phaseLabels.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map(([name,key,color,max,suffix])=>`<tr><td>${name}</td>${groups.map(g=>{let v=g[key];if(key==='avgTimeMs'&&v!=null)v=v/1000;const meterV=key==='avgTimeMs'&&g[key]!=null?g[key]:v;return `<td><div class="deep-phase-cell"><span class="deep-phase-meter" style="--phase-color:${color}"><i style="width:${meterV==null?0:clamp(meterV/max*100)}%"></i></span>${format(v,1,suffix)}</div></td>`}).join('')}</tr>`).join('')}</tbody></table>`;
   }
+
   function renderCritical() {
     const filter=$('deep-critical-filter').value;
-    const slow=t=>num(t.decision_time_ms)!=null&&t.decision_time_ms>=45000;
-    const low=t=>num(t.decision_quality)!=null&&t.decision_quality<60;
-    const loss=t=>num(t.tactical_loss)!=null&&t.tactical_loss>=5;
-    const turns=state.model.player.filter(t=>filter==='loss'?loss(t):filter==='time'?slow(t):filter==='dq'?low(t):loss(t)||slow(t)||low(t)).sort((a,b)=>(num(b.tactical_loss)||0)-(num(a.tactical_loss)||0)).slice(0,8);
-    $('student-turn-analysis').innerHTML=turns.length?`<table><thead><tr><th>Turn</th><th>Move</th><th>Score</th><th>DQ</th><th>Loss</th><th>Comment</th></tr></thead><tbody>${turns.map(t=>`<tr><td>${esc(t.turn_number)}</td><td><button data-deep-replay="${esc(t.id)}" data-match="${esc(t.match_id)}" title="Open replay: ${esc(t.equation)}">${esc(t.equation || t.event_type)}</button></td><td class="good">${format(t.move_score)}</td><td>${format(t.decision_quality)}</td><td class="bad">${format(t.tactical_loss,1)}</td><td title="${slow(t)?'Slow decision':low(t)?'Low DQ':'Tactical loss'}">${slow(t)?'Slow decision':low(t)?'Low DQ':'Tactical loss'}</td></tr>`).join('')}</tbody></table>`:'<p class="empty">ยังไม่พบตาที่เข้าเกณฑ์วิเคราะห์</p>';
+    const base=state.analytics?.student?.criticalMoves || [];
+    const turns=base.filter(t=>{
+      const reasons=t.analytics_reasons || [];
+      if(filter==='loss')return reasons.includes('High Tactical Loss');
+      if(filter==='time')return reasons.includes('Slow Decision');
+      if(filter==='dq')return reasons.includes('Low Decision Quality');
+      return true;
+    }).slice(0,8);
+    $('student-turn-analysis').innerHTML=turns.length?`<table><thead><tr><th>Turn</th><th>Move</th><th>Score</th><th>DQ</th><th>Loss</th><th>Comment</th></tr></thead><tbody>${turns.map(t=>`<tr><td>${esc(t.turn_number)}</td><td><button data-deep-replay="${esc(t.id)}" data-match="${esc(t.match_id)}" title="Open replay: ${esc(t.equation)}">${esc(t.equation || t.event_type)}</button></td><td class="good">${format(t.move_score)}</td><td>${format(t.decision_quality)}</td><td class="bad">${format(t.tactical_loss,1)}</td><td title="${esc((t.analytics_reasons||[]).join(', '))}">${esc((t.analytics_reasons||[])[0] || 'Critical Move')}</td></tr>`).join('')}</tbody></table>`:'<p class="empty">ยังไม่พบตาที่เข้าเกณฑ์วิเคราะห์</p>';
     $('student-turn-analysis').querySelectorAll('[data-deep-replay]').forEach(b=>b.addEventListener('click',()=>state.onReplay(b.dataset.match,b.dataset.deepReplay)));
   }
+
   function renderInsights() {
     const m=state.model,peer=state.peerModel,insights=[];
     if(m.time!=null)insights.push(['Decision pace',`เวลาเฉลี่ย ${(m.time/1000).toFixed(1)} วินาทีต่อตา${peer.time==null?'':` · ชั้นเรียน ${(peer.time/1000).toFixed(1)} วินาที`} ลองเตรียมสมการสำรองระหว่างรอคู่แข่ง`,colors.blue]);
@@ -138,7 +184,15 @@
     $('student-match-history').querySelectorAll('[data-deep-match]').forEach(b=>b.addEventListener('click',()=>state.onReplay(b.dataset.deepMatch)));
   }
   function render(data) {
-    state=data;state.model=summarize(data.studentMatches,data.turns);state.peerModel=summarize(data.peerMatches,data.peerTurns);
+    state=data;
+    if (typeof AMATH_ANALYTICS !== "undefined") {
+      state.analytics=AMATH_ANALYTICS.calculateStudentMetrics(data);
+      state.model=state.analytics.student;
+      state.peerModel=state.analytics.classAverage;
+    } else {
+      state.model=summarize(data.studentMatches,data.turns);
+      state.peerModel=summarize(data.peerMatches,data.peerTurns);
+    }
     if(state.peerModel.dq==null)state.peerModel.dq=avg(state.peerModel.finished.map(m=>m.summary?.avgDecisionQuality));
     if(state.peerModel.loss==null)state.peerModel.loss=avg(state.peerModel.finished.map(m=>m.summary?.avgTacticalLoss));
     renderHeader(state.model);renderCharts();renderHeatmap();renderPhases();renderCritical();renderInsights();renderLog();
