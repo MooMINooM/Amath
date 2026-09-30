@@ -19,6 +19,7 @@
   let replayReturnView = "student-detail";
   let replayRequestedTurnId = null;
   let rosterClassSignature = "";
+  const liveTurnCache = new Map();
   let deepAnalysisRequest = 0;
   let showAllPitMoves = false;
 
@@ -273,6 +274,7 @@
       .channel("teacher-pitwall-turn-events")
       .on("postgres_changes", { event:"INSERT", schema:"public", table:"turn_events" }, payload => {
         const turn = payload.new;
+        cacheLiveTurn(turn);
         const row = selectedRow();
         if (!turn?.match_id || !row?.match_id || turn.match_id !== row.match_id) return;
         mergeSelectedTurn(turn);
@@ -344,6 +346,18 @@
     ].join("|");
   }
 
+  function cacheLiveTurn(turn) {
+    if (!turn?.match_id) return;
+    const list = liveTurnCache.get(turn.match_id) || [];
+    const key = turnIdentity(turn);
+    const idx = list.findIndex(t => turnIdentity(t) === key);
+    if (idx >= 0) list[idx] = { ...list[idx], ...turn };
+    else list.push({ ...turn });
+    list.sort((a,b)=>new Date(a.occurred_at || a.raw?.ts || 0)-new Date(b.occurred_at || b.raw?.ts || 0));
+    if (list.length > 500) list.splice(0,list.length-500);
+    liveTurnCache.set(turn.match_id,list);
+  }
+
   function mergeSelectedTurn(turn) {
     if (!turn) return;
     const key = turnIdentity(turn);
@@ -381,6 +395,7 @@
   }
 
   function applyBroadcastTurn(turn) {
+    cacheLiveTurn(turn);
     const row = selectedRow();
     if (!turn?.match_id || !row?.match_id || turn.match_id !== row.match_id) return;
     mergeSelectedTurn(turn);
@@ -926,9 +941,11 @@
     if (peerError) console.warn("[Deep Analysis] Class telemetry unavailable",peerError);
 
     const dbTurns = (turns || []).reverse();
-    const liveTurnsForStudent = liveRow?.match_id && selectedLiveId === studentId
+    const cachedLiveTurns = liveRow?.match_id ? (liveTurnCache.get(liveRow.match_id) || []) : [];
+    const selectedLiveTurns = liveRow?.match_id && selectedLiveId === studentId
       ? selectedTurns.filter(t => t.match_id === liveRow.match_id)
       : [];
+    const liveTurnsForStudent = [...cachedLiveTurns,...selectedLiveTurns];
     const mergedTurns = [];
     const seenTurns = new Map();
     [...dbTurns,...liveTurnsForStudent].forEach(t => {
