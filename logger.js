@@ -62,7 +62,7 @@ const AMATS_LOGGER = (() => {
    */
   function logPlayerTurn(ctx) {
     if (!currentMatch) return null;
-    const { board, rackBefore, playerScoreBefore, botScoreBefore, turnNumber, isFirstMove, candidate, moveResult, opponentDifficulty, bagCount } = ctx;
+    const { board, rackBefore, playerScoreBefore, botScoreBefore, turnNumber, isFirstMove, candidate, moveResult, opponentDifficulty, bagCount, bagSize, playerTimeMs, initialTimeMs } = ctx;
 
     const gapBefore = AMATS_BRIDGE.gapFromScores(playerScoreBefore, botScoreBefore);
     const before = AMATS_BRIDGE.analyze({ board, myScore: playerScoreBefore, oppScore: botScoreBefore, turnNumber, rack: rackBefore, opponentDifficulty });
@@ -75,10 +75,19 @@ const AMATS_LOGGER = (() => {
     const best = AMATS_MOVE_ANALYSIS.findBestMoveValue(board, rackBefore, isFirstMove);
     const bestValue = best ? Math.max(best.value, chosenMV.value) : chosenMV.value;
     const tacticalLoss = Math.max(0, bestValue - chosenMV.value);
-    // Decision Quality อิงจาก Tactical Loss เทียบสเกลอ้างอิง (ไม่ใช้หารตรงๆ เพราะ Move Value ติดลบได้
-    // การหารค่าติดลบทำให้สัดส่วนพลิกเครื่องหมายและให้ผลลัพธ์ผิดทิศทาง)
-    const DECISION_SCALE = 20;
-    const decisionQuality = Math.max(0, 100 - (tacticalLoss / DECISION_SCALE) * 100);
+    const decisionQuality = typeof AMATH_ANALYTICS !== "undefined"
+      ? AMATH_ANALYTICS.calculateDecisionQuality({ chosenValue: chosenMV.value, bestValue, tacticalLoss })
+      : Math.max(0, 100 - (tacticalLoss / 20) * 100);
+
+    const rackBeforePct = before?.rackHealth?.pct ?? null;
+    const rackAfterPct = AMATS_BRIDGE.rackHealth(rackAfter)?.pct ?? null;
+    const gapPoints = playerScoreBefore - botScoreBefore;
+    const pressureV2 = typeof AMATH_ANALYTICS !== "undefined"
+      ? AMATH_ANALYTICS.calculatePressure({ gapPoints, playerTimeMs, initialTimeMs, bagCount, bagSize })
+      : null;
+    const riskV2 = typeof AMATH_ANALYTICS !== "undefined"
+      ? AMATH_ANALYTICS.calculateRisk({ threatPct: before?.threatPct, opponentOpportunity: chosenMV.breakdown.opponentOpportunity })
+      : null;
 
     const entry = {
       actor: "player",
@@ -99,6 +108,13 @@ const AMATS_LOGGER = (() => {
       bestMoveValue: Math.round(bestValue * 10) / 10,
       decisionQuality: Math.round(decisionQuality * 10) / 10,
       tacticalLoss: Math.round(tacticalLoss * 10) / 10,
+      analyticsVersion: typeof AMATH_ANALYTICS !== "undefined" ? AMATH_ANALYTICS.ANALYTICS_VERSION : "LEGACY",
+      decisionQualityV2: decisionQuality,
+      rackQualityBefore: rackBeforePct,
+      rackQualityAfter: rackAfterPct,
+      pressureV2,
+      riskV2,
+      threatPctBefore: before?.threatPct ?? null,
       bagCount: bagCount ?? null,
       boardSnapshotBefore: compactBoard(board),
       boardSnapshotAfter: boardAfterCandidate(board, candidate),
