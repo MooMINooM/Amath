@@ -75,14 +75,28 @@
   function enrichPlayerTurn(t) {
     if(!t || t.actor!=="player") return t;
     const raw=t.raw || {};
-    const tacticalLoss=n(t.tactical_loss) ?? (n(t.best_move_value)!=null && n(t.move_value)!=null ? Math.max(0,n(t.best_move_value)-n(t.move_value)) : null);
-    const lossV2=calculateTacticalLoss({chosenValue:t.move_value,bestValue:t.best_move_value,tacticalLoss});
+    const moveValue=n(t.move_value) ?? n(raw.moveValue);
+    const bestMoveValue=n(t.best_move_value) ?? n(raw.bestMoveValue);
+    const tacticalLoss=n(t.tactical_loss) ?? n(raw.tacticalLoss) ??
+      (bestMoveValue!=null && moveValue!=null ? Math.max(0,bestMoveValue-moveValue) : null);
+    const lossV2=calculateTacticalLoss({chosenValue:moveValue,bestValue:bestMoveValue,tacticalLoss});
     const lossRate=n(raw.tacticalLossPctV2) ?? lossV2.rate;
-    const dq=n(raw.decisionQualityV2) ?? (lossRate==null ? null : Math.round((100-lossRate)*10)/10) ?? n(t.decision_quality);
+    const dq=n(raw.decisionQualityV2) ?? n(t.decision_quality) ??
+      (lossRate==null ? null : Math.round((100-lossRate)*10)/10);
     const rackQuality=n(raw.rackQualityAfter ?? raw.rackQuality ?? raw.rack_quality);
     const pressure=n(raw.pressureV2 ?? raw.pressure_level);
     const risk=n(raw.riskV2 ?? raw.risk);
-    return {...t,tactical_loss:tacticalLoss,decision_quality:dq,_v2:{tacticalLossRate:lossRate,rackQuality,pressure,risk,version:raw.analyticsVersion || null}};
+    return {
+      ...t,
+      decision_time_ms:n(t.decision_time_ms) ?? n(raw.decisionTimeMs),
+      move_value:moveValue,
+      best_move_value:bestMoveValue,
+      tactical_loss:tacticalLoss,
+      decision_quality:dq,
+      suggested_mode:t.suggested_mode ?? raw.suggestedMode ?? null,
+      threat_before:t.threat_before ?? raw.threatBefore ?? null,
+      _v2:{tacticalLossRate:lossRate,rackQuality,pressure,risk,version:raw.analyticsVersion || null}
+    };
   }
 
 

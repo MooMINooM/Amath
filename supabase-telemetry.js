@@ -98,6 +98,7 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     const sb = client();
     if (!sb || !match?.studentUserId || !entry) return false;
 
+    const occurredAt = iso(entry.ts) || new Date().toISOString();
     const liveTurn = {
       id: `live-${entry.ts || Date.now()}-${entry.actor || "turn"}`,
       match_id: match.id,
@@ -105,7 +106,7 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
       actor: entry.actor,
       turn_number: entry.turnNumber ?? 0,
       event_type: entry.eventType || "move",
-      occurred_at: iso(entry.ts) || new Date().toISOString(),
+      occurred_at: occurredAt,
       move_score: entry.moveScore ?? null,
       equation: entry.equation ?? null,
       decision_time_ms: entry.decisionTimeMs ?? null,
@@ -126,13 +127,14 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     broadcast("turn_event", liveTurn);
 
     await waitForMatch(match.id);
-    const { error } = await sb.from("turn_events").insert({
+
+    const fullPayload = {
       match_id: match.id,
       student_user_id: match.studentUserId,
       actor: entry.actor,
       turn_number: entry.turnNumber ?? 0,
       event_type: entry.eventType || "move",
-      occurred_at: iso(entry.ts) || new Date().toISOString(),
+      occurred_at: occurredAt,
       move_score: entry.moveScore ?? null,
       equation: entry.equation ?? null,
       decision_time_ms: entry.decisionTimeMs ?? null,
@@ -150,9 +152,44 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
       opponent_opportunity: entry.opponentOpportunity ?? null,
       opponent_next_score: entry.opponentNextScore ?? null,
       raw: entry,
-    });
-    report("logTurn", error);
-    return !error;
+    };
+
+    let result = await sb.from("turn_events").insert(fullPayload);
+    if (!result.error) return true;
+
+    report("logTurn:first-attempt", result.error);
+
+    // Older databases can exist without optional telemetry columns because
+    // CREATE TABLE IF NOT EXISTS does not evolve an existing schema.
+    // Preserve the turn instead of dropping the entire row.
+    const compatPayload = {
+      match_id: match.id,
+      student_user_id: match.studentUserId,
+      actor: entry.actor,
+      turn_number: entry.turnNumber ?? 0,
+      event_type: entry.eventType || "move",
+      occurred_at: occurredAt,
+      move_score: entry.moveScore ?? null,
+      equation: entry.equation ?? null,
+      decision_time_ms: entry.decisionTimeMs ?? null,
+      decision_quality: entry.decisionQuality ?? null,
+      tactical_loss: entry.tacticalLoss ?? null,
+      move_value: entry.moveValue ?? null,
+      best_move_value: entry.bestMoveValue ?? null,
+      gap_before: entry.gapBefore ?? null,
+      gap_after: entry.gapAfter ?? null,
+      rack_before: entry.rackBefore ?? null,
+      rack_after: entry.rackAfter ?? null,
+      board_state: entry.boardState ?? null,
+      threat_before: entry.threatBefore ?? null,
+      suggested_mode: entry.suggestedMode ?? null,
+      raw: entry,
+    };
+
+    await new Promise(resolve => setTimeout(resolve, 250));
+    result = await sb.from("turn_events").insert(compatPayload);
+    report("logTurn:compat-retry", result.error);
+    return !result.error;
   }
 
   async function finishMatch(match) {

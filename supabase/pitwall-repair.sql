@@ -21,6 +21,23 @@ $$;
 revoke all on function public.is_teacher() from public;
 grant execute on function public.is_teacher() to authenticated;
 
+-- Ensure older turn_events tables receive telemetry columns added after Beta 0.3.
+alter table public.turn_events add column if not exists decision_time_ms integer;
+alter table public.turn_events add column if not exists decision_quality numeric;
+alter table public.turn_events add column if not exists tactical_loss numeric;
+alter table public.turn_events add column if not exists move_value numeric;
+alter table public.turn_events add column if not exists best_move_value numeric;
+alter table public.turn_events add column if not exists gap_before numeric;
+alter table public.turn_events add column if not exists gap_after numeric;
+alter table public.turn_events add column if not exists rack_before jsonb;
+alter table public.turn_events add column if not exists rack_after jsonb;
+alter table public.turn_events add column if not exists board_state text;
+alter table public.turn_events add column if not exists threat_before text;
+alter table public.turn_events add column if not exists suggested_mode text;
+alter table public.turn_events add column if not exists opponent_opportunity numeric;
+alter table public.turn_events add column if not exists opponent_next_score numeric;
+alter table public.turn_events add column if not exists raw jsonb;
+
 -- 2) Ensure RLS is enabled.
 alter table public.matches enable row level security;
 alter table public.turn_events enable row level security;
