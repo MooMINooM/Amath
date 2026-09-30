@@ -129,7 +129,7 @@
       ...(timeClass.some(v=>v!=null)?[{...line('Class Avg',timeClass,colors.muted),type:'line'}]:[])
     ]);
 
-    chart('loss-chart','bar',labels,[bar('Tactical Loss (points)',lossStudent,colors.red)]);
+    chart('loss-chart','bar',labels,[bar('Tactical Loss %',lossStudent,colors.red)]);
 
     const profileModel=state.analytics?.student?.profile || {};
     const profile=[
