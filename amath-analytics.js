@@ -23,9 +23,9 @@
     const scoreAvg = avg(finished.map(m=>m.final_player_score));
     const botScoreAvg = avg(finished.map(m=>m.final_bot_score));
     const wins = finished.filter(m=>m.result==="win").length;
-    const dq = avg(player.map(t=>t.decision_quality));
-    const loss = avg(player.map(t=>t.tactical_loss));
-    const timeMs = avg(player.map(t=>t.decision_time_ms));
+    const dq = avg(player.map(t=>t.decision_quality)) ?? avg(finished.map(m=>m.summary?.avgDecisionQuality));
+    const loss = avg(player.map(t=>t.tactical_loss)) ?? avg(finished.map(m=>m.summary?.avgTacticalLoss));
+    const timeMs = avg(player.map(t=>t.decision_time_ms)) ?? avg(finished.map(m=>m.summary?.avgDecisionTimeMs));
     const moveScoreAvg = avg(player.map(t=>t.move_score));
     const botMoveScoreAvg = avg(bot.map(t=>t.move_score));
     return {
