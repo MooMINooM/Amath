@@ -89,7 +89,14 @@
   function renderCharts() {
     const model=state.model,limit=Number($('deep-turn-range').value),metric=$('deep-trend-metric').value;
     const trends=state.analytics?.trends;
-    $('deep-performance').title='Latest match · all charts use AMATH_ANALYTICS output';
+    const rangeSelect=$('deep-turn-range');
+    const historyMode=trends?.axis==="game";
+    if(rangeSelect?.options?.length>=3){
+      rangeSelect.options[0].textContent=historyMode ? "Last 30 games" : "Last 30 turns";
+      rangeSelect.options[1].textContent=historyMode ? "Last 60 games" : "Last 60 turns";
+      rangeSelect.options[2].textContent=historyMode ? "All games" : "All match turns";
+    }
+    $('deep-performance').title=historyMode ? 'Match-level history fallback' : 'Latest match · turn telemetry';
 
     let labels=[],scoreStudent=[],scoreClass=[],scoreOpponent=[],dqStudent=[],dqClass=[],timeStudent=[],timeClass=[],lossStudent=[];
     if (trends) {
@@ -196,6 +203,11 @@
       return;
     }
     const groups=[phases.opening,phases.midgame,phases.endgame];
+    const phaseTurnCount=groups.reduce((s,g)=>s+(Number(g?.turns)||0),0);
+    if(!phaseTurnCount){
+      $('deep-phase-analysis').innerHTML='<p class="empty">Phase Analysis ต้องใช้ Turn Telemetry รายตา · เกมเก่าที่ไม่ได้บันทึกรายตาจะยังแสดงส่วนนี้ไม่ได้</p>';
+      return;
+    }
     const rows=[
       ['Win %','winRate',colors.green,100,'%'],
       ['Score / turn','scorePerTurn',colors.blue,20,''],
@@ -211,6 +223,11 @@
 
   function renderCritical() {
     const filter=$('deep-critical-filter').value;
+    const playerTurnCount=state.analytics?.student?.player?.length || 0;
+    if(!playerTurnCount){
+      $('student-turn-analysis').innerHTML='<p class="empty">Critical Moves ต้องใช้ Turn Telemetry รายตา · เริ่มเก็บเต็มรูปแบบจาก Analytics v2</p>';
+      return;
+    }
     const base=state.analytics?.student?.criticalMoves || [];
     const turns=base.filter(t=>{
       const reasons=t.analytics_reasons || [];
