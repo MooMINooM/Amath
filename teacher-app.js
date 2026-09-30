@@ -395,19 +395,20 @@
         if (!row?.student_user_id) return;
         if (currentGeneration != null && Number(row.generation) !== Number(currentGeneration)) return;
         const idx = liveRows.findIndex(x => x.student_user_id === row.student_user_id);
+        let mergedRow;
         if (idx >= 0) {
-          const current = liveRows[idx];
-          liveRows[idx] = {
-            ...current,
-            ...row,
-            risk_level: current?.risk_level ?? row.risk_level ?? null,
-            analytics_version: current?.analytics_version ?? row.analytics_version ?? null,
-          };
-        } else liveRows.unshift(row);
+          mergedRow = mergeLiveRow(liveRows[idx],row,{source:"db-realtime",now:Date.now()});
+          liveRows[idx] = mergedRow;
+        } else {
+          mergedRow = { ...row, _source:"db-realtime" };
+          liveRows.unshift(mergedRow);
+        }
         renderLiveList();
         if ($("last-refresh")) $("last-refresh").textContent = new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
         if (selectedLiveId === row.student_user_id) {
-          renderLiveDetail(row);
+          // Render the reconciled row, never the raw DB event. Raw rows can be
+          // sparse/older than the Broadcast snapshot and used to blank the UI.
+          renderLiveDetail(mergedRow);
           refreshSelectedTelemetry(false);
         }
       })
@@ -528,9 +529,10 @@
   function applyBroadcastLiveRow(payload) {
     if (!payload?.student_user_id) return;
     if (currentGeneration != null && Number(payload.generation) !== Number(currentGeneration)) return;
-    const row = { ...payload, _received_at: Date.now(), _source: "broadcast" };
+    const now = Date.now();
+    const row = { ...payload, _received_at:now, _source:"broadcast" };
     const idx = liveRows.findIndex(x => x.student_user_id === row.student_user_id);
-    if (idx >= 0) liveRows[idx] = { ...liveRows[idx], ...row };
+    if (idx >= 0) liveRows[idx] = mergeLiveRow(liveRows[idx],row,{source:"broadcast",now});
     else liveRows.unshift(row);
 
     renderLiveList();
