@@ -204,20 +204,27 @@ const AMATS_LOGGER = (() => {
   }
 
   function computeSummary(match) {
-    const playerTurns = match.turns.filter(t => t.actor === "player");
+    const playerTurns = match.turns.filter(t => t.actor === "player" && (t.eventType || "move") === "move");
     if (playerTurns.length === 0) return null;
-    const avg = (arr) => arr.reduce((s, v) => s + v, 0) / arr.length;
-    const sorted = [...playerTurns].sort((a, b) => b.decisionQuality - a.decisionQuality);
+    const nums = arr => arr.map(Number).filter(Number.isFinite);
+    const avg = arr => { const xs=nums(arr); return xs.length ? xs.reduce((s,v)=>s+v,0)/xs.length : null; };
+    const dqTurns = playerTurns.filter(t => Number.isFinite(Number(t.decisionQuality)));
+    const sorted = [...dqTurns].sort((a,b) => Number(b.decisionQuality)-Number(a.decisionQuality));
     return {
+      analyticsVersion: typeof AMATH_ANALYTICS !== "undefined" ? AMATH_ANALYTICS.ANALYTICS_VERSION : "LEGACY",
       turnsPlayed: playerTurns.length,
-      avgScore: avg(playerTurns.map(t => t.moveScore)),
-      avgDecisionQuality: avg(playerTurns.map(t => t.decisionQuality)),
-      avgTacticalLoss: avg(playerTurns.map(t => t.tacticalLoss)),
-      totalTacticalLoss: playerTurns.reduce((s, t) => s + t.tacticalLoss, 0),
-      goodDecisionRate: playerTurns.filter(t => t.decisionQuality >= 70).length / playerTurns.length * 100,
-      bestDecisions: sorted.slice(0, 3),
-      worstDecisions: [...playerTurns].sort((a, b) => b.tacticalLoss - a.tacticalLoss).slice(0, 3).filter(t => t.tacticalLoss > 0),
-      modeUsage: playerTurns.reduce((acc, t) => { if (t.suggestedMode) acc[t.suggestedMode] = (acc[t.suggestedMode] || 0) + 1; return acc; }, {}),
+      avgScore: avg(playerTurns.map(t=>t.moveScore)),
+      avgDecisionQuality: avg(playerTurns.map(t=>t.decisionQuality)),
+      avgDecisionTimeMs: avg(playerTurns.map(t=>t.decisionTimeMs)),
+      avgTacticalLoss: avg(playerTurns.map(t=>t.tacticalLoss)),
+      totalTacticalLoss: nums(playerTurns.map(t=>t.tacticalLoss)).reduce((s,v)=>s+v,0),
+      avgRackQuality: avg(playerTurns.map(t=>t.rackQualityAfter)),
+      avgPressure: avg(playerTurns.map(t=>t.pressureV2)),
+      avgRisk: avg(playerTurns.map(t=>t.riskV2)),
+      goodDecisionRate: dqTurns.length ? dqTurns.filter(t=>Number(t.decisionQuality)>=70).length/dqTurns.length*100 : null,
+      bestDecisions: sorted.slice(0,3),
+      worstDecisions: [...playerTurns].sort((a,b)=>(Number(b.tacticalLoss)||0)-(Number(a.tacticalLoss)||0)).slice(0,3).filter(t=>(Number(t.tacticalLoss)||0)>0),
+      modeUsage: playerTurns.reduce((acc,t)=>{ if(t.suggestedMode) acc[t.suggestedMode]=(acc[t.suggestedMode]||0)+1; return acc; },{}),
     };
   }
 
