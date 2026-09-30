@@ -62,7 +62,7 @@ const AMATS_LOGGER = (() => {
    */
   function logPlayerTurn(ctx) {
     if (!currentMatch) return null;
-    const { board, rackBefore, playerScoreBefore, botScoreBefore, turnNumber, isFirstMove, candidate, moveResult, opponentDifficulty } = ctx;
+    const { board, rackBefore, playerScoreBefore, botScoreBefore, turnNumber, isFirstMove, candidate, moveResult, opponentDifficulty, bagCount } = ctx;
 
     const gapBefore = AMATS_BRIDGE.gapFromScores(playerScoreBefore, botScoreBefore);
     const before = AMATS_BRIDGE.analyze({ board, myScore: playerScoreBefore, oppScore: botScoreBefore, turnNumber, rack: rackBefore, opponentDifficulty });
@@ -99,6 +99,7 @@ const AMATS_LOGGER = (() => {
       bestMoveValue: Math.round(bestValue * 10) / 10,
       decisionQuality: Math.round(decisionQuality * 10) / 10,
       tacticalLoss: Math.round(tacticalLoss * 10) / 10,
+      bagCount: bagCount ?? null,
       boardSnapshotBefore: compactBoard(board),
       boardSnapshotAfter: boardAfterCandidate(board, candidate),
       placements: candidate.coords.map(({ r, c }, i) => ({
@@ -150,6 +151,7 @@ const AMATS_LOGGER = (() => {
       rackAfter: details.rackAfter || null,
       boardSnapshotAfter: details.board ? compactBoard(details.board) : (details.boardSnapshotAfter ?? null),
       placements: details.placements || null,
+      bagCount: details.bagCount ?? null,
       ts: Date.now()
     };
     currentMatch.turns.push(botEntry);
