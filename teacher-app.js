@@ -19,7 +19,7 @@
   let replayReturnView = "student-detail";
   let replayRequestedTurnId = null;
   let rosterClassSignature = "";
-  let deepCharts = {};
+  let deepAnalysisRequest = 0;
   let showAllPitMoves = false;
 
   const $ = id => document.getElementById(id);
@@ -111,6 +111,7 @@
 
   function setView(name) {
     document.body.classList.toggle("pitwall-mode", name === "pitwall");
+    document.body.classList.toggle("deep-analysis-mode", name === "student-detail");
     document.querySelectorAll(".view").forEach(v => v.hidden = true);
     $("view-" + name).hidden = false;
     document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.view === name));
@@ -862,182 +863,52 @@
     return { games:ms.length, wins, winRate:ms.length ? wins/ms.length*100 : 0, avg };
   }
 
-  function destroyDeepCharts() {
-    Object.values(deepCharts).forEach(ch => { try { ch.destroy(); } catch (e) {} });
-    deepCharts = {};
-  }
-
-  function avg(arr) {
-    const nums = arr.filter(v => Number.isFinite(Number(v))).map(Number);
-    return nums.length ? nums.reduce((a,b)=>a+b,0)/nums.length : null;
-  }
-
   function dateLabel(ts) {
     if (!ts) return "—";
     return new Date(ts).toLocaleDateString("th-TH",{day:"2-digit",month:"short"});
   }
 
-  function makeLineChart(id, labels, values, label) {
-    const el = $(id);
-    if (!el || typeof Chart === "undefined") return;
-    deepCharts[id] = new Chart(el, {
-      type:"line",
-      data:{ labels, datasets:[{ label, data:values, tension:.28, pointRadius:3, borderWidth:2, fill:false }] },
-      options:{
-        responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{ display:false } },
-        scales:{ x:{ grid:{ display:false } }, y:{ beginAtZero:true, ticks:{ precision:0 } } }
-      }
-    });
-  }
-
-  function makeBarChart(id, labels, values, label) {
-    const el = $(id);
-    if (!el || typeof Chart === "undefined") return;
-    deepCharts[id] = new Chart(el, {
-      type:"bar",
-      data:{ labels, datasets:[{ label, data:values, borderWidth:0, borderRadius:5 }] },
-      options:{
-        responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{ display:false } },
-        scales:{ x:{ grid:{ display:false } }, y:{ beginAtZero:true } }
-      }
-    });
-  }
-
-  function makeDoughnut(id, values) {
-    const el = $(id);
-    if (!el || typeof Chart === "undefined") return;
-    deepCharts[id] = new Chart(el, {
-      type:"doughnut",
-      data:{ labels:["ชนะ","แพ้","เสมอ"], datasets:[{ data:values, borderWidth:0 }] },
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:"bottom" } }, cutout:"68%" }
-    });
-  }
-
   async function openStudentDeepAnalysis(studentId) {
-    const student = students.find(s => s.user_id === studentId);
+    const liveRow = liveRows.find(r => r.student_user_id === studentId);
+    const student = students.find(s => s.user_id === studentId) || (liveRow ? {
+      user_id: studentId, full_name: liveRow.student_name, student_code: liveRow.student_code,
+      class_name: liveRow.class_name, room_no: liveRow.room_no, active: true,
+    } : null);
     if (!student) return;
-
+    const requestId = ++deepAnalysisRequest;
     setView("student-detail");
-    $("student-detail-name").textContent = student.full_name;
-    $("student-detail-meta").textContent = `${student.student_code} · ${student.class_name || ""}/${student.room_no || ""}`;
-    $("student-detail-status").innerHTML = student.active
-      ? '<span class="status playing">ACTIVE</span>'
-      : '<span class="status finished">INACTIVE</span>';
-
+    $("student-detail-name").textContent = student.full_name || student.student_code;
+    $("deep-student-code").textContent = student.student_code || "—";
+    $("student-detail-meta").textContent = `${student.class_name || "—"} | ห้องเรียน ${student.room_no || "—"}`;
+    AMATH_DEEP_ANALYSIS.begin();
+    $("deep-profile-meta").replaceChildren();
     $("student-kpis").innerHTML = '<div class="analysis-loading">กำลังโหลดข้อมูล...</div>';
-    $("student-match-history").innerHTML = '<p class="empty">กำลังโหลด...</p>';
-    $("student-turn-analysis").innerHTML = '<p class="empty">กำลังโหลด...</p>';
-
-    const studentMatches = matches
-      .filter(m => m.student_user_id === studentId)
-      .sort((a,b)=>new Date(a.started_at)-new Date(b.started_at));
-
-    const { data:turns, error } = await sb()
-      .from("turn_events")
-      .select("id,match_id,actor,turn_number,event_type,occurred_at,move_score,equation,decision_time_ms,decision_quality,tactical_loss,move_value,best_move_value,gap_before,gap_after,suggested_mode")
-      .eq("student_user_id", studentId)
-      .order("occurred_at",{ascending:true})
-      .limit(2000);
-
+    const studentMatches = matches.filter(m => m.student_user_id === studentId)
+      .sort((a,b) => new Date(a.started_at) - new Date(b.started_at));
+    const peers = student.class_name ? students.filter(s => s.user_id !== studentId &&
+      s.class_name === student.class_name && String(s.room_no || "") === String(student.room_no || "")) : [];
+    const peerIds = peers.map(s => s.user_id);
+    const columns = "id,match_id,actor,turn_number,event_type,occurred_at,move_score,equation,decision_time_ms,decision_quality,tactical_loss,move_value,best_move_value,gap_before,gap_after,suggested_mode,threat_before,raw";
+    const results = await Promise.all([
+      sb().from("turn_events").select(columns).eq("student_user_id",studentId).order("occurred_at",{ascending:false}).limit(2000),
+      peerIds.length ? sb().from("turn_events").select("match_id,actor,turn_number,event_type,occurred_at,move_score,decision_time_ms,decision_quality,tactical_loss,threat_before")
+        .in("student_user_id",peerIds).order("occurred_at",{ascending:false}).limit(2000) : Promise.resolve({data:[],error:null}),
+    ]);
+    if (requestId !== deepAnalysisRequest) return;
+    const [{data:turns,error},{data:peerTurns,error:peerError}] = results;
     if (error) {
       console.warn(error);
-      $("student-kpis").innerHTML = '<div class="analysis-loading">โหลด Turn Telemetry ไม่สำเร็จ</div>';
+      $("student-kpis").innerHTML = '<div class="analysis-loading">โหลด Turn Telemetry ไม่สำเร็จ ลองกดรีเฟรชอีกครั้ง</div>';
+      $("deep-refresh").onclick = () => openStudentDeepAnalysis(studentId);
       return;
     }
-
-    renderStudentDeepAnalysis(student, studentMatches, turns || []);
-  }
-
-  function renderStudentDeepAnalysis(student, studentMatches, turns) {
-    destroyDeepCharts();
-
-    const finished = studentMatches.filter(m => m.status === "finished");
-    const playerTurns = turns.filter(t => t.actor === "player" && t.event_type === "move");
-    const wins = finished.filter(m => m.result === "win").length;
-    const losses = finished.filter(m => m.result === "loss" || m.result === "double_loss").length;
-    const draws = finished.filter(m => m.result === "draw").length;
-    const avgScore = avg(finished.map(m => m.final_player_score)) ?? 0;
-    const avgDQ = avg(playerTurns.map(t => t.decision_quality));
-    const avgLoss = avg(playerTurns.map(t => t.tactical_loss));
-    const avgDecisionMs = avg(playerTurns.map(t => t.decision_time_ms));
-
-    $("student-kpis").innerHTML = [
-      ["เกมทั้งหมด", finished.length, ""],
-      ["อัตราชนะ", finished.length ? Math.round(wins/finished.length*100) : 0, "%"],
-      ["คะแนนเฉลี่ย", avgScore.toFixed(1), ""],
-      ["Decision Quality", avgDQ == null ? "—" : Math.round(avgDQ), avgDQ == null ? "" : "%"],
-      ["Tactical Loss", avgLoss == null ? "—" : avgLoss.toFixed(1), ""],
-      ["เวลา/ตา", avgDecisionMs == null ? "—" : (avgDecisionMs/1000).toFixed(1), avgDecisionMs == null ? "" : "s"],
-    ].map(([label,value,suffix]) => `<div class="deep-kpi"><small>${label}</small><strong>${value}${suffix}</strong></div>`).join("");
-
-    const recentFinished = finished.slice(-12);
-    makeLineChart(
-      "score-trend-chart",
-      recentFinished.map(m=>dateLabel(m.started_at)),
-      recentFinished.map(m=>m.final_player_score ?? 0),
-      "คะแนน"
-    );
-
-    const matchTurnMap = new Map();
-    playerTurns.forEach(t => {
-      if (!matchTurnMap.has(t.match_id)) matchTurnMap.set(t.match_id, []);
-      matchTurnMap.get(t.match_id).push(t);
+    $("deep-refresh").onclick = null;
+    if (peerError) console.warn("[Deep Analysis] Class telemetry unavailable",peerError);
+    AMATH_DEEP_ANALYSIS.render({student,studentMatches,turns:(turns || []).reverse(),peerTurns:(peerTurns || []).reverse(),
+      peerMatches:matches.filter(m => peerIds.includes(m.student_user_id)),peerLiveRows:liveRows.filter(r=>peerIds.includes(r.student_user_id)),liveRow,studentCount:students.length,
+      onReplay:(matchId,turnId) => openMatchReplay(matchId,studentId,{turnId}),
+      onReload:async() => {await refreshStudents();await openStudentDeepAnalysis(studentId);},
     });
-
-    const matchDQ = recentFinished.map(m => avg((matchTurnMap.get(m.id)||[]).map(t=>t.decision_quality)));
-    makeLineChart(
-      "dq-trend-chart",
-      recentFinished.map(m=>dateLabel(m.started_at)),
-      matchDQ.map(v=>v == null ? null : Number(v.toFixed(1))),
-      "Decision Quality"
-    );
-
-    const recentPlayerTurns = playerTurns.slice(-20);
-    makeBarChart(
-      "loss-chart",
-      recentPlayerTurns.map(t=>`T${t.turn_number}`),
-      recentPlayerTurns.map(t=>Number(t.tactical_loss)||0),
-      "Tactical Loss"
-    );
-
-    makeLineChart(
-      "decision-time-chart",
-      recentPlayerTurns.map(t=>`T${t.turn_number}`),
-      recentPlayerTurns.map(t=>t.decision_time_ms == null ? null : Number((t.decision_time_ms/1000).toFixed(1))),
-      "วินาที"
-    );
-
-    makeDoughnut("result-chart",[wins,losses,draws]);
-
-    $("student-match-history").innerHTML = finished.length ? [...finished].reverse().slice(0,12).map(m => {
-      const resultText = m.result === "win" ? "ชนะ" : m.result === "draw" ? "เสมอ" : "แพ้";
-      const cls = m.result === "win" ? "win" : m.result === "draw" ? "draw" : "loss";
-      const mt = matchTurnMap.get(m.id) || [];
-      const dq = avg(mt.map(t=>t.decision_quality));
-      return `<button class="match-row replay-open-match" data-match-id="${m.id}" data-student-id="${student.user_id}" type="button">
-        <span><strong>${dateLabel(m.started_at)}</strong><small>${m.ruleset_label || m.ruleset_id || "A-Math"} · ${m.difficulty || "—"}</small></span>
-        <span class="match-result ${cls}">${resultText}</span>
-        <span><strong>${m.final_player_score ?? 0}–${m.final_bot_score ?? 0}</strong><small>คะแนน</small></span>
-        <span><strong>${dq == null ? "—" : Math.round(dq)+"%"}</strong><small>DQ · เปิด Replay →</small></span>
-      </button>`;
-    }).join("") : '<p class="empty">ยังไม่มีเกมที่จบแล้ว</p>';
-
-    const worst = [...playerTurns]
-      .filter(t => t.tactical_loss != null)
-      .sort((a,b)=>(Number(b.tactical_loss)||0)-(Number(a.tactical_loss)||0))
-      .slice(0,8);
-
-    $("student-turn-analysis").innerHTML = worst.length ? worst.map(t => `<div class="turn-row">
-      <span class="turn-no">T${t.turn_number}</span>
-      <span><strong>${t.equation || t.event_type}</strong><small>${dateLabel(t.occurred_at)} · ${t.suggested_mode || "—"}</small></span>
-      <span><strong>DQ ${t.decision_quality == null ? "—" : Math.round(t.decision_quality)+"%"}</strong><small>Loss ${t.tactical_loss == null ? "—" : Number(t.tactical_loss).toFixed(1)}</small></span>
-    </div>`).join("") : '<p class="empty">ยังไม่มีข้อมูลตาที่วิเคราะห์ได้</p>';
-    document.querySelectorAll(".replay-open-match").forEach(btn => {
-      btn.addEventListener("click",()=>openMatchReplay(btn.dataset.matchId,btn.dataset.studentId));
-    });
-
   }
 
   async function openPitwallReplay(turnId = null) {
