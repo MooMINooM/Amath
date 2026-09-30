@@ -132,6 +132,7 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     if (!sb || !match?.studentUserId) return Promise.resolve(false);
     const task = (async () => {
       const generation = await ensureGeneration();
+      match.generation = generation;
       const { error } = await sb.from("matches").upsert({
         id: match.id,
         generation,
@@ -165,7 +166,7 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     const sb = client();
     if (!sb || !match?.studentUserId || !entry) return false;
 
-    const generation = await ensureGeneration();
+    const generation = match.generation ?? await ensureGeneration();
     const occurredAt = iso(entry.ts) || new Date().toISOString();
     const liveTurn = {
       id: `live-${entry.ts || Date.now()}-${entry.actor || "turn"}`,
@@ -199,6 +200,7 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
 
     const fullPayload = {
       match_id: match.id,
+      generation,
       student_user_id: match.studentUserId,
       actor: entry.actor,
       turn_number: entry.turnNumber ?? 0,
@@ -233,6 +235,7 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     // Preserve the turn instead of dropping the entire row.
     const compatPayload = {
       match_id: match.id,
+      generation,
       student_user_id: match.studentUserId,
       actor: entry.actor,
       turn_number: entry.turnNumber ?? 0,
@@ -274,7 +277,9 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
       clock: match.clock,
       summary: match.summary,
       updated_at: new Date().toISOString(),
-    }).eq("id", match.id).eq("student_user_id", match.studentUserId);
+    }).eq("id", match.id)
+      .eq("student_user_id", match.studentUserId)
+      .eq("generation", match.generation ?? await ensureGeneration());
     report("finishMatch", error);
     return !error;
   }
@@ -283,8 +288,10 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     const sb = client();
     if (!sb || !state?.studentUserId) return false;
     if (state.matchId) await waitForMatch(state.matchId);
+    const generation = state.matchGeneration ?? await ensureGeneration();
 
     const payload = {
+      generation,
       student_user_id: state.studentUserId,
       match_id: state.matchId || null,
       student_code: state.studentCode,
@@ -333,5 +340,8 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     return !result.error;
   }
 
-  return { startMatch, logTurn, finishMatch, syncLive };
+  return {
+    startMatch, logTurn, finishMatch, syncLive,
+    ensureGeneration, watchGeneration, stopGenerationWatch, generation
+  };
 })();
