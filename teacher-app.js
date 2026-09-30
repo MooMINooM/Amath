@@ -924,7 +924,26 @@
     }
     $("deep-refresh").onclick = null;
     if (peerError) console.warn("[Deep Analysis] Class telemetry unavailable",peerError);
-    AMATH_DEEP_ANALYSIS.render({student,studentMatches,turns:(turns || []).reverse(),peerTurns:(peerTurns || []).reverse(),
+
+    const dbTurns = (turns || []).reverse();
+    const liveTurnsForStudent = liveRow?.match_id && selectedLiveId === studentId
+      ? selectedTurns.filter(t => t.match_id === liveRow.match_id)
+      : [];
+    const mergedTurns = [];
+    const seenTurns = new Map();
+    [...dbTurns,...liveTurnsForStudent].forEach(t => {
+      const key = turnIdentity(t);
+      const existing = seenTurns.get(key);
+      if (existing) Object.assign(existing,t);
+      else {
+        const copy={...t};
+        seenTurns.set(key,copy);
+        mergedTurns.push(copy);
+      }
+    });
+    mergedTurns.sort((a,b)=>new Date(a.occurred_at || a.raw?.ts || 0)-new Date(b.occurred_at || b.raw?.ts || 0));
+
+    AMATH_DEEP_ANALYSIS.render({student,studentMatches,turns:mergedTurns,peerTurns:(peerTurns || []).reverse(),
       peerMatches:matches.filter(m => peerIds.includes(m.student_user_id)),peerLiveRows:liveRows.filter(r=>peerIds.includes(r.student_user_id)),liveRow,studentCount:students.length,
       onReplay:(matchId,turnId) => openMatchReplay(matchId,studentId,{turnId}),
       onReload:async() => {await refreshStudents();await openStudentDeepAnalysis(studentId);},
