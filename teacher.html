@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="teacher.css">
+  <link rel="stylesheet" href="teacher-deep-analysis.css">
 </head>
 <body class="teacher-locked">
   <section id="teacher-login" class="teacher-login">
@@ -131,55 +132,50 @@
       <div id="students-table" class="students-table"></div>
     </section>
 
-    <section id="view-student-detail" class="view" hidden>
-      <div class="page-head student-detail-head">
-        <div>
-          <button id="student-detail-back" class="back-btn" type="button">← ข้อมูลนักเรียน</button>
-          <p class="eyebrow">STUDENT DEEP ANALYSIS</p>
-          <h2 id="student-detail-name">นักเรียน</h2>
-          <p id="student-detail-meta" class="detail-meta"></p>
+    <section id="view-student-detail" class="view deep-dashboard" hidden>
+      <header class="deep-topbar">
+        <div class="deep-brand"><span class="deep-logo">A</span><div><strong>A-MATH PITWALL</strong><small>TEACHER DATA CONSOLE</small></div><b>DEEP ANALYSIS</b></div>
+        <div class="deep-topstats"><span id="deep-live-status" class="deep-live">● DATA</span><div><small>ข้อมูลล่าสุด</small><strong id="deep-sync-label">—</strong></div><div><strong id="deep-clock">--:--:--</strong><small id="deep-date">—</small></div><div><small>จำนวนนักเรียนทั้งหมด</small><strong id="deep-student-count">—</strong></div><div class="deep-top-rule"><small>Ruleset</small><strong id="deep-header-ruleset">—</strong></div><div class="deep-top-rule"><small>Bot Level</small><strong id="deep-header-level">—</strong></div><button id="deep-refresh" type="button" aria-label="รีเฟรชข้อมูล">⟳</button></div>
+      </header>
+      <div class="deep-top-layout">
+        <aside class="deep-sidebar">
+          <button id="student-detail-back" class="deep-back" type="button">← &nbsp; Back to Student List</button>
+          <nav aria-label="Analysis sections">
+            <button class="active" data-deep-target="deep-summary"><span>▥</span>OVERVIEW</button>
+            <button data-deep-target="deep-decision"><span>◈</span>DECISION</button>
+            <button data-deep-target="deep-time"><span>◷</span>TIME</button>
+            <button data-deep-target="deep-tactical"><span>◎</span>TACTICAL</button>
+            <button data-deep-target="deep-rack-quality"><span>▦</span>RACK</button>
+            <button data-deep-target="deep-benchmark-card"><span>▥</span>BENCHMARK</button>
+            <button id="deep-match-log-toggle" type="button" aria-expanded="false"><span>☷</span>MATCH LOG</button>
+          </nav>
+        </aside>
+        <div class="deep-primary">
+          <section class="deep-panel deep-player">
+            <div class="deep-person"><img src="assets/student-avatar.svg" alt=""><div><small id="deep-student-code">—</small><h2 id="student-detail-name">นักเรียน</h2><p id="student-detail-meta">—</p></div></div>
+            <div id="deep-profile-meta" class="deep-profile-meta"></div><span id="student-detail-status" hidden></span>
+          </section>
+          <section id="deep-summary" class="deep-panel deep-summary"><h3><span>▥</span>SUMMARY KPIs</h3><div id="student-kpis" class="deep-kpi-grid"></div></section>
+          <div class="deep-chart-trio">
+            <section class="deep-panel" id="deep-performance"><div class="deep-panel-head"><h3><span>▥</span>PERFORMANCE TREND</h3><div class="deep-controls"><select id="deep-trend-metric" aria-label="Performance metric"><option value="score">Score</option><option value="dq">DQ</option><option value="time">Time</option></select><select id="deep-turn-range" aria-label="Number of turns"><option value="30">Last 30 turns</option><option value="60">Last 60 turns</option><option value="0">All match turns</option></select></div></div><div class="deep-chart"><canvas id="score-trend-chart"></canvas></div></section>
+            <section id="deep-decision" class="deep-panel"><div class="deep-panel-head"><h3><span>◈</span>DECISION QUALITY</h3><strong id="deep-dq-badge" class="deep-badge">—</strong></div><div class="deep-chart"><canvas id="dq-trend-chart"></canvas></div></section>
+            <section id="deep-time" class="deep-panel"><div class="deep-panel-head"><h3><span>◷</span>DECISION TIME</h3><strong id="deep-time-badge" class="deep-badge purple">—</strong></div><div class="deep-chart"><canvas id="decision-time-chart"></canvas></div></section>
+          </div>
         </div>
-        <div class="student-detail-status" id="student-detail-status"></div>
       </div>
-
-      <div id="student-kpis" class="deep-kpi-grid"></div>
-
-      <div class="analysis-grid two">
-        <section class="analysis-card">
-          <div class="analysis-card-head"><div><small>PERFORMANCE TREND</small><h3>คะแนนต่อเกม</h3></div></div>
-          <div class="chart-wrap"><canvas id="score-trend-chart"></canvas></div>
-        </section>
-        <section class="analysis-card">
-          <div class="analysis-card-head"><div><small>DECISION QUALITY</small><h3>คุณภาพการตัดสินใจ</h3></div></div>
-          <div class="chart-wrap"><canvas id="dq-trend-chart"></canvas></div>
-        </section>
+      <div class="deep-secondary">
+        <section id="deep-tactical" class="deep-panel"><div class="deep-panel-head"><h3><span>◎</span>TACTICAL LOSS</h3><strong id="deep-loss-badge" class="deep-badge red">—</strong></div><div class="deep-chart"><canvas id="loss-chart"></canvas></div></section>
+        <section class="deep-panel"><h3><span>◇</span>LIVE PROFILE</h3><div class="deep-chart"><canvas id="deep-profile-chart"></canvas></div></section>
+        <section id="deep-heatmap-card" class="deep-panel"><h3><span>▦</span>BOARD HEATMAP</h3><div id="deep-heatmap" class="deep-heatmap" aria-label="Board density heatmap"></div></section>
+        <section class="deep-panel"><h3><span>◕</span>MOVE CLASSIFICATION</h3><div class="deep-chart"><canvas id="result-chart"></canvas></div><small class="deep-note">จัดกลุ่มตามโหมด AMATS ที่บันทึกไว้</small></section>
       </div>
-
-      <div class="analysis-grid three">
-        <section class="analysis-card">
-          <div class="analysis-card-head"><div><small>TACTICAL LOSS</small><h3>โอกาสที่เสียไป</h3></div></div>
-          <div class="chart-wrap compact"><canvas id="loss-chart"></canvas></div>
-        </section>
-        <section class="analysis-card">
-          <div class="analysis-card-head"><div><small>DECISION TIME</small><h3>เวลาเฉลี่ยต่อการตัดสินใจ</h3></div></div>
-          <div class="chart-wrap compact"><canvas id="decision-time-chart"></canvas></div>
-        </section>
-        <section class="analysis-card">
-          <div class="analysis-card-head"><div><small>OUTCOMES</small><h3>ผลการแข่งขัน</h3></div></div>
-          <div class="chart-wrap compact"><canvas id="result-chart"></canvas></div>
-        </section>
+      <div class="deep-bottom">
+        <section class="deep-panel"><h3><span>▥</span>PHASE ANALYSIS</h3><div id="deep-phase-analysis"></div></section>
+        <section id="deep-benchmark-card" class="deep-panel"><h3><span>▥</span>OPPONENT / CLASS BENCHMARK</h3><div class="deep-chart"><canvas id="deep-benchmark-chart"></canvas></div></section>
+        <section class="deep-panel"><div class="deep-panel-head"><h3><span>▲</span>CRITICAL MOVES</h3><select id="deep-critical-filter" aria-label="Filter critical moves"><option value="all">All</option><option value="loss">Tactical loss</option><option value="time">Slow decision</option><option value="dq">Low DQ</option></select></div><div id="student-turn-analysis" class="deep-critical-table"></div></section>
+        <section class="deep-panel"><h3><span>✦</span>AI INSIGHT</h3><div id="deep-insights"></div></section>
       </div>
-
-      <div class="analysis-grid lower">
-        <section class="analysis-card">
-          <div class="analysis-card-head"><div><small>RECENT MATCHES</small><h3>ประวัติการแข่งขัน</h3></div></div>
-          <div id="student-match-history" class="match-history"></div>
-        </section>
-        <section class="analysis-card">
-          <div class="analysis-card-head"><div><small>TURN ANALYSIS</small><h3>ตาที่ควรย้อนดู</h3></div></div>
-          <div id="student-turn-analysis" class="turn-analysis"></div>
-        </section>
-      </div>
+      <section id="deep-match-log" class="deep-panel deep-match-log" hidden><div class="deep-panel-head"><h3>MATCH LOG</h3><button id="deep-match-log-close" type="button" aria-label="Close match log">✕</button></div><div id="student-match-history" class="match-history"></div></section>
     </section>
 
     <section id="view-replay" class="view" hidden>
@@ -234,6 +230,7 @@
   <script src="rulesets.js"></script>
   <script src="data.js"></script>
   <script src="teacher-auth.js"></script>
+  <script src="teacher-deep-analysis.js"></script>
   <script src="teacher-app.js"></script>
 </body>
 </html>
