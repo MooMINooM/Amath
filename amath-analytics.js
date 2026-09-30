@@ -9,8 +9,20 @@
     return xs.length ? xs.reduce((a,b)=>a+b,0)/xs.length : null;
   };
   const clamp = (v,min=0,max=100) => v == null ? null : Math.max(min,Math.min(max,v));
-  const playerMoves = turns => (turns || []).filter(t =>
-    t.actor === "player" && (t.event_type || "move") === "move" && Number(t.turn_number) > 0
+  function normalizeTurns(turns=[]) {
+    const counters=new Map();
+    return (turns || []).map(t=>{
+      if((t.event_type || "move") !== "move") return t;
+      const key=`${t.match_id || "unknown"}|${t.actor || "unknown"}`;
+      const next=(counters.get(key)||0)+1;
+      counters.set(key,next);
+      const turnNo=Number(t.turn_number);
+      return Number.isFinite(turnNo) && turnNo>0 ? t : {...t,turn_number:next,_turn_number_fallback:true};
+    });
+  }
+
+  const playerMoves = turns => normalizeTurns(turns).filter(t =>
+    t.actor === "player" && (t.event_type || "move") === "move"
   ).map(enrichPlayerTurn);
   const botMoves = turns => (turns || []).filter(t =>
     t.actor === "bot" && (t.event_type || "move") === "move" && Number(t.turn_number) > 0
@@ -86,7 +98,7 @@
     const lossPoints = avg(player.map(t=>t.tactical_loss)) ?? avg(finished.map(m=>m.summary?.avgTacticalLoss));
     const loss = avg(player.map(t=>t._v2?.tacticalLossRate)) ?? avg(finished.map(m=>m.summary?.avgTacticalLossPctV2));
     const timeMs = avg(player.map(t=>t.decision_time_ms)) ?? avg(finished.map(m=>m.summary?.avgDecisionTimeMs));
-    const moveScoreAvg = avg(player.map(t=>t.move_score));
+    const moveScoreAvg = avg(player.map(t=>t.move_score)) ?? avg(finished.map(m=>m.summary?.avgScore));
     const botMoveScoreAvg = avg(bot.map(t=>t.move_score));
     return {
       player,bot,finished,
@@ -98,9 +110,9 @@
       dq,loss,lossPoints,time:timeMs,
       moveScore:moveScoreAvg,
       opponentMoveScore:botMoveScoreAvg,
-      rackQuality:avg(player.map(t=>t._v2?.rackQuality)) ?? n(liveRow?.rack_quality),
-      pressure:avg(player.map(t=>t._v2?.pressure)) ?? n(liveRow?.pressure_level),
-      risk:avg(player.map(t=>t._v2?.risk)) ?? n(liveRow?.risk_level),
+      rackQuality:avg(player.map(t=>t._v2?.rackQuality)) ?? n(liveRow?.rack_quality) ?? avg(finished.map(m=>m.summary?.avgRackQuality)),
+      pressure:avg(player.map(t=>t._v2?.pressure)) ?? n(liveRow?.pressure_level) ?? avg(finished.map(m=>m.summary?.avgPressure)),
+      risk:avg(player.map(t=>t._v2?.risk)) ?? n(liveRow?.risk_level) ?? avg(finished.map(m=>m.summary?.avgRisk)),
       lastMoveScore:n(liveRow?.last_move_score) ?? n(player.at(-1)?.move_score),
     };
   }
@@ -237,8 +249,8 @@
 
   function cumulativeSeries(turns=[],actor="player") {
     let score=0;
-    return (turns || [])
-      .filter(t => (t.event_type || "move") === "move" && t.actor === actor && Number(t.turn_number)>0)
+    return normalizeTurns(turns)
+      .filter(t => (t.event_type || "move") === "move" && t.actor === actor)
       .map(t => ({ turn:Number(t.turn_number), value:score += Number(t.move_score)||0 }));
   }
 
@@ -265,9 +277,59 @@
     return groups;
   }
 
-  function calculateTrendSeries(turns=[],peerTurns=[]) {
-    const lastMatchId=(turns || []).at(-1)?.match_id || null;
-    const matchTurns=lastMatchId ? turns.filter(t=>t.match_id===lastMatchId) : [];
+  function calculateTrendSeries(turns=[],peerTurns=[],preferredMatchId=null,matches=[],peerMatches=[]) {
+    const normalized=normalizeTurns(turns);
+    const byMatch=new Map();
+    for(const t of normalized){
+      if(!t.match_id) continue;
+      if(!byMatch.has(t.match_id)) byMatch.set(t.match_id,[]);
+      byMatch.get(t.match_id).push(t);
+    }
+    const hasPlayerMoves=id => playerMoves(byMatch.get(id)||[]).length>0;
+    let lastMatchId=preferredMatchId && hasPlayerMoves(preferredMatchId) ? preferredMatchId : null;
+    if(!lastMatchId){
+      const candidateIds=[...byMatch.keys()].filter(hasPlayerMoves);
+      candidateIds.sort((a,b)=>{
+        const ta=Math.max(...(byMatch.get(a)||[]).map(t=>new Date(t.occurred_at || t.raw?.ts || 0).getTime()||0));
+        const tb=Math.max(...(byMatch.get(b)||[]).map(t=>new Date(t.occurred_at || t.raw?.ts || 0).getTime()||0));
+        return tb-ta;
+      });
+      lastMatchId=candidateIds[0] || null;
+    }
+
+    if(!lastMatchId){
+      const history=finishedMatches(matches).slice().sort((a,b)=>new Date(a.started_at||0)-new Date(b.started_at||0));
+      const peer=finishedMatches(peerMatches);
+      const peerScore=avg(peer.map(m=>m.final_player_score));
+      const peerDQ=avg(peer.map(m=>m.summary?.avgDecisionQuality));
+      const peerTime=avg(peer.map(m=>m.summary?.avgDecisionTimeMs));
+      const peerLoss=avg(peer.map(m=>m.summary?.avgTacticalLossPctV2 ?? m.summary?.avgTacticalLoss));
+      return {
+        matchId:null,
+        source:history.length ? "match-history" : "no-turn-data",
+        axis:"game",
+        labels:history.map((_,i)=>i+1),
+        score:{
+          student:history.map(m=>n(m.final_player_score)),
+          opponent:history.map(m=>n(m.final_bot_score)),
+          classAverage:history.map(()=>peerScore),
+        },
+        dq:{
+          student:history.map(m=>n(m.summary?.avgDecisionQuality)),
+          classAverage:history.map(()=>peerDQ),
+        },
+        time:{
+          student:history.map(m=>n(m.summary?.avgDecisionTimeMs)==null?null:Number(m.summary.avgDecisionTimeMs)/1000),
+          classAverage:history.map(()=>peerTime==null?null:peerTime/1000),
+        },
+        loss:{
+          student:history.map(m=>n(m.summary?.avgTacticalLossPctV2 ?? m.summary?.avgTacticalLoss)),
+          classAverage:history.map(()=>peerLoss),
+        },
+      };
+    }
+
+    const matchTurns=byMatch.get(lastMatchId)||[];
     const player=playerMoves(matchTurns);
     const labels=player.map(t=>Number(t.turn_number));
     const playerScoreMap=new Map(cumulativeSeries(matchTurns,"player").map(x=>[x.turn,x.value]));
@@ -278,6 +340,8 @@
     const peerLoss=peerMetricByTurn(peerTurns,"loss");
     return {
       matchId:lastMatchId,
+      source:lastMatchId === preferredMatchId ? "active-match" : "latest-player-match",
+      axis:"turn",
       labels,
       score:{
         student:labels.map(turn=>playerScoreMap.get(turn) ?? null),
@@ -309,7 +373,7 @@
       student,
       classAverage,
       benchmark:calculateBenchmark(student,classAverage,data.turns||[]),
-      trends:calculateTrendSeries(data.turns||[],data.peerTurns||[]),
+      trends:calculateTrendSeries(data.turns||[],data.peerTurns||[],data.liveRow?.match_id || null,data.studentMatches||[],data.peerMatches||[]),
       phaseSource:student.phases.source,
       generatedAt:new Date().toISOString(),
     };
@@ -333,6 +397,7 @@
     enrichPlayerTurn,
     ANALYTICS_VERSION,
     cumulativeSeries,
+    normalizeTurns,
     phaseOf,
   };
 })();
