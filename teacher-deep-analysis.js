@@ -69,6 +69,23 @@
     }
     return groups;
   }
+  function markChartData(canvasId,hasData,message="No telemetry available") {
+    const canvas=$(canvasId);
+    const wrap=canvas?.parentElement;
+    if(!wrap) return;
+    let note=wrap.querySelector(".deep-chart-empty");
+    if(hasData){
+      if(note) note.remove();
+      return;
+    }
+    if(!note){
+      note=document.createElement("div");
+      note.className="deep-chart-empty";
+      wrap.appendChild(note);
+    }
+    note.textContent=message;
+  }
+
   function renderCharts() {
     const model=state.model,limit=Number($('deep-turn-range').value),metric=$('deep-trend-metric').value;
     const trends=state.analytics?.trends;
@@ -150,6 +167,14 @@
         bar('Class Avg',benchmark.classAverage,colors.muted)
       ]);
     }
+
+    const source=trends?.source || "no-turn-data";
+    const fallbackMessage=source==="match-history" ? "Using match history · turn telemetry not available" : "No turn telemetry available";
+    markChartData("score-trend-chart",primary.some(v=>v!=null),fallbackMessage);
+    markChartData("dq-trend-chart",dqStudent.some(v=>v!=null),fallbackMessage);
+    markChartData("decision-time-chart",timeStudent.some(v=>v!=null),"Decision time was not recorded for these matches");
+    markChartData("loss-chart",lossStudent.some(v=>v!=null),"Tactical Loss % requires Analytics v2 turn telemetry");
+    markChartData("deep-profile-chart",profile.some(v=>v!=null),"Insufficient profile metrics");
   }
 
   function renderHeatmap() {
