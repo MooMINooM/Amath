@@ -5,6 +5,10 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
   const pendingMatchStarts = new Map();
   let broadcastChannel = null;
   let broadcastReady = null;
+  let generationChannel = null;
+  let currentGeneration = null;
+  let generationPromise = null;
+  let generationResetHandler = null;
 
   function ensureBroadcastChannel() {
     const sb = client();
@@ -54,6 +58,67 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     return typeof AMATH_AUTH !== "undefined" ? AMATH_AUTH.getClient() : null;
   }
 
+  async function ensureGeneration() {
+    if (currentGeneration != null) return currentGeneration;
+    if (generationPromise) return generationPromise;
+    const sb = client();
+    if (!sb) return 1;
+    generationPromise = (async () => {
+      const { data,error } = await sb
+        .from("amath_system_state")
+        .select("generation")
+        .eq("id",1)
+        .maybeSingle();
+      if (error) {
+        report("generation:read", error);
+        currentGeneration = 1;
+      } else {
+        currentGeneration = Number(data?.generation) || 1;
+      }
+      return currentGeneration;
+    })();
+    try { return await generationPromise; }
+    finally { generationPromise = null; }
+  }
+
+  async function watchGeneration(onReset) {
+    generationResetHandler = typeof onReset === "function" ? onReset : null;
+    const initial = await ensureGeneration();
+    const sb = client();
+    if (!sb) return initial;
+
+    if (generationChannel) await sb.removeChannel(generationChannel);
+    generationChannel = sb()
+      .channel("amath-student-reset-generation")
+      .on("postgres_changes", {
+        event:"UPDATE",
+        schema:"public",
+        table:"amath_system_state",
+        filter:"id=eq.1"
+      }, payload => {
+        const next = Number(payload.new?.generation);
+        if (!Number.isFinite(next)) return;
+        const previous = currentGeneration;
+        currentGeneration = next;
+        if (previous != null && next !== previous && generationResetHandler) {
+          generationResetHandler(next, previous);
+        }
+      })
+      .subscribe();
+    return initial;
+  }
+
+  async function stopGenerationWatch() {
+    const sb = client();
+    if (sb && generationChannel) await sb.removeChannel(generationChannel);
+    generationChannel = null;
+    generationResetHandler = null;
+  }
+
+  function generation() {
+    return currentGeneration;
+  }
+
   function iso(ms) {
     return ms ? new Date(ms).toISOString() : null;
   }
@@ -66,8 +131,10 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     const sb = client();
     if (!sb || !match?.studentUserId) return Promise.resolve(false);
     const task = (async () => {
+      const generation = await ensureGeneration();
       const { error } = await sb.from("matches").upsert({
         id: match.id,
+        generation,
         student_user_id: match.studentUserId,
         student_code: match.studentCode,
         student_name: match.studentName,
@@ -98,10 +165,12 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     const sb = client();
     if (!sb || !match?.studentUserId || !entry) return false;
 
+    const generation = await ensureGeneration();
     const occurredAt = iso(entry.ts) || new Date().toISOString();
     const liveTurn = {
       id: `live-${entry.ts || Date.now()}-${entry.actor || "turn"}`,
       match_id: match.id,
+      generation,
       student_user_id: match.studentUserId,
       actor: entry.actor,
       turn_number: entry.turnNumber ?? 0,
