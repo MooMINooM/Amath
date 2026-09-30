@@ -75,9 +75,12 @@ const AMATS_LOGGER = (() => {
     const best = AMATS_MOVE_ANALYSIS.findBestMoveValue(board, rackBefore, isFirstMove);
     const bestValue = best ? Math.max(best.value, chosenMV.value) : chosenMV.value;
     const tacticalLoss = Math.max(0, bestValue - chosenMV.value);
+    const tacticalLossV2 = typeof AMATH_ANALYTICS !== "undefined"
+      ? AMATH_ANALYTICS.calculateTacticalLoss({ chosenValue: chosenMV.value, bestValue, tacticalLoss })
+      : { points:tacticalLoss, rate:Math.max(0, Math.min(100, tacticalLoss / 20 * 100)), scale:20 };
     const decisionQuality = typeof AMATH_ANALYTICS !== "undefined"
       ? AMATH_ANALYTICS.calculateDecisionQuality({ chosenValue: chosenMV.value, bestValue, tacticalLoss })
-      : Math.max(0, 100 - (tacticalLoss / 20) * 100);
+      : Math.max(0, 100 - tacticalLossV2.rate);
 
     const rackBeforePct = before?.rackHealth?.pct ?? null;
     const rackAfterPct = AMATS_BRIDGE.rackHealth(rackAfter)?.pct ?? null;
@@ -110,6 +113,8 @@ const AMATS_LOGGER = (() => {
       tacticalLoss: Math.round(tacticalLoss * 10) / 10,
       analyticsVersion: typeof AMATH_ANALYTICS !== "undefined" ? AMATH_ANALYTICS.ANALYTICS_VERSION : "LEGACY",
       decisionQualityV2: decisionQuality,
+      tacticalLossPctV2: tacticalLossV2.rate,
+      tacticalLossScaleV2: tacticalLossV2.scale,
       rackQualityBefore: rackBeforePct,
       rackQualityAfter: rackAfterPct,
       pressureV2,
@@ -217,6 +222,7 @@ const AMATS_LOGGER = (() => {
       avgDecisionQuality: avg(playerTurns.map(t=>t.decisionQuality)),
       avgDecisionTimeMs: avg(playerTurns.map(t=>t.decisionTimeMs)),
       avgTacticalLoss: avg(playerTurns.map(t=>t.tacticalLoss)),
+      avgTacticalLossPctV2: avg(playerTurns.map(t=>t.tacticalLossPctV2)),
       totalTacticalLoss: nums(playerTurns.map(t=>t.tacticalLoss)).reduce((s,v)=>s+v,0),
       avgRackQuality: avg(playerTurns.map(t=>t.rackQualityAfter)),
       avgPressure: avg(playerTurns.map(t=>t.pressureV2)),
