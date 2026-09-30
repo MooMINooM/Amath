@@ -203,7 +203,9 @@
     if(m.time!=null)insights.push(['Decision pace',`เวลาเฉลี่ย ${(m.time/1000).toFixed(1)} วินาทีต่อตา${peer.time==null?'':` · ชั้นเรียน ${(peer.time/1000).toFixed(1)} วินาที`} ลองเตรียมสมการสำรองระหว่างรอคู่แข่ง`,colors.blue]);
     if(m.loss!=null)insights.push(['Reduce tactical loss',`Tactical Loss เฉลี่ย ${m.loss.toFixed(1)}% ลองย้อนดูตาที่มี Loss สูงใน Critical Moves`,colors.red]);
     if(m.dq!=null)insights.push(['Decision quality',`DQ เฉลี่ย ${Math.round(m.dq)}/100 เปรียบเทียบตัวเลือกก่อนส่งคำตอบและตรวจ Replay เพื่อฝึกตัดสินใจ`,colors.yellow]);
-    if(num(state.liveRow?.rack_quality)!=null)insights.push(['Rack balance',`คุณภาพแร็คเฉลี่ย ${Math.round(m.rackQuality ?? state.liveRow.rack_quality)}/100 วางแผนใช้ตัวเลขและเครื่องหมายให้สมดุล`,colors.green]);
+    if(num(m.rackQuality ?? state.liveRow?.rack_quality)!=null)insights.push(['Rack balance',`คุณภาพแร็คเฉลี่ย ${Math.round(m.rackQuality ?? state.liveRow?.rack_quality)}/100 วางแผนใช้ตัวเลขและเครื่องหมายให้สมดุล`,colors.green]);
+    if(num(m.pressure)!=null && m.pressure>=70)insights.push(['High game pressure',`Pressure ${Math.round(m.pressure)}/100 มาจากเวลา คะแนน และช่วงของเกม ควรลดเวลาที่เสียกับตัวเลือกที่ผลตอบแทนต่ำ`,colors.purple]);
+    if(num(m.risk)!=null && m.risk>=60)insights.push(['Board exposure',`Risk ${Math.round(m.risk)}/100 สะท้อนช่องโบนัส/โอกาสที่เปิดให้คู่แข่ง ควรตรวจช่องที่เปิดหลังการลงทุกครั้ง`,colors.red]);
     $('deep-insights').innerHTML=insights.length?insights.slice(0,4).map(([title,text,color],i)=>`<div class="deep-insight" style="--insight-color:${color}"><span>${i+1}</span><div><strong>${title}</strong><p>${text}</p></div></div>`).join(''):'<p class="empty">คำแนะนำจะแสดงเมื่อมีข้อมูลการเล่น</p>';
   }
   function renderLog() {
