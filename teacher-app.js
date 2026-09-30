@@ -187,7 +187,13 @@
         const dbTs = new Date(dbRow.updated_at || 0).getTime();
         const currentTs = new Date(current?.updated_at || 0).getTime();
         if (current?._source === "broadcast" && currentTs > dbTs) return current;
-        return { ...dbRow, _received_at: now };
+        return {
+          ...current,
+          ...dbRow,
+          risk_level: current?.risk_level ?? dbRow.risk_level ?? null,
+          analytics_version: current?.analytics_version ?? dbRow.analytics_version ?? null,
+          _received_at: now
+        };
       });
       setPitwallDataStatus(`Realtime พร้อม · ${liveRows.length} session`, "ok");
     } else {
@@ -238,7 +244,15 @@
         const row = payload.new ? { ...payload.new, _received_at: Date.now() } : null;
         if (!row?.student_user_id) return;
         const idx = liveRows.findIndex(x => x.student_user_id === row.student_user_id);
-        if (idx >= 0) liveRows[idx] = row; else liveRows.unshift(row);
+        if (idx >= 0) {
+          const current = liveRows[idx];
+          liveRows[idx] = {
+            ...current,
+            ...row,
+            risk_level: current?.risk_level ?? row.risk_level ?? null,
+            analytics_version: current?.analytics_version ?? row.analytics_version ?? null,
+          };
+        } else liveRows.unshift(row);
         liveRows.sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
         renderLiveList();
         if ($("last-refresh")) $("last-refresh").textContent = new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
