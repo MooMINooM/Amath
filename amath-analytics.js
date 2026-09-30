@@ -171,6 +171,70 @@
     };
   }
 
+  function cumulativeSeries(turns=[],actor="player") {
+    let score=0;
+    return (turns || [])
+      .filter(t => (t.event_type || "move") === "move" && t.actor === actor && Number(t.turn_number)>0)
+      .map(t => ({ turn:Number(t.turn_number), value:score += Number(t.move_score)||0 }));
+  }
+
+  function peerMetricByTurn(peerTurns=[],metric="dq") {
+    const groups=new Map();
+    const byMatch=new Map();
+    for(const t of peerTurns || []) {
+      if(!byMatch.has(t.match_id)) byMatch.set(t.match_id,[]);
+      byMatch.get(t.match_id).push(t);
+    }
+    for(const turns of byMatch.values()) {
+      let score=0;
+      for(const t of playerMoves(turns)) {
+        score += Number(t.move_score)||0;
+        let value=null;
+        if(metric==="score") value=score;
+        else if(metric==="dq") value=n(t.decision_quality);
+        else if(metric==="time") value=n(t.decision_time_ms)==null?null:Number(t.decision_time_ms)/1000;
+        else if(metric==="loss") value=n(t.tactical_loss);
+        if(!groups.has(Number(t.turn_number))) groups.set(Number(t.turn_number),[]);
+        groups.get(Number(t.turn_number)).push(value);
+      }
+    }
+    return groups;
+  }
+
+  function calculateTrendSeries(turns=[],peerTurns=[]) {
+    const lastMatchId=(turns || []).at(-1)?.match_id || null;
+    const matchTurns=lastMatchId ? turns.filter(t=>t.match_id===lastMatchId) : [];
+    const player=playerMoves(matchTurns);
+    const labels=player.map(t=>Number(t.turn_number));
+    const playerScoreMap=new Map(cumulativeSeries(matchTurns,"player").map(x=>[x.turn,x.value]));
+    const botScoreSeries=cumulativeSeries(matchTurns,"bot");
+    const peerScore=peerMetricByTurn(peerTurns,"score");
+    const peerDQ=peerMetricByTurn(peerTurns,"dq");
+    const peerTime=peerMetricByTurn(peerTurns,"time");
+    const peerLoss=peerMetricByTurn(peerTurns,"loss");
+    return {
+      matchId:lastMatchId,
+      labels,
+      score:{
+        student:labels.map(turn=>playerScoreMap.get(turn) ?? null),
+        opponent:labels.map(turn=>botScoreSeries.filter(x=>x.turn<=turn).at(-1)?.value ?? 0),
+        classAverage:labels.map(turn=>avg(peerScore.get(turn)||[])),
+      },
+      dq:{
+        student:player.map(t=>n(t.decision_quality)),
+        classAverage:labels.map(turn=>avg(peerDQ.get(turn)||[])),
+      },
+      time:{
+        student:player.map(t=>n(t.decision_time_ms)==null?null:Number(t.decision_time_ms)/1000),
+        classAverage:labels.map(turn=>avg(peerTime.get(turn)||[])),
+      },
+      loss:{
+        student:player.map(t=>n(t.tactical_loss)),
+        classAverage:labels.map(turn=>avg(peerLoss.get(turn)||[])),
+      },
+    };
+  }
+
   function calculateStudentMetrics(data) {
     const student=calculateMatchMetrics(data.studentMatches||[],data.turns||[],data.liveRow||null);
     const classAverage=calculateMatchMetrics(data.peerMatches||[],data.peerTurns||[],{
@@ -181,6 +245,7 @@
       student,
       classAverage,
       benchmark:calculateBenchmark(student,classAverage,data.turns||[]),
+      trends:calculateTrendSeries(data.turns||[],data.peerTurns||[]),
       phaseSource:student.phases.source,
       generatedAt:new Date().toISOString(),
     };
@@ -195,6 +260,8 @@
     calculateCriticalMoves,
     calculatePlayerProfile,
     calculateBenchmark,
+    calculateTrendSeries,
+    cumulativeSeries,
     phaseOf,
   };
 })();
