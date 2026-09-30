@@ -96,10 +96,11 @@
       player_time_ms: null,
       bot_time_ms: null,
       decision_quality: m.summary?.avgDecisionQuality ?? null,
-      tactical_loss: m.summary?.avgTacticalLoss ?? null,
+      tactical_loss: m.summary?.avgTacticalLossPctV2 ?? m.summary?.avgTacticalLoss ?? null,
       win_probability: null,
-      pressure_level: null,
-      rack_quality: null,
+      pressure_level: m.summary?.avgPressure ?? null,
+      risk_level: m.summary?.avgRisk ?? null,
+      rack_quality: m.summary?.avgRackQuality ?? null,
       board_snapshot: null,
       rack_snapshot: null,
       last_equation: null,
@@ -306,8 +307,12 @@
       row.last_move_score = last.move_score ?? row.last_move_score;
     }
     if (lastPlayer) {
-      row.decision_quality = lastPlayer.decision_quality ?? row.decision_quality;
-      row.tactical_loss = lastPlayer.tactical_loss ?? row.tactical_loss;
+      const raw = lastPlayer.raw || {};
+      row.decision_quality = raw.decisionQualityV2 ?? lastPlayer.decision_quality ?? row.decision_quality;
+      row.tactical_loss = raw.tacticalLossPctV2 ?? lastPlayer.tactical_loss ?? row.tactical_loss;
+      row.pressure_level = raw.pressureV2 ?? row.pressure_level;
+      row.risk_level = raw.riskV2 ?? row.risk_level;
+      row.rack_quality = raw.rackQualityAfter ?? row.rack_quality;
       if ((!row.rack_snapshot || row._source === "matches-fallback") && Array.isArray(lastPlayer.rack_after)) {
         row.rack_snapshot = lastPlayer.rack_after.map(x => typeof x === "string" ? { face:x, resolvedChar:x, points:null } : x);
       }
@@ -667,17 +672,17 @@
     };
     const gap = (r.player_score || 0) - (r.bot_score || 0);
     const dq = last?.decision_quality ?? r.decision_quality;
-    const loss = last?.tactical_loss ?? r.tactical_loss;
-    const threat = last?.threat_before;
+    const loss = last?.raw?.tacticalLossPctV2 ?? last?.tactical_loss ?? r.tactical_loss;
+    const risk = last?.raw?.riskV2 ?? r.risk_level ?? null;
     const decisionTime = average(playerMoves.map(t=>t.decision_time_ms));
     const pace = decisionTime == null ? "—" : decisionTime < 10000 ? "FAST" : decisionTime < 25000 ? "STEADY" : "SLOW";
     const focus = ({PRESS:"SCORING",BUILD:"SETUP",CONTROL:"BALANCE",DENY:"DEFENSE",GUARD:"SAFETY",RESET:"RACK"})[mode] || "—";
     $("pit-amats").className = "amats-live";
     $("pit-amats").innerHTML = `
-      <div class="amats-live-chips"><span class="amats-chip">GAP ${gap >= 0 ? "+" : ""}${gap}</span><span class="amats-chip">DQ ${pct(dq)}</span><span class="amats-chip">LOSS ${loss == null ? "—" : Number(loss).toFixed(1)}</span></div>
+      <div class="amats-live-chips"><span class="amats-chip">GAP ${gap >= 0 ? "+" : ""}${gap}</span><span class="amats-chip">DQ ${pct(dq)}</span><span class="amats-chip">LOSS ${loss == null ? "—" : Number(loss).toFixed(1)+"%"}</span></div>
       <div class="amats-metric-grid">
         <div class="amats-metric"><small>MODE</small><strong>${mode || "—"}</strong><span>Suggested play</span></div>
-        <div class="amats-metric"><small>RISK</small><strong>${threat == null ? "—" : Number(threat).toFixed(1)}</strong><span>Board threat</span></div>
+        <div class="amats-metric"><small>RISK</small><strong>${risk == null ? "—" : Number(risk).toFixed(0)+"%"}</strong><span>Exposure + threat</span></div>
         <div class="amats-metric"><small>PACE</small><strong>${pace}</strong><span>${decisionTime == null ? "No timing yet" : `${(decisionTime/1000).toFixed(1)}s / turn`}</span></div>
         <div class="amats-metric"><small>NEXT FOCUS</small><strong>${focus}</strong><span>Next decision</span></div>
       </div><div class="amats-recommendation"><span aria-hidden="true">✦</span><p>${advice[mode] || "Waiting for a completed turn to recommend the next move."}</p></div>`;
