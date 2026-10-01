@@ -109,7 +109,7 @@ const AMATH_SUPABASE_TELEMETRY = (() => {
     if (!sb) return initial;
 
     if (generationChannel) await sb.removeChannel(generationChannel);
-    generationChannel = sb()
+    generationChannel = sb
       .channel("amath-student-reset-generation")
       .on("postgres_changes", {
         event:"UPDATE",
