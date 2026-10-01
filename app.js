@@ -931,19 +931,45 @@
       await unlockForStudent(result.student);
     });
 
-    document.getElementById("btn-logout").addEventListener("click", async () => {
+    const logoutBtn = document.getElementById("btn-logout");
+    logoutBtn.addEventListener("click", async () => {
+      if (logoutBtn.disabled) return;
+      logoutBtn.disabled = true;
+      const originalText = logoutBtn.textContent;
+      logoutBtn.textContent = "กำลังออก…";
+
+      // Stop the local game immediately so no heartbeat/turn can be emitted
+      // while sign-out/channel cleanup is in progress.
       stopTimers();
-      await AMATH_SUPABASE_TELEMETRY.stopGenerationWatch?.();
-      await AMATH_AUTH.signOut();
-      document.getElementById("game-layout").hidden = true;
-      document.getElementById("bottom-bar").hidden = true;
-      document.getElementById("topbar-status").hidden = true;
-      document.getElementById("setup-panel").hidden = false;
-      document.body.classList.add("auth-locked");
-      document.getElementById("login-screen").hidden = false;
-      codeInput.value = "";
-      pinInput.value = "";
-      errorEl.hidden = true;
+      gameOver = true;
+
+      try {
+        const cleanup = [];
+        if (typeof AMATH_SUPABASE_TELEMETRY !== "undefined") {
+          cleanup.push(Promise.resolve(AMATH_SUPABASE_TELEMETRY.stopGenerationWatch?.()));
+        }
+        await Promise.allSettled(cleanup);
+        AMATS_LOGGER.resetLocalData?.();
+        await AMATH_AUTH.signOut();
+      } catch (error) {
+        console.warn("[A-Math] logout cleanup failed",error);
+      } finally {
+        // UI logout must never depend on network/channel cleanup succeeding.
+        document.getElementById("game-layout").hidden = true;
+        document.getElementById("bottom-bar").hidden = true;
+        document.getElementById("topbar-status").hidden = true;
+        document.getElementById("setup-panel").hidden = false;
+        document.body.classList.add("auth-locked");
+        document.getElementById("login-screen").hidden = false;
+        document.getElementById("student-identity").textContent = "";
+        const headerPlayer = document.querySelector(".header-context strong");
+        if (headerPlayer) headerPlayer.textContent = "นักเรียน";
+        codeInput.value = "";
+        pinInput.value = "";
+        errorEl.hidden = true;
+        logoutBtn.textContent = originalText;
+        logoutBtn.disabled = false;
+      }
     });
   }
 
