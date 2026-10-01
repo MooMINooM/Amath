@@ -64,8 +64,15 @@ const AMATH_TEACHER_AUTH = (() => {
 
   async function signOut() {
     const sb = getClient();
-    if (sb) await sb.auth.signOut();
     teacher = null;
+    if (!sb) return { ok:true };
+    try {
+      const { error } = await sb.auth.signOut({ scope:"local" });
+      return { ok:!error, error:error || null };
+    } catch (error) {
+      console.warn("[A-Math teacher auth] signOut failed",error);
+      return { ok:false, error };
+    }
   }
 
   return { getClient, restore, signIn, signOut, currentTeacher:()=>teacher };

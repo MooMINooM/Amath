@@ -88,8 +88,15 @@ const AMATH_AUTH = (() => {
 
   async function signOut() {
     const sb = getClient();
-    if (sb) await sb.auth.signOut();
     student = null;
+    if (!sb) return { ok:true };
+    try {
+      const { error } = await sb.auth.signOut({ scope:"local" });
+      return { ok:!error, error:error || null };
+    } catch (error) {
+      console.warn("[A-Math auth] signOut failed",error);
+      return { ok:false, error };
+    }
   }
 
   function currentStudent() { return student; }
