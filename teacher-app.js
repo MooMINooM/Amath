@@ -210,20 +210,45 @@
       await unlock(result.teacher);
     });
 
-    $("teacher-logout").addEventListener("click", async () => {
-      if (liveChannel) await sb().removeChannel(liveChannel);
-      if (turnChannel) await sb().removeChannel(turnChannel);
-      if (broadcastChannel) await sb().removeChannel(broadcastChannel);
-      if (resetChannel) await sb().removeChannel(resetChannel);
-      resetChannel = null;
-      currentGeneration = null;
+    const logoutBtn = $("teacher-logout");
+    logoutBtn.addEventListener("click", async () => {
+      if (logoutBtn.disabled) return;
+      logoutBtn.disabled = true;
+      const originalText = logoutBtn.textContent;
+      logoutBtn.textContent = "กำลังออก…";
+
       clearInterval(pitwallSafetyInterval);
       pitwallSafetyInterval = null;
-      await AMATH_TEACHER_AUTH.signOut();
-      teacher = null;
-      document.body.classList.add("teacher-locked");
-      $("teacher-login").hidden = false;
-      $("teacher-password").value = "";
+
+      try {
+        const channels = [liveChannel,turnChannel,broadcastChannel,resetChannel].filter(Boolean);
+        await Promise.allSettled(channels.map(channel => sb().removeChannel(channel)));
+        await AMATH_TEACHER_AUTH.signOut();
+      } catch (error) {
+        console.warn("[Teacher Console] logout cleanup failed",error);
+      } finally {
+        liveChannel = null;
+        turnChannel = null;
+        broadcastChannel = null;
+        resetChannel = null;
+        currentGeneration = null;
+        teacher = null;
+        liveRows = [];
+        matches = [];
+        selectedLiveId = null;
+        selectedTurns = [];
+        selectedTurnsSignature = "";
+        liveTurnCache.clear();
+        destroyPitCharts();
+
+        document.body.classList.remove("pitwall-mode","deep-analysis-mode");
+        document.body.classList.add("teacher-locked");
+        $("teacher-login").hidden = false;
+        $("teacher-name").textContent = "";
+        $("teacher-password").value = "";
+        logoutBtn.textContent = originalText;
+        logoutBtn.disabled = false;
+      }
     });
   }
 
