@@ -910,10 +910,6 @@
     const errorEl = document.getElementById("login-error");
     const setupNote = document.getElementById("login-setup-note");
 
-    const restored = await AMATH_AUTH.restore();
-    if (restored.ok) await unlockForStudent(restored.student);
-    else if (restored.setupRequired) { setupNote.hidden = false; submit.disabled = true; }
-
     form.addEventListener("submit", async e => {
       e.preventDefault();
       errorEl.hidden = true;
@@ -971,6 +967,18 @@
         logoutBtn.disabled = false;
       }
     });
+
+    // Bind controls first, then restore the async session. A restore/watch error
+    // must never leave visible buttons without click handlers.
+    try {
+      const restored = await AMATH_AUTH.restore();
+      if (restored.ok) await unlockForStudent(restored.student);
+      else if (restored.setupRequired) { setupNote.hidden = false; submit.disabled = true; }
+    } catch (error) {
+      console.warn("[A-Math] session restore failed",error);
+      document.body.classList.add("auth-locked");
+      document.getElementById("login-screen").hidden = false;
+    }
   }
 
   document.addEventListener("DOMContentLoaded", () => {
